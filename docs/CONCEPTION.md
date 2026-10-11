@@ -25,6 +25,7 @@ src/
 │   ├── actions.ts      Parcours des actions (conditions imbriquées comprises)
 │   ├── tree.ts         Opérations sur l'arbre (insérer, déplacer, dupliquer…)
 │   ├── freeGrid.ts     Page en grille : cases, tailles de départ, remise en ordre
+│   ├── icons.ts        Icônes dessinées de la brique Icône (tracés dans iconData.ts)
 │   ├── variables.ts    Textes dynamiques {{nom}}, conversions
 │   ├── refactor.ts     Renommage / usages d'une variable
 │   └── templates.ts    Modèles de départ + validation d'import
@@ -138,6 +139,12 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
 - Chaque enfant direct garde sa case dans `place` (colonne, rangée, largeur, hauteur), traduite en `grid-column: 1 / span 3; grid-row: 1 / span 1`. Les chevauchements sont permis, comme sur une table de montage.
 - `fixPlacements` (`src/model/freeGrid.ts`) passe après chaque modification : une brique arrivée sur la grille sans case est posée sous les autres, une brique sortie de la grille perd sa case, deux copies superposées sont séparées, et l'ordre des enfants suit la grille (de haut en bas, de gauche à droite). Cet ordre sert sur mobile : une requête de conteneur (`@container (max-width: 600px)`) remet chaque brique sur toute la largeur, dans l'ordre du document.
 - Dans la zone de création, la case visée se calcule à partir des pistes que le navigateur a vraiment tracées (`getComputedStyle(page).gridTemplateColumns` et `gridTemplateRows`), puis on prolonge avec des rangées de 40 px sous la dernière brique. On mémorise l'endroit où la brique a été attrapée, pour qu'elle ne saute pas sous le pointeur.
+
+### Icônes dessinées (version 2.2)
+
+- La brique Icône garde un **nom** d'icône (`etoile`, `telephone`…) dans `props.symbol`. Les tracés (24 × 24, trait de 2 px) sont dans `src/model/iconData.ts`, généré à partir de Lucide (licence ISC).
+- Le même SVG sert partout : React dans la zone de création, texte HTML dans le code généré (`width="1em"`, `stroke="currentColor"` : l'icône suit la taille et la couleur du texte). L'export React convertit les attributs SVG (`stroke-width` devient `strokeWidth`).
+- `resolveIcon` lit aussi les anciens projets : un emoji connu devient l'icône équivalente, sinon l'étoile.
 
 ### Assistant IA (version Pro)
 

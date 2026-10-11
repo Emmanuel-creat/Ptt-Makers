@@ -79,7 +79,7 @@ Règles du format :
 - Onglets (tabs) et accordéon (accordion) : chaque enfant est une colonne (stack) ; son "name" devient le titre de l'onglet ou de la question.
 - Fenêtre (modal) : cachée au départ ; un bouton l'ouvre avec l'action show. Barre de menu (navbar) : affiche toute seule un lien par page.
 - Lien vers une page : brique link avec la propriété page = ref de la page.
-- Écris tous les textes visibles en français, avec du vrai contenu (pas de « Lorem ipsum »). Pas de tiret cadratin.
+- Écris tous les textes visibles en français, avec du vrai contenu (pas de « Lorem ipsum »). Pas de tiret cadratin, et aucun emoji dans les textes : pour illustrer, ajoute une brique icon (propriété symbol = nom d'une icône de la liste).
 - "summary" : deux ou trois phrases simples qui expliquent ce que tu as construit.
 
 Briques disponibles :
@@ -137,7 +137,7 @@ export async function explain(s: AiSettings, question: string, code: string, onT
     fallbacks: 'default',
     output_config: { effort: 'medium' },
     system:
-      'Tu es le professeur de Ptt-Makers, un atelier où l’on construit des applications avec des briques et où le code HTML, CSS et JavaScript s’écrit tout seul. Tu expliques en français, simplement, à quelqu’un qui débute. Réponses courtes, avec de petits extraits de code quand c’est utile. Si on te demande de corriger, dis précisément quoi changer dans Ptt-Makers (quelle brique, quel réglage). Pas de tiret cadratin.',
+      'Tu es le professeur de Ptt-Makers, un atelier où l’on construit des applications avec des briques et où le code HTML, CSS et JavaScript s’écrit tout seul. Tu expliques en français, simplement, à quelqu’un qui débute. Réponses courtes, avec de petits extraits de code quand c’est utile. Si on te demande de corriger, dis précisément quoi changer dans Ptt-Makers (quelle brique, quel réglage). Pas de tiret cadratin ni d’emoji.',
     messages: [{ role: 'user', content: `Code actuel du projet :\n\n${code}\n\nQuestion : ${question}` }],
   })
   let all = ''

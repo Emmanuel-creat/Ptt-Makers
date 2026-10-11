@@ -190,7 +190,9 @@ describe('briques avancées, thème et réglages par écran', () => {
           { type: 'modal', ref: 'fen', props: { label: 'Bravo' }, style: { padding: 20 }, children: [{ type: 'text', props: { text: 'Coucou' } }] },
           { type: 'button', props: { text: 'Ouvrir' }, onClick: [{ type: 'show', target: '@fen' }] },
           { type: 'video', props: { src: 'https://youtu.be/dQw4w9WgXcQ', title: 'Clip' } },
-          { type: 'icon', props: { symbol: '🚀', label: 'Fusée' } },
+          { type: 'icon', props: { symbol: 'fusee', label: 'Fusée' } },
+          // Projet ancien : l'emoji fusée devient l'icône dessinée équivalente.
+          { type: 'icon', props: { symbol: '\u{1f680}', label: '' } },
         ],
       },
       { name: 'Contact', children: [] },
@@ -208,7 +210,11 @@ describe('briques avancées, thème et réglages par écran', () => {
     expect(html).toContain('<a href="#page" class="is-active">Accueil</a>')
     expect(html).toContain('<a href="#page-1">Contact</a>')
     expect(html).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"')
-    expect(html).toContain('<span id="icone-1" class="icon" role="img" aria-label="Fusée">🚀</span>')
+    expect(html).toContain('<span id="icone-1" class="icon" role="img" aria-label="Fusée"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"')
+    const rocket = /<span id="icone-1"[^>]*>(<svg[\s\S]*?<\/svg>)<\/span>/.exec(html)![1]
+    expect(html).toContain(`<span id="icone-2" class="icon" aria-hidden="true">${rocket}</span>`)
+    // Aucun emoji dans le code généré.
+    expect(html).not.toMatch(/\p{Extended_Pictographic}/u)
     expect(js).toContain('Onglets : un clic sur un titre affiche son panneau')
     expect(js).toContain('Fenêtres : la croix ou un clic à côté les referme')
     expect(js).toContain('lien.classList.toggle("is-active"')

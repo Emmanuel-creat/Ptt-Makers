@@ -47,6 +47,8 @@ function jsxAttrs(tag: string, raw: string): string {
     else if (tag === 'input' && name === 'checked') name = 'defaultChecked'
     else if (tag === 'option' && name === 'selected') continue
     else name = JSX_NAMES[name] ?? name
+    // Attributs SVG des icônes : « stroke-width » devient « strokeWidth ».
+    if (name.includes('-') && !/^(data|aria)-/.test(name)) name = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
     out.push(value === undefined ? name : `${name}="${value}"`)
   }
   return out.length ? ' ' + out.join(' ') : ''
@@ -67,8 +69,9 @@ export function htmlToJsx(html: string): string {
     } else if (taAttrs !== undefined) out += `<textarea${jsxAttrs('textarea', taAttrs)} defaultValue="${taValue}" />`
     else if (tag !== undefined) {
       const name = tag.toLowerCase()
+      const selfClosing = /\/\s*$/.test(attrs)
       if (closing) out += `</${name}>`
-      else out += `<${name}${jsxAttrs(name, attrs.trim())}${VOID.has(name) ? ' />' : '>'}`
+      else out += `<${name}${jsxAttrs(name, attrs.replace(/\/\s*$/, '').trim())}${VOID.has(name) || selfClosing ? ' />' : '>'}`
     } else if (text !== undefined) out += text.replace(/[{}]/g, (c) => `{'${c}'}`)
   }
   return out

@@ -20,7 +20,7 @@ export function ChallengePanel() {
   useEffect(() => {
     if (!finished || !def || done.includes(def.id)) return
     set({ challengesDone: [...done, def.id] })
-    useEditor.getState().notify(`Bravo ! Défi « ${def.name} » réussi 🎉`)
+    useEditor.getState().notify(`Bravo ! Défi « ${def.name} » réussi !`)
   }, [finished, def, done, set])
 
   if (!def) return null

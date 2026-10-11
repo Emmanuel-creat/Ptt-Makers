@@ -1,5 +1,6 @@
 import { createContext, memo, useContext, type ReactNode } from 'react'
 import { BRICKS } from '../model/bricks'
+import { SVG_ATTRS, iconNode } from '../model/icons'
 import { PLACEHOLDER_IMAGE, brickClass } from '../codegen/baseCss'
 import { safeImageSrc, videoSource } from '../codegen/escape'
 import { effectiveStyle, reactStyle } from '../codegen/style'
@@ -95,6 +96,20 @@ function InlineEditor({ node }: { node: BrickNode }) {
     >
       {String(node.props.text ?? '')}
     </span>
+  )
+}
+
+const SVG_PROPS = Object.fromEntries(SVG_ATTRS.map(([k, v]) => [k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()), v]))
+
+/** Icône dessinée (même SVG que dans le code généré). */
+export function IconSvg({ name }: { name: string }) {
+  return (
+    <svg {...SVG_PROPS} aria-hidden="true">
+      {iconNode(name).map(([tag, attrs], i) => {
+        const Tag = tag as 'path'
+        return <Tag key={i} {...attrs} />
+      })}
+    </svg>
   )
 }
 
@@ -268,7 +283,7 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
     case 'icon':
       return (
         <span {...common} aria-hidden="true">
-          {String(p.symbol ?? '')}
+          <IconSvg name={String(p.symbol ?? '')} />
         </span>
       )
     case 'image':
