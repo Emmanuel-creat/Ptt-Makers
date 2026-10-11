@@ -1,6 +1,6 @@
 # Ptt-Makers : dossier de conception
 
-> Version 1.2 · 11 octobre 2026 · complète le [cahier des charges](CAHIER_DES_CHARGES.md)
+> Version 1.3 · 11 octobre 2026 · complète le [cahier des charges](CAHIER_DES_CHARGES.md)
 
 ## 1. Choix techniques
 
@@ -124,6 +124,12 @@ Les onglets donnent une barre de boutons `role="tab"` puis un panneau par bloc e
 
 Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un index (`ptt-makers:projets` : nom, date, nombre de pages) et l'identifiant du projet ouvert. Ouvrir un projet repart d'un historique vide. Le projet unique de la version 1.0 est repris au premier lancement.
 
+### Défis, partage et export React / Vue
+
+- Un **défi** (`src/model/challenges.ts`) est une liste d'étapes ; chaque étape est une fonction `done(projet)` qui lit le projet (briques, variables, actions, thème). La carte du défi recalcule les étapes à chaque modification : il n'y a rien à « valider ».
+- Le **lien de partage** contient le projet en JSON compressé (`CompressionStream('deflate-raw')`) puis encodé en base64 pour une adresse (`#projet=…`). À l'ouverture, `parseProject` vérifie le contenu, le projet est ajouté à Mes projets et l'adresse est nettoyée.
+- **React et Vue** (`src/codegen/frameworks.ts`) partent du code généré : le HTML devient du JSX (`class` → `className`, valeurs de départ en `defaultValue`, commentaires en `{/* */}`) ou un gabarit Vue avec `v-pre` (les `{{…}}` restent pour le script), et le script est lancé dans `useEffect` (une seule fois, même en mode strict) ou `onMounted`. Le modèle d'une répétition reste un `<template>` HTML.
+
 ## 4. Identité visuelle
 
 - **Nom et logo** : trois briques empilées aux couleurs des familles, la brique du haut en violet de marque.
@@ -157,7 +163,7 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
 
 | Niveau | Fichiers | Ce qui est vérifié |
 |---|---|---|
-| Unitaires | `src/model/*.test.ts` | Identifiants, déplacements, interdiction de déposer un conteneur en lui-même, duplication, variables, renommage. |
-| Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, conditions, répétitions, pages, adresses d'API refusées, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil, tâches, annuaire avec API simulée, site de plusieurs pages, onglets, fenêtre et menu). Thème et `@media` par format. |
+| Unitaires | `src/model/*.test.ts` | Défis (validés par les modèles correspondants), identifiants, déplacements, interdiction de déposer un conteneur en lui-même, duplication, variables, renommage. |
+| Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, conditions, répétitions, pages, adresses d'API refusées, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil, tâches, annuaire avec API simulée, site de plusieurs pages, onglets, fenêtre et menu). Thème et `@media` par format. Export React compilé et affiché avec React, export Vue monté avec Vue, lien de partage aller-retour. |
 | Unitaires | `src/store/editor.test.ts` | Ajout dans la sélection, regroupement des frappes dans l'historique, copier-coller, renommage de variable (jusque dans les conditions), pages (ajout, accueil, suppression, annulation), style par format, Mes composants, Mes projets. |
-| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée), Mes composants, masquer sur mobile, Mes projets. |
+| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée), Mes composants, masquer sur mobile, Mes projets, défi guidé, lien de partage, export React. |

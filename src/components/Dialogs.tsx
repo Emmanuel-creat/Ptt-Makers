@@ -1,11 +1,14 @@
-import { Copy, FileCode, FileJson, Files, FolderOpen, Plus, Trash2, Upload, X } from 'lucide-react'
+import { Atom, Check, Copy, FileCode, FileJson, Files, FolderOpen, Link2, Plus, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { toReact, toVue } from '../codegen/frameworks'
 import { bundle, generate } from '../codegen/generate'
-import { TEMPLATES, parseProject } from '../model/templates'
+import { CHALLENGES } from '../model/challenges'
+import { TEMPLATES, buildProject, parseProject } from '../model/templates'
 import { useEditor } from '../store/editor'
 import { listProjects } from '../store/library'
 import { useWorkspace } from '../store/workspace'
 import { downloadFile, slugify } from '../utils/download'
+import { shareUrl } from '../utils/share'
 import { Kbd, MOD } from './ui'
 
 export function Dialogs() {
@@ -15,6 +18,7 @@ export function Dialogs() {
   if (dialog === 'shortcuts') return <ShortcutsDialog onClose={close} />
   if (dialog === 'export') return <ExportDialog onClose={close} />
   if (dialog === 'projects') return <ProjectsDialog onClose={close} />
+  if (dialog === 'challenges') return <ChallengesDialog onClose={close} />
   return null
 }
 
@@ -120,6 +124,25 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     downloadFile('script.js', code.js, 'text/javascript')
     notify('Fichiers index.html, style.css et script.js téléchargés')
   }
+  const exportReact = () => {
+    const { jsx, css } = toReact(project)
+    downloadFile('App.jsx', jsx, 'text/javascript')
+    downloadFile('App.css', css, 'text/css')
+    notify('Fichiers App.jsx et App.css téléchargés')
+  }
+  const exportVue = () => {
+    downloadFile('App.vue', toVue(project), 'text/plain')
+    notify('Fichier App.vue téléchargé')
+  }
+  const copyLink = async () => {
+    try {
+      const url = await shareUrl(project)
+      await navigator.clipboard.writeText(url)
+      notify('Lien copié : la personne qui l’ouvre reçoit une copie de ton projet')
+    } catch {
+      notify('Impossible de copier le lien dans ce navigateur')
+    }
+  }
   const exportJson = () => {
     downloadFile(`${base}.ptt.json`, JSON.stringify(project, null, 2), 'application/json')
     notify('Projet enregistré')
@@ -151,6 +174,27 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
           <span>
             <strong>Fichiers séparés</strong>
             <small>index.html, style.css et script.js, pour continuer dans un éditeur de code.</small>
+          </span>
+        </button>
+        <button type="button" className="pm-export" onClick={copyLink}>
+          <Link2 size={22} />
+          <span>
+            <strong>Copier un lien de partage</strong>
+            <small>Le projet entier tient dans le lien : rien n'est envoyé sur un serveur.</small>
+          </span>
+        </button>
+        <button type="button" className="pm-export" onClick={exportReact}>
+          <Atom size={22} />
+          <span>
+            <strong>Composant React</strong>
+            <small>App.jsx et App.css, à mettre dans un projet Vite + React.</small>
+          </span>
+        </button>
+        <button type="button" className="pm-export" onClick={exportVue}>
+          <FileCode size={22} />
+          <span>
+            <strong>Composant Vue</strong>
+            <small>App.vue, à mettre dans un projet Vite + Vue.</small>
           </span>
         </button>
         <button type="button" className="pm-export" onClick={exportJson}>
@@ -300,6 +344,47 @@ function ProjectsDialog({ onClose }: { onClose: () => void }) {
             </li>
           )
         })}
+      </ul>
+    </Modal>
+  )
+}
+
+const LEVELS = ['', 'Facile', 'Moyen', 'Avancé']
+
+function ChallengesDialog({ onClose }: { onClose: () => void }) {
+  const done = useWorkspace((s) => s.challengesDone)
+  const start = (id: string) => {
+    const c = CHALLENGES.find((x) => x.id === id)!
+    const { createProject } = useEditor.getState()
+    createProject(buildProject(`Défi : ${c.name}`, {}, []))
+    useWorkspace.getState().set({ challenge: { id, projectId: useEditor.getState().projectId }, dialog: null })
+  }
+  return (
+    <Modal
+      title="Défis guidés"
+      subtitle="Chaque défi s’ouvre dans un nouveau projet. Les étapes se cochent toutes seules quand tu les réussis."
+      onClose={onClose}
+      wide
+    >
+      <ul className="pm-challenges">
+        {CHALLENGES.map((c) => (
+          <li key={c.id} className={`pm-challenge-card ${done.includes(c.id) ? 'is-done' : ''}`}>
+            <div>
+              <span className={`pm-level is-${c.level}`}>{LEVELS[c.level]}</span>
+              {done.includes(c.id) && (
+                <span className="pm-level is-ok">
+                  <Check size={12} /> Réussi
+                </span>
+              )}
+            </div>
+            <strong>{c.name}</strong>
+            <p>{c.goal}</p>
+            <small>{c.steps.length} étapes</small>
+            <button type="button" className="pm-btn pm-btn-secondary" onClick={() => start(c.id)}>
+              {done.includes(c.id) ? 'Recommencer' : 'Commencer'}
+            </button>
+          </li>
+        ))}
       </ul>
     </Modal>
   )

@@ -1,6 +1,6 @@
 # Ptt-Makers : cahier des charges
 
-> Version 1.2 · 11 octobre 2026
+> Version 1.3 · 11 octobre 2026
 
 ## 1. Problématique
 
@@ -91,6 +91,11 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F31** Réglages par format : style propre à la tablette ou au mobile, masquer une brique sur un format ; export en `@media`.
 - **F32** Mes projets : plusieurs projets dans le navigateur (ouvrir, dupliquer, supprimer) ; un modèle ou un import crée un nouveau projet.
 
+### 4.9 Apprendre et partager (version 1.3)
+- **F33** Défis guidés : objectifs en étapes vérifiées automatiquement sur le projet, avec indice et suivi des défis réussis.
+- **F34** Lien de partage : le projet compressé dans l'adresse, ouvert comme une copie dans Mes projets.
+- **F35** Export React (`App.jsx`, `App.css`) et Vue (`App.vue`).
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -102,7 +107,7 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 
 ## 6. Hors périmètre (pistes futures)
 
-Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel, export React/Vue. Ces pistes sont planifiées dans les versions suivantes (voir le [journal des évolutions](../CHANGELOG.md)).
+Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pistes sont planifiées dans les versions suivantes (voir le [journal des évolutions](../CHANGELOG.md)).
 
 ## 7. Critères d'acceptation
 
@@ -113,4 +118,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel, export R
 5. Rechargement de la page : le projet et la disposition de l'espace de travail sont restaurés.
 6. Le modèle « Liste de tâches » ajoute et retire des tâches dans l'aperçu ; le modèle « Site de plusieurs pages » passe d'une page à l'autre par un bouton et par le menu ; le modèle « Annuaire » affiche les données reçues d'une API.
 7. Un bloc enregistré dans Mes composants se place à nouveau en un clic ; une brique masquée sur mobile disparaît de l'aperçu mobile seulement ; choisir un modèle garde l'ancien projet dans Mes projets.
-8. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+8. Le défi « Ma première page » se coche au fil des ajouts ; un lien de partage ouvert dans un autre navigateur affiche le même projet ; l'export React s'affiche et fonctionne dans React.
+9. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

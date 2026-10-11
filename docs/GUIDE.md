@@ -100,6 +100,10 @@ Sélectionne une page (*Réglages de la page*) puis la section **Au chargement d
 
 Dans une répétition, `{{element.name}}` ou `{{element.address.city}}` affiche un champ de chaque élément. Le modèle **Annuaire (API)** montre tout cela avec une API de démonstration.
 
+## Les défis guidés
+
+Le bouton **Défis** propose des objectifs à réaliser pas à pas (Facile, Moyen, Avancé). Un défi s'ouvre dans un nouveau projet ; une carte en bas à gauche de la zone de création montre les étapes. Elles se cochent toutes seules dès que ton projet les remplit, et la prochaine étape affiche un indice. La flèche réduit la carte, la croix la ferme.
+
 ## Comprendre le code
 
 Ouvre l'onglet **Code** : `index.html` (la structure), `style.css` (l'apparence), `script.js` (le comportement).
@@ -109,7 +113,9 @@ Les lignes de la brique sélectionnée sont **surlignées**, et un point violet 
 
 - Ton projet est **sauvegardé automatiquement** dans ton navigateur (`Ctrl/⌘ + S` enregistre tout de suite).
 - **Mes projets** (en haut à droite) liste tous tes projets : ouvrir, dupliquer, supprimer. Choisir un modèle ou importer un `.json` crée un nouveau projet : l'actuel reste dans la liste.
-- **Exporter** propose : une page HTML autonome, les trois fichiers séparés, ou le projet `.json` (à réimporter plus tard).
+- **Exporter** propose : une page HTML autonome, les trois fichiers séparés, un **composant React** (`App.jsx` et `App.css`), un **composant Vue** (`App.vue`), ou le projet `.json` (à réimporter plus tard).
+- **Copier un lien de partage** met tout le projet dans l'adresse (rien ne part sur un serveur). La personne qui ouvre le lien reçoit sa propre copie dans « Mes projets ».
+- Pour React ou Vue : crée un projet avec `npm create vite@latest` (modèle *react* ou *vue*), puis remplace `src/App.jsx` et `src/App.css`, ou `src/App.vue`, par les fichiers exportés.
 
 ## Raccourcis clavier
 
