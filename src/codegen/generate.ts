@@ -28,12 +28,53 @@ class Emitter {
   }
 }
 
-/** Champs dont le texte peut contenir des variables {{nom}}. */
-const DYNAMIC_KEYS = ['text']
+/** Contexte partagé pendant la génération. */
+interface Gen {
+  project: Project
+  map: GeneratedCode['map']
+  /** Pour chaque brique placée dans une répétition : l'identifiant de cette répétition. */
+  repeatOf: Map<string, string>
+  /** Répétitions actives (les répétitions imbriquées dans une autre sont rendues comme un simple bloc). */
+  repeats: Set<string>
+}
 
 function setRange(map: GeneratedCode['map'], id: string, kind: 'html' | 'css' | 'js', range: LineRange) {
   map[id] = { ...map[id], [kind]: range }
 }
+
+function createGen(project: Project): Gen {
+  const repeatOf = new Map<string, string>()
+  const repeats = new Set<string>()
+  const visit = (id: string, repeat: string | null) => {
+    const n = project.nodes[id]
+    if (!n) return
+    if (repeat) repeatOf.set(id, repeat)
+    let inner = repeat
+    if (n.type === 'repeat' && !repeat) {
+      repeats.add(id)
+      inner = id
+    }
+    n.children.forEach((c) => visit(c, inner))
+  }
+  for (const p of project.pages) visit(p, null)
+  return { project, map: {}, repeatOf, repeats }
+}
+
+/** Ordre du document : toutes les pages, de haut en bas. */
+function documentOrder(project: Project): BrickNode[] {
+  const order: BrickNode[] = []
+  const visit = (id: string) => {
+    const n = project.nodes[id]
+    if (!n) return
+    order.push(n)
+    n.children.forEach(visit)
+  }
+  project.pages.forEach(visit)
+  return order
+}
+
+/** Sélecteur CSS d'une brique : un id, ou une classe pour les briques répétées (il y en a plusieurs copies). */
+const selectorOf = (g: Gen, id: string) => (g.repeatOf.has(id) ? `.${id}` : `#${id}`)
 
 /* ---------------------------------- HTML --------------------------------- */
 
@@ -48,24 +89,36 @@ function isInitiallyHidden(node: BrickNode, variables: Variable[]): boolean {
   if (node.hidden) return true
   if (node.showIf) {
     const v = variables.find((x) => x.name === node.showIf)
-    if (v) return !v.initial
+    if (v) return Array.isArray(v.initial) ? v.initial.length === 0 : !v.initial
   }
   return false
 }
 
-function emitNode(out: Emitter, project: Project, node: BrickNode, indent: string, map: GeneratedCode['map']) {
+const lines = (s: unknown) =>
+  String(s ?? '')
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+
+function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
+  const { project } = g
   const { variables } = project
   const p = node.props
   const start = out.line + 1
-  const cls = brickClass(node)
-  const hidden = isInitiallyHidden(node, variables) ? true : null
+  const repeated = g.repeatOf.has(node.id)
+  const cls = [brickClass(node), repeated ? node.id : ''].filter(Boolean).join(' ')
+  const isOtherPage = node.type === 'page' && project.pages.length > 1 && node.id !== project.rootId
+  const hidden = isInitiallyHidden(node, variables) || isOtherPage ? true : null
   const base: [string, string | true | null][] = [
-    ['id', node.id],
+    ['id', repeated ? null : node.id],
     ['class', cls],
     ['hidden', hidden],
   ]
   const text = (key: string) => escapeHtml(interpolate(String(p[key] ?? ''), variables))
   const inner = indent + '  '
+  const children = (ind: string) => {
+    for (const c of node.children) if (project.nodes[c]) emitNode(out, g, project.nodes[c], ind)
+  }
 
   switch (node.type) {
     case 'page':
@@ -73,14 +126,27 @@ function emitNode(out: Emitter, project: Project, node: BrickNode, indent: strin
     case 'row':
     case 'stack':
     case 'grid':
-    case 'card': {
+    case 'card':
+    case 'repeat': {
       const tag = node.type === 'page' ? 'main' : node.type === 'section' ? 'section' : 'div'
+      if (node.type === 'repeat' && g.repeats.has(node.id)) {
+        const source = String(p.source ?? '')
+        out.push(`${indent}<!-- ${escapeHtml(node.name)} : une copie par élément de « ${escapeHtml(source || '?')} » -->`)
+        out.push(`${indent}<${tag}${attrs(base)}>`)
+        out.push(`${inner}<template>`)
+        out.push(`${inner}  <div class="repeat-item">`)
+        children(inner + '    ')
+        out.push(`${inner}  </div>`)
+        out.push(`${inner}</template>`)
+        out.push(`${indent}</${tag}>`)
+        break
+      }
       out.push(`${indent}<!-- ${escapeHtml(node.name)} -->`)
       if (node.children.length === 0) {
         out.push(`${indent}<${tag}${attrs(base)}></${tag}>`)
       } else {
         out.push(`${indent}<${tag}${attrs(base)}>`)
-        for (const c of node.children) emitNode(out, project, project.nodes[c], inner, map)
+        children(inner)
         out.push(`${indent}</${tag}>`)
       }
       break
@@ -96,24 +162,23 @@ function emitNode(out: Emitter, project: Project, node: BrickNode, indent: strin
     case 'badge':
       out.push(`${indent}<span${attrs(base)}>${text('text')}</span>`)
       break
-    case 'link':
+    case 'link': {
+      const page = String(p.page ?? '')
+      const toPage = page && project.pages.includes(page)
       out.push(
         `${indent}<a${attrs([
           ...base,
-          ['href', safeHref(String(p.href))],
-          ['target', p.newTab ? '_blank' : null],
-          ['rel', p.newTab ? 'noopener' : null],
+          ['href', toPage ? `#${page}` : safeHref(String(p.href))],
+          ['target', !toPage && p.newTab ? '_blank' : null],
+          ['rel', !toPage && p.newTab ? 'noopener' : null],
         ])}>${text('text')}</a>`,
       )
       break
+    }
     case 'list': {
       const tag = p.ordered ? 'ol' : 'ul'
-      const items = String(p.items ?? '')
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean)
       out.push(`${indent}<${tag}${attrs(base)}>`)
-      for (const it of items) out.push(`${inner}<li>${escapeHtml(interpolate(it, variables))}</li>`)
+      for (const it of lines(p.items)) out.push(`${inner}<li>${escapeHtml(interpolate(it, variables))}</li>`)
       out.push(`${indent}</${tag}>`)
       break
     }
@@ -128,7 +193,7 @@ function emitNode(out: Emitter, project: Project, node: BrickNode, indent: strin
       out.push(`${indent}<label${attrs(base)}>`)
       out.push(`${inner}<span>${escapeHtml(String(p.label ?? ''))}</span>`)
       const fieldAttrs: [string, string | true | null][] = [
-        ['id', `${node.id}-champ`],
+        ['id', repeated ? null : `${node.id}-champ`],
         ['placeholder', node.type === 'select' ? null : String(p.placeholder ?? '')],
       ]
       if (node.type === 'input') {
@@ -137,12 +202,8 @@ function emitNode(out: Emitter, project: Project, node: BrickNode, indent: strin
       } else if (node.type === 'textarea') {
         out.push(`${inner}<textarea${attrs(fieldAttrs)}>${escapeHtml(value)}</textarea>`)
       } else {
-        const options = String(p.options ?? '')
-          .split('\n')
-          .map((s) => s.trim())
-          .filter(Boolean)
         out.push(`${inner}<select${attrs(fieldAttrs)}>`)
-        for (const o of options) {
+        for (const o of lines(p.options)) {
           out.push(`${inner}  <option${attrs([['selected', o === value ? true : null]])}>${escapeHtml(o)}</option>`)
         }
         out.push(`${inner}</select>`)
@@ -153,14 +214,18 @@ function emitNode(out: Emitter, project: Project, node: BrickNode, indent: strin
     case 'checkbox': {
       const bound = variables.find((v) => v.name === p.bind)
       out.push(`${indent}<label${attrs(base)}>`)
-      out.push(`${inner}<input type="checkbox"${attrs([['id', `${node.id}-champ`], ['checked', bound?.initial ? true : null]])}>`)
+      out.push(`${inner}<input type="checkbox"${attrs([['id', repeated ? null : `${node.id}-champ`], ['checked', bound?.initial ? true : null]])}>`)
       out.push(`${inner}<span>${escapeHtml(String(p.label ?? ''))}</span>`)
       out.push(`${indent}</label>`)
       break
     }
     case 'image':
       out.push(
-        `${indent}<img${attrs([...base, ['src', safeImageSrc(String(p.src)) ?? PLACEHOLDER_IMAGE], ['alt', String(p.alt ?? '')]])}>`,
+        `${indent}<img${attrs([
+          ...base,
+          ['src', safeImageSrc(interpolate(String(p.src), variables)) ?? PLACEHOLDER_IMAGE],
+          ['alt', interpolate(String(p.alt ?? ''), variables)],
+        ])}>`,
       )
       break
     case 'divider':
@@ -170,32 +235,27 @@ function emitNode(out: Emitter, project: Project, node: BrickNode, indent: strin
       out.push(`${indent}<div${attrs([...base, ['aria-hidden', 'true']])}></div>`)
       break
   }
-  setRange(map, node.id, 'html', [start, out.line])
+  setRange(g.map, node.id, 'html', [start, out.line])
 }
 
 /* ---------------------------------- CSS ---------------------------------- */
 
-function emitCss(project: Project, map: GeneratedCode['map']): string {
+function emitCss(g: Gen): string {
   const out = new Emitter()
   out.push('body { margin: 0; }')
   for (const l of BASE_CSS.trimEnd().split('\n')) out.push(l)
   out.push('')
   out.push('/* Styles de tes briques */')
-  const visit = (id: string) => {
-    const node = project.nodes[id]
-    if (!node) return
+  for (const node of documentOrder(g.project)) {
     const entries = styleEntries(node)
-    if (entries.length) {
-      const start = out.line + 1
-      out.push(`/* ${node.name.replace(/[*/<>]/g, '')} */`)
-      out.push(`#${node.id} {`)
-      for (const [k, v] of entries) out.push(`  ${k}: ${v};`)
-      out.push('}')
-      setRange(map, node.id, 'css', [start, out.line])
-    }
-    node.children.forEach(visit)
+    if (!entries.length) continue
+    const start = out.line + 1
+    out.push(`/* ${node.name.replace(/[*/<>]/g, '')} */`)
+    out.push(`${selectorOf(g, node.id)} {`)
+    for (const [k, v] of entries) out.push(`  ${k}: ${v};`)
+    out.push('}')
+    setRange(g.map, node.id, 'css', [start, out.line])
   }
-  visit(project.rootId)
   return out.toString()
 }
 
@@ -211,21 +271,51 @@ function commentName(n: BrickNode): string {
 }
 
 function jsValue(v: Variable['initial']): string {
+  if (Array.isArray(v)) return `[${v.map(jsString).join(', ')}]`
   return typeof v === 'string' ? jsString(v) : String(v)
 }
 
+/** {{element}}, {{element.nom}} et {{position}} : valables seulement dans une répétition. */
+const isScopeToken = (name: string) => name === 'element' || name === 'position' || name.startsWith('element.')
+
 /** « Bonjour {{prenom}} » → `Bonjour ${etat.prenom}` */
-function jsTemplate(text: string, variables: Variable[]): string {
+function jsTemplate(text: string, variables: Variable[], inRepeat = false): string {
   const body = parseTemplate(text)
     .map((part) => {
-      if (part.kind === 'var' && variables.some((v) => v.name === part.name)) return `\${etat.${part.name}}`
-      return escapeTemplate(part.kind === 'var' ? `{{${part.name}}}` : part.value)
+      if (part.kind === 'var') {
+        const v = variables.find((x) => x.name === part.name)
+        if (v) return v.kind === 'list' ? `\${etat.${v.name}.length}` : `\${etat.${v.name}}`
+        if (inRepeat && isScopeToken(part.name)) {
+          if (part.name === 'position') return '${position}'
+          if (part.name === 'element') return '${element}'
+          return `\${${part.name.replace(/\.([A-Za-z0-9_]+)/g, (_, k: string) => (/^\d/.test(k) ? `?.[${k}]` : `?.${k}`))} ?? ""}`
+        }
+        return escapeTemplate(`{{${part.name}}}`)
+      }
+      return escapeTemplate(part.value)
     })
     .join('')
-  return '`' + body + '`'
+  return body ? '`' + body + '`' : '""'
 }
 
-function describeAction(a: Action, project: Project): string {
+/** Le texte contient-il des {{…}} que le script doit remplacer ? */
+function needsTemplate(text: unknown, variables: Variable[], inRepeat: boolean): boolean {
+  if (typeof text !== 'string') return false
+  return parseTemplate(text).some((p) => p.kind === 'var' && (variables.some((v) => v.name === p.name) || (inRepeat && isScopeToken(p.name))))
+}
+
+const CONDITION_LABEL: Record<Extract<Action, { type: 'if' }>['op'], string> = {
+  true: 'est vrai',
+  false: 'est faux',
+  eq: '=',
+  neq: '≠',
+  gt: '>',
+  lt: '<',
+  empty: 'est vide',
+  notEmpty: "n'est pas vide",
+}
+
+export function describeAction(a: Action, project: Project): string {
   const name = (id: string) => project.nodes[id]?.name ?? id
   switch (a.type) {
     case 'set':
@@ -246,17 +336,80 @@ function describeAction(a: Action, project: Project): string {
       return 'message'
     case 'openUrl':
       return 'ouvrir un lien'
+    case 'navigate':
+      return `page « ${name(a.page)} »`
+    case 'listAdd':
+      return `ajouter à ${a.variable}`
+    case 'listRemove':
+      return `retirer de ${a.variable}`
+    case 'listClear':
+      return `vider ${a.variable}`
+    case 'if':
+      return `si ${a.variable} ${CONDITION_LABEL[a.op]}${['eq', 'neq', 'gt', 'lt'].includes(a.op) ? ` ${a.value}` : ''}`
+    case 'fetch':
+      return `charger ${a.variable}`
   }
 }
 
-export { describeAction }
+/** Où se trouve l'action : dans une copie de répétition ou non. */
+interface ActionCtx {
+  repeat: string | null
+}
 
-function actionLines(a: Action, project: Project): { lines: string[]; changesState: boolean } {
+const indentLines = (ls: string[]) => ls.map((l) => `  ${l}`)
+
+function conditionExpr(a: Extract<Action, { type: 'if' }>, v: Variable): string {
+  const ref = `etat.${v.name}`
+  const list = v.kind === 'list'
+  const size = list ? `${ref}.length` : ref
+  const num = String(Number(String(a.value).replace(',', '.')) || 0)
+  const compared =
+    list || v.kind === 'number' ? num : v.kind === 'boolean' ? String(a.value === 'true') : jsTemplate(a.value, [])
+  switch (a.op) {
+    case 'true':
+      return list ? `${size} > 0` : ref
+    case 'false':
+      return list ? `${size} === 0` : `!${ref}`
+    case 'empty':
+      return list ? `${size} === 0` : v.kind === 'text' ? `${ref} === ""` : `!${ref}`
+    case 'notEmpty':
+      return list ? `${size} > 0` : v.kind === 'text' ? `${ref} !== ""` : `Boolean(${ref})`
+    case 'eq':
+      return `${size} === ${compared}`
+    case 'neq':
+      return `${size} !== ${compared}`
+    case 'gt':
+      return `${v.kind === 'text' ? `${ref}.length` : size} > ${num}`
+    case 'lt':
+      return `${v.kind === 'text' ? `${ref}.length` : size} < ${num}`
+  }
+}
+
+/** Chemin « results.0.name » → « ?.results?.[0]?.name ». */
+function jsPath(path: string): string | null {
+  const t = path.trim()
+  if (!t) return ''
+  if (!/^[A-Za-z0-9_$]+(\.[A-Za-z0-9_$]+)*$/.test(t)) return null
+  return t
+    .split('.')
+    .map((k) => (/^\d+$/.test(k) ? `?.[${k}]` : `?.${k}`))
+    .join('')
+}
+
+function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; changesState: boolean } {
+  const { project } = g
   const vars = project.variables
   const find = (n: string) => vars.find((v) => v.name === n)
-  const el = (id: string) => `document.getElementById(${jsString(id)})`
+  const inRepeat = ctx.repeat != null
+  const tpl = (s: string) => jsTemplate(s, vars, inRepeat)
   const missingVar = (n: string) => ({ lines: [`// Action ignorée : la variable « ${n || '?'} » n'existe pas.`], changesState: false })
-  const missingTarget = () => ({ lines: ['// Action ignorée : la brique visée n’existe plus.'], changesState: false })
+  const ignored = (why: string) => ({ lines: [`// Action ignorée : ${why}`], changesState: false })
+  const el = (id: string) => {
+    const r = g.repeatOf.get(id)
+    if (!r) return `document.getElementById(${jsString(id)})`
+    if (r === ctx.repeat) return `copie.querySelector(${jsString(`.${id}`)})`
+    return `document.querySelector(${jsString(`.${id}`)})`
+  }
 
   switch (a.type) {
     case 'set': {
@@ -267,7 +420,9 @@ function actionLines(a: Action, project: Project): { lines: string[]; changesSta
           ? String(Number(a.value) || 0)
           : v.kind === 'boolean'
             ? String(a.value === 'true')
-            : jsTemplate(a.value, vars)
+            : v.kind === 'list'
+              ? '[]'
+              : tpl(a.value)
       return { lines: [`etat.${v.name} = ${value};`], changesState: true }
     }
     case 'add': {
@@ -286,7 +441,7 @@ function actionLines(a: Action, project: Project): { lines: string[]; changesSta
     case 'hide':
     case 'toggle':
     case 'scrollTo': {
-      if (!project.nodes[a.target]) return missingTarget()
+      if (!project.nodes[a.target]) return ignored('la brique visée n’existe plus.')
       const line =
         a.type === 'show'
           ? `${el(a.target)}.hidden = false;`
@@ -298,45 +453,132 @@ function actionLines(a: Action, project: Project): { lines: string[]; changesSta
       return { lines: [line], changesState: false }
     }
     case 'alert':
-      return { lines: [`alert(${jsTemplate(a.message, vars)});`], changesState: false }
+      return { lines: [`alert(${tpl(a.message)});`], changesState: false }
     case 'openUrl':
       return { lines: [`window.open(${jsString(safeHref(a.url))}, "_blank");`], changesState: false }
+    case 'navigate': {
+      if (!project.pages.includes(a.page)) return ignored('la page visée n’existe plus.')
+      if (project.pages.length < 2) return ignored('le projet n’a qu’une seule page.')
+      return { lines: [`allerA(${jsString(a.page)});`], changesState: false }
+    }
+    case 'listAdd': {
+      const v = find(a.variable)
+      if (!v || v.kind !== 'list') return missingVar(a.variable)
+      return { lines: [`etat.${v.name}.push(${tpl(a.value)});`], changesState: true }
+    }
+    case 'listRemove': {
+      const v = find(a.variable)
+      if (!v || v.kind !== 'list') return missingVar(a.variable)
+      if (a.which === 'current') {
+        if (!inRepeat) return ignored('« l’élément de cette copie » ne marche que dans une répétition.')
+        return { lines: [`etat.${v.name}.splice(position - 1, 1);`], changesState: true }
+      }
+      return { lines: [`etat.${v.name}.${a.which === 'first' ? 'shift' : 'pop'}();`], changesState: true }
+    }
+    case 'listClear': {
+      const v = find(a.variable)
+      if (!v || v.kind !== 'list') return missingVar(a.variable)
+      return { lines: [`etat.${v.name} = [];`], changesState: true }
+    }
+    case 'if': {
+      const v = find(a.variable)
+      if (!v) return missingVar(a.variable)
+      const thenR = a.then.map((x) => actionLines(x, g, ctx))
+      const elseR = a.else.map((x) => actionLines(x, g, ctx))
+      const out = [`if (${conditionExpr(a, v)}) {`]
+      out.push(...indentLines(thenR.flatMap((r) => r.lines)))
+      if (!thenR.length) out.push('  // Rien à faire')
+      if (elseR.length) {
+        out.push('} else {')
+        out.push(...indentLines(elseR.flatMap((r) => r.lines)))
+      }
+      out.push('}')
+      return { lines: out, changesState: [...thenR, ...elseR].some((r) => r.changesState) }
+    }
+    case 'fetch': {
+      const v = find(a.variable)
+      if (!v) return missingVar(a.variable)
+      if (!/^https?:\/\//i.test(a.url.trim())) return ignored('l’adresse doit commencer par https://')
+      const path = jsPath(a.path)
+      if (path == null) return ignored(`le chemin « ${oneLine(a.path)} » n’est pas valide.`)
+      const read = `donnees${path}`
+      const convert =
+        v.kind === 'list'
+          ? `Array.isArray(valeur) ? valeur : []`
+          : v.kind === 'number'
+            ? 'Number(valeur) || 0'
+            : v.kind === 'boolean'
+              ? 'Boolean(valeur)'
+              : 'typeof valeur === "object" ? JSON.stringify(valeur) : String(valeur ?? "")'
+      return {
+        lines: [
+          `fetch(${tpl(a.url.trim())})`,
+          '  .then((reponse) => reponse.json())',
+          '  .then((donnees) => {',
+          `    const valeur = ${read};`,
+          `    etat.${v.name} = ${convert};`,
+          '    afficher();',
+          '  })',
+          '  .catch((erreur) => console.error("Chargement impossible :", erreur));',
+        ],
+        changesState: false,
+      }
+    }
   }
 }
 
-function emitJs(project: Project, map: GeneratedCode['map']): string {
-  const out = new Emitter()
-  const { variables, nodes } = project
-  const order: BrickNode[] = []
-  const visit = (id: string) => {
-    const n = nodes[id]
-    if (!n) return
-    order.push(n)
-    n.children.forEach(visit)
+function emitActionsBlock(out: Emitter, g: Gen, actions: Action[], ctx: ActionCtx, indent: string) {
+  let changes = false
+  for (const a of actions) {
+    const r = actionLines(a, g, ctx)
+    changes ||= r.changesState
+    for (const l of r.lines) out.push(`${indent}${l}`)
   }
-  visit(project.rootId)
+  if (changes) out.push(`${indent}afficher();`)
+}
+
+/** Propriétés dont le texte peut contenir des {{…}} : [clé, propriété DOM]. */
+function dynamicProps(n: BrickNode): [string, 'textContent' | 'src'][] {
+  if (n.type === 'image') return [['src', 'src']]
+  return [['text', 'textContent']]
+}
+
+function emitJs(g: Gen): string {
+  const out = new Emitter()
+  const { project } = g
+  const { variables } = project
+  const order = documentOrder(project)
+  const multi = project.pages.length > 1
+  const outside = order.filter((n) => !g.repeatOf.has(n.id))
 
   const known = (name: unknown) => typeof name === 'string' && variables.some((v) => v.name === name)
-  const dynamicTexts = order.filter((n) =>
-    DYNAMIC_KEYS.some((k) => typeof n.props[k] === 'string' && parseTemplate(String(n.props[k])).some((p) => p.kind === 'var' && known(p.name))),
-  )
-  const dynamicLists = order.filter(
-    (n) => n.type === 'list' && parseTemplate(String(n.props.items ?? '')).some((p) => p.kind === 'var' && known(p.name)),
-  )
-  const conditional = order.filter((n) => known(n.showIf))
-  const boundFields = order.filter((n) => ['input', 'textarea', 'select', 'checkbox'].includes(n.type) && known(n.props.bind))
-  const clickable = order.filter((n) => n.onClick.length > 0)
+  const dynamicTexts = outside.filter((n) => dynamicProps(n).some(([k]) => needsTemplate(n.props[k], variables, false)))
+  const dynamicLists = outside.filter((n) => n.type === 'list' && needsTemplate(n.props.items, variables, false))
+  const conditional = outside.filter((n) => known(n.showIf))
+  const boundFields = outside.filter((n) => ['input', 'textarea', 'select', 'checkbox'].includes(n.type) && known(n.props.bind))
+  const clickable = outside.filter((n) => n.onClick.length > 0)
+  const repeats = order.filter((n) => g.repeats.has(n.id))
+  const loads = project.pages.map((id) => project.nodes[id]).filter((p) => p?.onLoad?.length)
 
   out.push('// Code généré par Ptt-Makers. Tu peux le lire, le copier et le modifier librement !')
 
-  if (!variables.length && !clickable.length) {
+  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length) {
     out.push('// Ce projet ne contient pas encore d’interactions.')
     out.push('// Ajoute une variable ou une action « Au clic » pour voir du JavaScript apparaître ici.')
     return out.toString()
   }
 
-  out.push('')
-  out.push("// 1. Les variables de l'application (son « état »)")
+  let step = 0
+  const title = (t: string) => {
+    out.push('')
+    out.push(`// ${++step}. ${t}`)
+  }
+  const showIfExpr = (name: string) => {
+    const v = variables.find((x) => x.name === name)!
+    return v.kind === 'list' ? `etat.${name}.length === 0` : `!etat.${name}`
+  }
+
+  title("Les variables de l'application (son « état »)")
   if (variables.length) {
     out.push('const etat = {')
     for (const v of variables) out.push(`  ${v.name}: ${jsValue(v.initial)},`)
@@ -345,22 +587,20 @@ function emitJs(project: Project, map: GeneratedCode['map']): string {
     out.push('const etat = {};')
   }
 
-  out.push('')
-  out.push('// 2. Met à jour la page à partir des variables')
+  title('Met à jour la page à partir des variables')
   out.push('function afficher() {')
-  if (!dynamicTexts.length && !dynamicLists.length && !conditional.length && !boundFields.length) {
+  if (!dynamicTexts.length && !dynamicLists.length && !conditional.length && !boundFields.length && !repeats.length) {
     out.push('  // Rien à mettre à jour pour le moment.')
   }
   for (const n of dynamicTexts) {
-    out.push(`  document.getElementById(${jsString(n.id)}).textContent = ${jsTemplate(String(n.props.text), variables)};`)
+    for (const [k, prop] of dynamicProps(n)) {
+      if (!needsTemplate(n.props[k], variables, false)) continue
+      out.push(`  document.getElementById(${jsString(n.id)}).${prop} = ${jsTemplate(String(n.props[k]), variables)};`)
+    }
   }
   for (const n of dynamicLists) {
-    const items = String(n.props.items ?? '')
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
     out.push(`  document.getElementById(${jsString(n.id)}).replaceChildren(`)
-    out.push(`    ...[${items.map((i) => jsTemplate(i, variables)).join(', ')}].map((texte) => {`)
+    out.push(`    ...[${lines(n.props.items).map((i) => jsTemplate(i, variables)).join(', ')}].map((texte) => {`)
     out.push('      const element = document.createElement("li");')
     out.push('      element.textContent = texte;')
     out.push('      return element;')
@@ -368,13 +608,14 @@ function emitJs(project: Project, map: GeneratedCode['map']): string {
     out.push('  );')
   }
   for (const n of conditional) {
-    out.push(`  document.getElementById(${jsString(n.id)}).hidden = !etat.${n.showIf};`)
+    out.push(`  document.getElementById(${jsString(n.id)}).hidden = ${showIfExpr(String(n.showIf))};`)
   }
   for (const n of boundFields) {
     const field = `document.getElementById(${jsString(`${n.id}-champ`)})`
     if (n.type === 'checkbox') out.push(`  ${field}.checked = Boolean(etat.${n.props.bind});`)
     else out.push(`  remplir(${jsString(`${n.id}-champ`)}, etat.${n.props.bind});`)
   }
+  for (const r of repeats) emitRepeat(out, g, r, order, showIfExpr)
   out.push('}')
 
   if (boundFields.some((n) => n.type !== 'checkbox')) {
@@ -386,9 +627,29 @@ function emitJs(project: Project, map: GeneratedCode['map']): string {
     out.push('}')
   }
 
-  if (boundFields.length) {
+  if (repeats.length) {
     out.push('')
-    out.push('// 3. Relie les champs de saisie aux variables')
+    out.push('// Crée une copie du modèle pour chaque élément d’une liste')
+    out.push('function rendreListe(id, elements, remplirCopie, messageSiVide) {')
+    out.push('  const conteneur = document.getElementById(id);')
+    out.push('  const modele = conteneur.querySelector("template");')
+    out.push('  conteneur.replaceChildren(modele);')
+    out.push('  elements.forEach((element, index) => {')
+    out.push('    const copie = modele.content.firstElementChild.cloneNode(true);')
+    out.push('    remplirCopie(copie, element, index + 1);')
+    out.push('    conteneur.append(copie);')
+    out.push('  });')
+    out.push('  if (!elements.length && messageSiVide) {')
+    out.push('    const vide = document.createElement("p");')
+    out.push('    vide.className = "repeat-empty";')
+    out.push('    vide.textContent = messageSiVide;')
+    out.push('    conteneur.append(vide);')
+    out.push('  }')
+    out.push('}')
+  }
+
+  if (boundFields.length) {
+    title('Relie les champs de saisie aux variables')
     for (const n of boundFields) {
       const v = variables.find((x) => x.name === n.props.bind)!
       const start = out.line + 1
@@ -402,39 +663,117 @@ function emitJs(project: Project, map: GeneratedCode['map']): string {
       out.push(`  etat.${v.name} = ${read};`)
       out.push('  afficher();')
       out.push('});')
-      setRange(map, n.id, 'js', [start, out.line])
+      setRange(g.map, n.id, 'js', [start, out.line])
     }
   }
 
   if (clickable.length) {
-    out.push('')
-    out.push(`// ${boundFields.length ? '4' : '3'}. Réagit aux clics`)
+    title('Réagit aux clics')
     for (const n of clickable) {
       const start = out.line + 1
       out.push(`// ${commentName(n)} : ${n.onClick.map((a) => describeAction(a, project)).join(', ')}`)
       out.push(`document.getElementById(${jsString(n.id)}).addEventListener("click", () => {`)
-      let changes = false
-      for (const a of n.onClick) {
-        const r = actionLines(a, project)
-        changes ||= r.changesState
-        for (const l of r.lines) out.push(`  ${l}`)
-      }
-      if (changes) out.push('  afficher();')
+      emitActionsBlock(out, g, n.onClick, { repeat: null }, '  ')
       out.push('});')
-      setRange(map, n.id, 'js', [start, out.line])
+      setRange(g.map, n.id, 'js', [start, out.line])
+    }
+  }
+
+  if (multi) {
+    title('Navigation entre les pages (l’adresse se termine par #nom-de-la-page)')
+    out.push(`const PAGES = [${project.pages.map(jsString).join(', ')}];`)
+    out.push(`const PAGE_DEPART = ${jsString(project.rootId)};`)
+    out.push('')
+    out.push('function allerA(page) {')
+    out.push('  if (location.hash === "#" + page) afficherPage();')
+    out.push('  else location.hash = page;')
+    out.push('}')
+    out.push('')
+    out.push('function afficherPage() {')
+    out.push('  const demandee = location.hash.slice(1);')
+    out.push('  const page = PAGES.includes(demandee) ? demandee : PAGE_DEPART;')
+    out.push('  for (const id of PAGES) document.getElementById(id).hidden = id !== page;')
+    out.push('  window.scrollTo(0, 0);')
+    if (loads.length) out.push('  auChargement[page]?.();')
+    out.push('}')
+    out.push('window.addEventListener("hashchange", afficherPage);')
+    out.push('')
+    out.push('// Les liens vers une page du projet passent par allerA')
+    out.push('for (const lien of document.querySelectorAll(\'a[href^="#"]\')) {')
+    out.push('  lien.addEventListener("click", (evenement) => {')
+    out.push('    const page = lien.getAttribute("href").slice(1);')
+    out.push('    if (!PAGES.includes(page)) return;')
+    out.push('    evenement.preventDefault();')
+    out.push('    allerA(page);')
+    out.push('  });')
+    out.push('}')
+
+    if (loads.length) {
+      title('Actions lancées quand une page s’affiche')
+      out.push('const auChargement = {')
+      for (const p of loads) {
+        const start = out.line + 1
+        out.push(`  // ${oneLine(p.name)}`)
+        out.push(`  ${jsString(p.id)}: () => {`)
+        emitActionsBlock(out, g, p.onLoad!, { repeat: null }, '    ')
+        out.push('  },')
+        setRange(g.map, p.id, 'js', [start, out.line])
+      }
+      out.push('};')
     }
   }
 
   out.push('')
   out.push('// Premier affichage')
   out.push('afficher();')
+  if (multi) out.push('afficherPage();')
+  else if (loads.length) {
+    const p = loads[0]
+    title('Au chargement de la page')
+    const start = out.line + 1
+    emitActionsBlock(out, g, p.onLoad!, { repeat: null }, '')
+    setRange(g.map, p.id, 'js', [start, out.line])
+  }
   return out.toString()
+}
+
+/** Une répétition : remplit chaque copie et branche ses clics. */
+function emitRepeat(out: Emitter, g: Gen, r: BrickNode, order: BrickNode[], showIfExpr: (name: string) => string) {
+  const { variables } = g.project
+  const start = out.line + 1
+  const source = variables.find((v) => v.name === r.props.source && v.kind === 'list')
+  if (!source) {
+    out.push(`  // ${oneLine(r.name)} : choisis une liste à parcourir dans ses propriétés.`)
+    setRange(g.map, r.id, 'js', [start, out.line])
+    return
+  }
+  const members = order.filter((n) => g.repeatOf.get(n.id) === r.id)
+  const q = (n: BrickNode) => `copie.querySelector(${jsString(`.${n.id}`)})`
+  const empty = String(r.props.empty ?? '').trim()
+  out.push(`  // ${oneLine(r.name)} : une copie par élément de etat.${source.name}`)
+  out.push(`  rendreListe(${jsString(r.id)}, etat.${source.name}, (copie, element, position) => {`)
+  for (const n of members) {
+    for (const [k, prop] of dynamicProps(n)) {
+      if (needsTemplate(n.props[k], variables, true)) out.push(`    ${q(n)}.${prop} = ${jsTemplate(String(n.props[k]), variables, true)};`)
+    }
+    if (n.showIf && variables.some((v) => v.name === n.showIf)) out.push(`    ${q(n)}.hidden = ${showIfExpr(n.showIf)};`)
+  }
+  for (const n of members.filter((m) => m.onClick.length)) {
+    const s = out.line + 1
+    out.push(`    // ${commentName(n)} : ${n.onClick.map((a) => describeAction(a, g.project)).join(', ')}`)
+    out.push(`    ${q(n)}.addEventListener("click", () => {`)
+    emitActionsBlock(out, g, n.onClick, { repeat: r.id }, '      ')
+    out.push('    });')
+    setRange(g.map, n.id, 'js', [s, out.line])
+  }
+  out.push(`  }${empty ? `, ${jsString(empty)}` : ''});`)
+  setRange(g.map, r.id, 'js', [start, out.line])
 }
 
 /* -------------------------------- Ensemble ------------------------------- */
 
 export function generate(project: Project): GeneratedCode {
-  const map: GeneratedCode['map'] = {}
+  const g = createGen(project)
   const root = project.nodes[project.rootId]
   const html = new Emitter()
   html.push('<!DOCTYPE html>')
@@ -446,22 +785,25 @@ export function generate(project: Project): GeneratedCode {
   html.push('  <link rel="stylesheet" href="style.css">')
   html.push('</head>')
   html.push('<body>')
-  emitNode(html, project, root, '  ', map)
+  for (const id of project.pages) if (project.nodes[id]) emitNode(html, g, project.nodes[id], '  ')
   html.push('  <script src="script.js"></script>')
   html.push('</body>')
   html.push('</html>')
 
-  const css = emitCss(project, map)
-  const js = emitJs(project, map)
-  return { html: html.toString(), css, js, map }
+  const css = emitCss(g)
+  const js = emitJs(g)
+  return { html: html.toString(), css, js, map: g.map }
 }
 
 /** Fichier HTML unique (styles et script intégrés) : utilisé pour l'aperçu et l'export. */
-export function bundle(code: GeneratedCode): string {
-  const safeJs = code.js.replace(/<\/(script)/gi, '<\\/$1')
+export function bundle(code: GeneratedCode, options: { startPage?: string } = {}): string {
+  let js = code.js
+  if (options.startPage) js = js.replace(/^const PAGE_DEPART = .*;$/m, () => `const PAGE_DEPART = ${jsString(options.startPage!)};`)
+  const safeJs = js.replace(/<\/(script)/gi, '<\\/$1')
+  // Remplacements par fonction : un « $& » dans le code ne doit pas être interprété.
   return code.html
-    .replace('  <link rel="stylesheet" href="style.css">', `  <style>\n${code.css}  </style>`)
-    .replace('  <script src="script.js"></script>', `  <script>\n${safeJs}  </script>`)
+    .replace('  <link rel="stylesheet" href="style.css">', () => `  <style>\n${code.css}  </style>`)
+    .replace('  <script src="script.js"></script>', () => `  <script>\n${safeJs}  </script>`)
 }
 
 export const brickLabel = (node: BrickNode) => BRICKS[node.type].label

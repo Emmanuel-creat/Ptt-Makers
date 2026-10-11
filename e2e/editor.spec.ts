@@ -118,10 +118,68 @@ test.describe('sur mobile', () => {
     await page.getByRole('button', { name: 'Outils' }).click()
     await page.locator('.pm-tile', { hasText: 'Titre' }).click()
     // Après l'ajout, on revient automatiquement à la zone de création.
-    await expect(page.locator('.pm-frame [data-ptt-id="titre-6"]')).toBeVisible()
+    await expect(page.locator('.pm-frame [data-ptt-id="titre-4"]')).toBeVisible()
     await page.getByRole('button', { name: 'Propriétés' }).click()
     await page.getByLabel('Texte', { exact: true }).fill('Créé sur mobile')
     await page.getByRole('button', { name: 'Aperçu' }).click()
     await expect(preview(page).locator('#titre-6')).toHaveText('Créé sur mobile')
+  })
+})
+
+/** Ouvre un modèle depuis la fenêtre « Modèles ». */
+async function openTemplate(page: Page, name: RegExp) {
+  await openBlank(page)
+  await page.getByRole('button', { name: 'Modèles' }).click()
+  await page.getByRole('button', { name }).click()
+}
+
+test.describe('applications : listes, conditions, pages et API', () => {
+  test('liste de tâches : ajouter et retirer dans l’aperçu', async ({ page }) => {
+    await openTemplate(page, /Liste de tâches/)
+    const p = preview(page)
+    await expect(p.locator('#repetition-1 .repeat-item')).toHaveCount(2)
+    await p.locator('#champ-1-champ').fill('Arroser les plantes')
+    await p.locator('#bouton-1').click()
+    await expect(p.locator('#repetition-1 .repeat-item')).toHaveCount(3)
+    await expect(p.locator('#repetition-1 .repeat-item').nth(2)).toContainText('3. Arroser les plantes')
+    await p.locator('#repetition-1 .bouton-2').first().click()
+    await expect(p.locator('#repetition-1 .repeat-item')).toHaveCount(2)
+    await expect(p.locator('#texte-1')).toHaveText('2 tâche(s) à faire')
+  })
+
+  test('pages : ajouter une page, naviguer avec un bouton', async ({ page }) => {
+    await openTemplate(page, /Site de plusieurs pages/)
+    await expect(page.getByRole('tab', { name: /Accueil/ })).toHaveAttribute('aria-selected', 'true')
+    const p = preview(page)
+    await expect(p.locator('#titre-1')).toBeVisible()
+    await p.locator('#bouton-1').click()
+    await expect(p.locator('#page-2')).toBeVisible()
+    await expect(p.locator('#page')).toBeHidden()
+    await p.locator('#lien-8').click()
+    await expect(p.locator('#page-1')).toBeVisible()
+
+    // L'aperçu suit la page ouverte dans la zone de création.
+    await page.getByRole('tab', { name: /Contact/ }).click()
+    await expect(p.locator('#page-2')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Ajouter une page' }).click()
+    await expect(page.getByRole('tab', { name: /Page 4/ })).toHaveAttribute('aria-selected', 'true')
+    await page.locator('.pm-tile', { hasText: 'Titre' }).click()
+    await expect(page.locator('.pm-frame [data-ptt-id="titre-4"]')).toBeVisible()
+    await expect(page.locator('.pm-frame [data-ptt-id="titre-1"]')).toHaveCount(0)
+  })
+
+  test('API : les données chargées s’affichent dans une répétition', async ({ page }) => {
+    await page.route('https://jsonplaceholder.typicode.com/users', (route) =>
+      route.fulfill({
+        json: [{ name: 'Léa Martin', email: 'lea@ex.fr', address: { city: 'Lyon' } }],
+        headers: { 'access-control-allow-origin': '*' },
+      }),
+    )
+    await openTemplate(page, /Annuaire/)
+    const p = preview(page)
+    await expect(p.locator('#repetition-1 .carte-1')).toHaveCount(1)
+    await expect(p.locator('#repetition-1 .carte-1')).toContainText('Léa Martin')
+    await expect(p.locator('#texte-1')).toContainText('1 personnes trouvées')
   })
 })

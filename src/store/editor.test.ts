@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { buildProject } from '../model/templates'
 import { useEditor } from './editor'
 
-const reset = () => useEditor.setState({ project: buildProject('Test', {}, []), past: [], future: [], selectedId: null, clipboard: null, lastEdit: null })
+const reset = () =>
+  useEditor.setState({ project: buildProject('Test', {}, []), currentPage: 'page', past: [], future: [], selectedId: null, clipboard: null, lastEdit: null })
 
 describe('éditeur', () => {
   beforeEach(reset)
@@ -58,5 +59,52 @@ describe('éditeur', () => {
   it('ne supprime jamais la page', () => {
     useEditor.getState().remove('page')
     expect(useEditor.getState().project.nodes.page).toBeDefined()
+  })
+
+  it('gère plusieurs pages : ajout, ajout de briques, accueil, suppression et annulation', () => {
+    const { addPage, addBrick, setHomePage, removePage, undo } = useEditor.getState()
+    const p2 = addPage('Contact')
+    expect(useEditor.getState().currentPage).toBe(p2)
+    const btn = addBrick('button')
+    expect(useEditor.getState().project.nodes[p2].children).toEqual([btn])
+    expect(useEditor.getState().project.pages).toEqual(['page', p2])
+
+    setHomePage(p2)
+    expect(useEditor.getState().project.rootId).toBe(p2)
+    expect(useEditor.getState().project.pages[0]).toBe(p2)
+
+    removePage(p2)
+    let s = useEditor.getState()
+    expect(s.project.pages).toEqual(['page'])
+    expect(s.project.rootId).toBe('page')
+    expect(s.project.nodes[btn]).toBeUndefined()
+    expect(s.currentPage).toBe('page')
+
+    undo()
+    s = useEditor.getState()
+    expect(s.project.pages).toEqual([p2, 'page'])
+    expect(s.project.nodes[btn]).toBeDefined()
+  })
+
+  it('sélectionner une brique d’une autre page affiche cette page', () => {
+    const { addPage, addBrick, setPage, select } = useEditor.getState()
+    const p2 = addPage()
+    const t = addBrick('heading')
+    setPage('page')
+    select(t)
+    expect(useEditor.getState().currentPage).toBe(p2)
+  })
+
+  it('renomme une variable jusque dans les conditions', () => {
+    const { addVariable, addBrick, setActions, updateVariable } = useEditor.getState()
+    addVariable({ name: 'score', kind: 'number', initial: 0 })
+    const b = addBrick('button')
+    setActions(b, [
+      { type: 'if', variable: 'score', op: 'gt', value: '3', then: [{ type: 'alert', message: 'Score {{score}}' }], else: [] },
+    ])
+    updateVariable('score', { name: 'points' })
+    const a = useEditor.getState().project.nodes[b].onClick[0]
+    expect(a.type === 'if' && a.variable).toBe('points')
+    expect(a.type === 'if' && a.then[0].type === 'alert' && a.then[0].message).toBe('Score {{points}}')
   })
 })

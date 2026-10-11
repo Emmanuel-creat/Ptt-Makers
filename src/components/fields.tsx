@@ -1,7 +1,11 @@
 import { Braces, Plus, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
+import type { VariableKind } from '../model/types'
+import { displayValue } from '../model/variables'
 import { useEditor } from '../store/editor'
+import { ScopeTokens } from './scope'
 import { NewVariableForm } from './VariablesPanel'
+
 
 export const SWATCHES = ['#ffffff', '#f5f6fa', '#1b1d29', '#6c5ce7', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#f3f1ff']
 
@@ -24,6 +28,7 @@ export function TextInput({
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
   const [menu, setMenu] = useState(false)
   const variables = useEditor((s) => s.project.variables)
+  const scope = useContext(ScopeTokens)
 
   const insert = (name: string) => {
     const el = ref.current
@@ -67,10 +72,16 @@ export function TextInput({
       {menu && (
         <Popover onClose={() => setMenu(false)}>
           <p className="pm-popover-title">Insérer une variable</p>
+          {scope.map((t) => (
+            <button key={t.token} type="button" className="pm-popover-item is-scope" onClick={() => insert(t.token)}>
+              <code>{`{{${t.token}}}`}</code>
+              <span className="pm-muted">{t.hint}</span>
+            </button>
+          ))}
           {variables.map((v) => (
             <button key={v.name} type="button" className="pm-popover-item" onClick={() => insert(v.name)}>
               <code>{`{{${v.name}}}`}</code>
-              <span className="pm-muted">{String(v.initial) || '(vide)'}</span>
+              <span className="pm-muted">{v.kind === 'list' ? `liste de ${displayValue(v.initial)} élément(s)` : String(v.initial) || '(vide)'}</span>
             </button>
           ))}
           {!variables.length && <p className="pm-row-help">Crée d'abord une variable :</p>}
@@ -238,7 +249,7 @@ export function VariableSelect({
   id?: string
   value: string | undefined
   onChange: (v: string) => void
-  kinds?: ('text' | 'number' | 'boolean')[]
+  kinds?: VariableKind[]
   placeholder?: string
 }) {
   const variables = useEditor((s) => s.project.variables)

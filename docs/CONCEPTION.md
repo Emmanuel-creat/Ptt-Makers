@@ -1,6 +1,6 @@
 # Ptt-Makers : dossier de conception
 
-> Version 1.0 · 11 octobre 2026 · complète le [cahier des charges](CAHIER_DES_CHARGES.md)
+> Version 1.1 · 11 octobre 2026 · complète le [cahier des charges](CAHIER_DES_CHARGES.md)
 
 ## 1. Choix techniques
 
@@ -21,7 +21,8 @@ Aucun serveur : tout fonctionne dans le navigateur, le projet est sauvegardé da
 src/
 ├── model/        Modèle de données (aucune dépendance à React)
 │   ├── types.ts        Brique, style, action, variable, projet
-│   ├── bricks.ts       Catalogue des 18 briques + familles
+│   ├── bricks.ts       Catalogue des 19 briques + familles
+│   ├── actions.ts      Parcours des actions (conditions imbriquées comprises)
 │   ├── tree.ts         Opérations sur l'arbre (insérer, déplacer, dupliquer…)
 │   ├── variables.ts    Textes dynamiques {{nom}}, conversions
 │   ├── refactor.ts     Renommage / usages d'une variable
@@ -35,7 +36,7 @@ src/
 ├── store/
 │   ├── editor.ts       Projet, sélection, glisser-déposer, historique, sauvegarde
 │   └── workspace.ts    Disposition, thème, préférences (persistées)
-├── components/   Interface (TopBar, Palette, Layers, Canvas, Inspector, Dock…)
+├── components/   Interface (TopBar, PagesBar, Palette, Layers, Canvas, Inspector, Dock…)
 ├── hooks/        Raccourcis clavier, thème
 └── styles/       Jetons de design + feuille de l'éditeur
 ```
@@ -69,10 +70,15 @@ interface BrickNode {
   children: string[]
   parent: string | null
   onClick: Action[]     // interactions
+  onLoad?: Action[]     // pages : actions au chargement
   hidden?: boolean      // masquée au démarrage
   showIf?: string       // visible si la variable est vraie
 }
 ```
+
+Un projet contient plusieurs **pages** : `pages` liste les briques « page » (sans parent) dans l'ordre des onglets, et `rootId` désigne la page d'accueil. Les anciens projets (sans `pages`) sont mis à niveau à l'ouverture (`parseProject`).
+
+Les variables ont quatre types : texte, nombre, vrai/faux et **liste** (valeur de départ : une liste de textes ; à l'exécution, une liste peut aussi contenir les objets reçus d'une API).
 
 Les **identifiants lisibles** (`titre-1`, `bouton-3`) sont un choix pédagogique : ils apparaissent tels quels dans le HTML, le CSS et le JavaScript, ce qui permet de relier facilement ce qu'on voit à ce qu'on lit.
 
@@ -87,8 +93,21 @@ Une action est un objet simple, traduit en une ligne de JavaScript lisible :
 | Inverser `ouvert` | `etat.ouvert = !etat.ouvert;` |
 | Afficher / masquer une brique | `document.getElementById("carte-1").toggleAttribute("hidden");` |
 | Message | ``alert(`Merci ${etat.nom} !`);`` |
+| Ajouter à une liste | ``etat.taches.push(`${etat.nouvelle}`);`` |
+| Retirer l'élément de la copie | `etat.taches.splice(position - 1, 1);` |
+| Si… alors… sinon… | `if (etat.score > 10) { … } else { … }` |
+| Aller sur une page | `allerA("page-2");` |
+| Charger des données | `fetch(…).then((reponse) => reponse.json()).then((donnees) => { … })` |
 
-Le script généré suit toujours le même plan, commenté en français : 1) les variables (`etat`), 2) la fonction `afficher()` qui met la page à jour, 3) la liaison des champs, 4) les réactions aux clics.
+Le script généré suit toujours le même plan, commenté en français : 1) les variables (`etat`), 2) la fonction `afficher()` qui met la page à jour, puis selon le projet la liaison des champs, les réactions aux clics, la navigation entre les pages et les actions au chargement. Les sections absentes ne sont pas écrites, et les numéros se suivent.
+
+### Répétitions
+
+Une brique **Répétition** devient un `<template>` dans le HTML. Son contenu est enveloppé dans `<div class="repeat-item">` (en `display: contents`, pour que la mise en page de la répétition s'applique directement aux briques). Comme il y aura plusieurs copies, les briques répétées n'ont pas d'`id` mais une classe du même nom (`.texte-2`), utilisée par le CSS et le JavaScript. La fonction `rendreListe()` clone le modèle pour chaque élément ; le code de chaque copie reçoit `copie`, `element` et `position`, ce qui permet à un bouton de retirer « son » élément. Une répétition placée dans une autre est rendue comme un simple bloc.
+
+### Pages
+
+Toutes les pages sont dans `index.html` (`<main class="page">`), seules les autres pages ont l'attribut `hidden`. `afficherPage()` lit l'adresse (`#page-2`) et montre la bonne page ; `allerA()` change l'adresse ; les liens `href="#…"` vers une page passent par `allerA()` (indispensable dans l'aperçu `srcdoc`, où une ancre serait résolue par rapport à l'adresse de l'éditeur). L'aperçu démarre sur la page éditée en remplaçant la constante `PAGE_DEPART`.
 
 ## 4. Identité visuelle
 
@@ -117,12 +136,13 @@ Le script généré suit toujours le même plan, commenté en français : 1) les
 - Les liens n'acceptent que `http(s)`, `mailto`, `tel` et les ancres ; les images que `http(s)` et `data:image`.
 - L'aperçu tourne dans une `iframe` `sandbox` (scripts autorisés, mais sans accès à l'éditeur).
 - `</script>` dans un texte ne peut pas refermer le script intégré.
+- Les adresses d'API doivent commencer par `http(s)://` ; les chemins dans la réponse n'acceptent que des noms et des numéros (`data.items.0`). Les données reçues sont affichées avec `textContent`, jamais interprétées comme du HTML.
 
 ## 7. Tests
 
 | Niveau | Fichiers | Ce qui est vérifié |
 |---|---|---|
 | Unitaires | `src/model/*.test.ts` | Identifiants, déplacements, interdiction de déposer un conteneur en lui-même, duplication, variables, renommage. |
-| Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil). |
-| Unitaires | `src/store/editor.test.ts` | Ajout dans la sélection, regroupement des frappes dans l'historique, copier-coller, renommage de variable. |
-| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte. |
+| Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, conditions, répétitions, pages, adresses d'API refusées, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil, tâches, annuaire avec API simulée, site de plusieurs pages). |
+| Unitaires | `src/store/editor.test.ts` | Ajout dans la sélection, regroupement des frappes dans l'historique, copier-coller, renommage de variable (jusque dans les conditions), pages (ajout, accueil, suppression, annulation). |
+| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée). |

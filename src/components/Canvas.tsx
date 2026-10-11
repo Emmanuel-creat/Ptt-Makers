@@ -8,6 +8,7 @@ import { DEVICE_WIDTH, useWorkspace } from '../store/workspace'
 import { BrickIcon } from './BrickIcon'
 import { CanvasNode, INLINE_EDITABLE } from './CanvasNode'
 import { IconButton } from './ui'
+import { PagesBar } from './PagesBar'
 
 type Rect = { top: number; left: number; width: number; height: number; horizontal: boolean }
 
@@ -16,8 +17,8 @@ const closestNode = (el: EventTarget | null): HTMLElement | null =>
 
 /** Zone de création : rendu éditable du projet. */
 export function Canvas() {
-  const rootId = useEditor((s) => s.project.rootId)
-  const isEmpty = useEditor((s) => s.project.nodes[s.project.rootId].children.length === 0)
+  const rootId = useEditor((s) => s.currentPage)
+  const isEmpty = useEditor((s) => (s.project.nodes[s.currentPage]?.children.length ?? 0) === 0)
   const device = useWorkspace((s) => s.device)
   const beginner = useWorkspace((s) => s.beginner)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -99,6 +100,7 @@ export function Canvas() {
 
   return (
     <div className="pm-canvas">
+      <PagesBar />
       <div
         className="pm-canvas-scroll"
         onClick={(e) => {

@@ -2,11 +2,11 @@ import { Lightbulb, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { countVariableUses } from '../model/refactor'
 import type { Variable, VariableKind } from '../model/types'
-import { VAR_NAME_RE, coerce, defaultValue, toVariableName } from '../model/variables'
+import { RESERVED_NAMES, VAR_NAME_RE, coerce, convertValue, defaultValue, toVariableName, valueToText } from '../model/variables'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 
-export const KIND_LABEL: Record<VariableKind, string> = { text: 'Texte', number: 'Nombre', boolean: 'Vrai / faux' }
+export const KIND_LABEL: Record<VariableKind, string> = { text: 'Texte', number: 'Nombre', boolean: 'Vrai / faux', list: 'Liste' }
 
 /** Gestion des variables : l'« état » de l'application. */
 export function VariablesPanel() {
@@ -49,11 +49,12 @@ export function NewVariableForm({
   const [kind, setKind] = useState<VariableKind>(defaultKind)
   const clean = toVariableName(name)
   const exists = variables.some((v) => v.name === clean)
-  const error = name && !clean ? 'Nom invalide' : exists ? 'Ce nom existe déjà' : ''
+  const reserved = RESERVED_NAMES.has(clean)
+  const error = name && !clean ? 'Nom invalide' : exists ? 'Ce nom existe déjà' : reserved ? 'Ce nom est réservé' : ''
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!clean || exists) return
+    if (!clean || exists || reserved) return
     addVariable({ name: clean, kind, initial: defaultValue(kind) })
     onCreated?.(clean)
     setName('')
@@ -76,7 +77,7 @@ export function NewVariableForm({
             </option>
           ))}
         </select>
-        <button type="submit" className="pm-btn pm-btn-primary pm-btn-icon" disabled={!clean || exists} aria-label="Créer la variable">
+        <button type="submit" className="pm-btn pm-btn-primary pm-btn-icon" disabled={!clean || exists || reserved} aria-label="Créer la variable">
           <Plus size={16} />
         </button>
       </div>
@@ -103,7 +104,7 @@ function VariableItem({ variable: v }: { variable: Variable }) {
 
   const commitName = () => {
     const clean = toVariableName(draft)
-    if (!clean || !VAR_NAME_RE.test(clean) || (clean !== v.name && variables.some((x) => x.name === clean))) {
+    if (!clean || !VAR_NAME_RE.test(clean) || RESERVED_NAMES.has(clean) || (clean !== v.name && variables.some((x) => x.name === clean))) {
       setDraft(v.name)
       if (clean !== v.name) notify('Nom de variable invalide ou déjà utilisé')
       return
@@ -146,7 +147,7 @@ function VariableItem({ variable: v }: { variable: Variable }) {
           value={v.kind}
           onChange={(e) => {
             const kind = e.target.value as VariableKind
-            updateVariable(v.name, { kind, initial: coerce(String(v.initial), kind) })
+            updateVariable(v.name, { kind, initial: convertValue(v.initial, kind) })
           }}
         >
           {Object.entries(KIND_LABEL).map(([k, l]) => (
@@ -165,6 +166,8 @@ function VariableItem({ variable: v }: { variable: Variable }) {
             <option value="false">Faux</option>
             <option value="true">Vrai</option>
           </select>
+        ) : v.kind === 'list' ? (
+          <ListValue key={v.name} value={v.initial as string[]} onChange={(initial) => updateVariable(v.name, { initial })} />
         ) : (
           <input
             className="pm-input"
@@ -178,5 +181,23 @@ function VariableItem({ variable: v }: { variable: Variable }) {
       </div>
       <p className="pm-var-uses">{uses ? `Utilisée ${uses} fois` : 'Pas encore utilisée'}</p>
     </li>
+  )
+}
+
+/** Valeurs de départ d'une liste : un élément par ligne. */
+function ListValue({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [draft, setDraft] = useState(valueToText(value))
+  return (
+    <textarea
+      className="pm-input pm-var-list-value"
+      aria-label="Éléments de départ (un par ligne)"
+      placeholder="Un élément par ligne"
+      rows={3}
+      value={draft}
+      onChange={(e) => {
+        setDraft(e.target.value)
+        onChange(coerce(e.target.value, 'list') as string[])
+      }}
+    />
   )
 }

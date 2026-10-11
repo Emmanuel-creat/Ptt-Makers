@@ -1,4 +1,4 @@
-import { ChevronRight, EyeOff, Variable, Zap } from 'lucide-react'
+import { ChevronRight, EyeOff, Repeat, Variable, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { isContainer } from '../model/bricks'
 import { canDrop } from '../model/tree'
@@ -8,7 +8,7 @@ import { BrickBadge } from './BrickIcon'
 
 /** Arbre des calques : la structure du projet, réorganisable par glisser-déposer. */
 export function Layers() {
-  const rootId = useEditor((s) => s.project.rootId)
+  const rootId = useEditor((s) => s.currentPage)
   return (
     <div className="pm-layers" role="tree" aria-label="Calques du projet">
       <LayerItem id={rootId} depth={0} />
@@ -120,6 +120,11 @@ function LayerItem({ id, depth }: { id: string; depth: number }) {
           {node.hidden && (
             <span data-tip="Masquée au démarrage">
               <EyeOff size={13} aria-label="Masquée au démarrage" />
+            </span>
+          )}
+          {node.type === 'repeat' && (
+            <span data-tip={node.props.source ? `Une copie par élément de « ${node.props.source} »` : 'Choisis une liste à parcourir'}>
+              <Repeat size={13} aria-label="Répétition" />
             </span>
           )}
           {node.onClick.length > 0 && (

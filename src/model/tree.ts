@@ -1,5 +1,6 @@
+import { mapActions } from './actions'
 import { BRICKS, isContainer } from './bricks'
-import type { BrickNode, BrickType, DropTarget, PropValue, BrickStyle } from './types'
+import type { Action, BrickNode, BrickType, DropTarget, PropValue, BrickStyle } from './types'
 
 export type Nodes = Record<string, BrickNode>
 
@@ -146,6 +147,7 @@ export function cloneSubtree(source: Nodes, rootId: string, target: Nodes): { no
     reserved.add(fresh)
     map.set(id, fresh)
   }
+  const retarget = (a: Action): Action => ('target' in a && map.has(a.target) ? { ...a, target: map.get(a.target)! } : { ...a })
   const out: Nodes = {}
   for (const id of ids) {
     const n = source[id]
@@ -156,7 +158,8 @@ export function cloneSubtree(source: Nodes, rootId: string, target: Nodes): { no
       name: n.name.endsWith(' (copie)') ? n.name : `${n.name} (copie)`,
       parent: n.parent && map.has(n.parent) ? map.get(n.parent)! : null,
       children: n.children.map((c) => map.get(c)!),
-      onClick: n.onClick.map((a) => ('target' in a && map.has(a.target) ? { ...a, target: map.get(a.target)! } : { ...a })),
+      onClick: mapActions(n.onClick, retarget),
+      ...(n.onLoad ? { onLoad: mapActions(n.onLoad, retarget) } : {}),
     }
   }
   // Seule la racine copiée garde le suffixe « (copie) ».
@@ -179,4 +182,21 @@ export function walk(nodes: Nodes, rootId: string, fn: (node: BrickNode, depth: 
   if (!node) return
   fn(node, depth)
   node.children.forEach((c) => walk(nodes, c, fn, depth + 1))
+}
+
+/** Page qui contient une brique (la racine de son arbre). */
+export function pageOf(nodes: Nodes, id: string): string | null {
+  let cur: string | null = id
+  while (cur && nodes[cur]?.parent) cur = nodes[cur].parent
+  return cur && nodes[cur] ? cur : null
+}
+
+/** Répétition la plus proche qui contient la brique (sans compter la brique elle-même). */
+export function repeatOf(nodes: Nodes, id: string): string | null {
+  let cur = nodes[id]?.parent ?? null
+  while (cur) {
+    if (nodes[cur]?.type === 'repeat') return cur
+    cur = nodes[cur]?.parent ?? null
+  }
+  return null
 }

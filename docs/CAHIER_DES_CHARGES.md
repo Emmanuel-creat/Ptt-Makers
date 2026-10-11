@@ -1,6 +1,6 @@
 # Ptt-Makers : cahier des charges
 
-> Version 1.0 · 11 octobre 2026
+> Version 1.1 · 11 octobre 2026
 
 ## 1. Problématique
 
@@ -77,6 +77,13 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F21** Sauvegarde automatique locale.
 - **F22** Modèles de départ : page vierge, page d'accueil, compteur, formulaire de contact, carte de profil.
 
+### 4.7 Applications (version 1.1)
+- **F23** Mise en ligne de l'éditeur sur GitHub Pages, utilisable sur téléphone (une zone à la fois, onglets en bas).
+- **F24** Pages multiples : créer, renommer, dupliquer, réordonner, supprimer, choisir la page d'accueil ; naviguer par une action ou un lien ; export en un seul fichier avec navigation par l'adresse.
+- **F25** Listes dynamiques : variables de type Liste, brique Répétition (`{{element}}`, `{{element.champ}}`, `{{position}}`), actions ajouter / retirer / vider.
+- **F26** Conditions : action « Si… alors… sinon… » imbricable.
+- **F27** Données d'API : action « Charger des données » (JSON) vers une variable, actions au chargement d'une page.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -88,7 +95,7 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 
 ## 6. Hors périmètre (pistes futures)
 
-Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel, pages multiples et navigation, briques personnalisées, export React/Vue, appels à des API, déploiement en un clic.
+Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel, briques personnalisées, export React/Vue. Ces pistes sont planifiées dans les versions suivantes (voir le [journal des évolutions](../CHANGELOG.md)).
 
 ## 7. Critères d'acceptation
 
@@ -97,4 +104,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel, pages mu
 3. Sélectionner une brique surligne son code HTML et CSS.
 4. Annuler / rétablir couvre ajout, déplacement, suppression et modifications de propriétés.
 5. Rechargement de la page : le projet et la disposition de l'espace de travail sont restaurés.
-6. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+6. Le modèle « Liste de tâches » ajoute et retire des tâches dans l'aperçu ; le modèle « Site de plusieurs pages » passe d'une page à l'autre par un bouton et par le menu ; le modèle « Annuaire » affiche les données reçues d'une API.
+7. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

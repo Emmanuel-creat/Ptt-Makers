@@ -48,8 +48,11 @@ function Preview() {
   const code = useGeneratedCode()
   const device = useWorkspace((s) => s.device)
   const name = useEditor((s) => s.project.name)
+  const currentPage = useEditor((s) => s.currentPage)
+  const pageName = useEditor((s) => (s.project.pages.length > 1 ? s.project.nodes[s.currentPage]?.name : null))
   const [reloadKey, setReloadKey] = useState(0)
-  const html = useMemo(() => bundle(code), [code])
+  // L'aperçu s'ouvre sur la page affichée dans la zone de création.
+  const html = useMemo(() => bundle(code, { startPage: currentPage }), [code, currentPage])
   const width = DEVICE_WIDTH[device]
 
   const openInTab = () => {
@@ -62,7 +65,8 @@ function Preview() {
     <div className="pm-preview">
       <div className="pm-dock-toolbar">
         <span className="pm-muted pm-truncate">
-          {name} · {width ? `${width} px` : 'pleine largeur'}
+          {name}
+          {pageName ? ` · ${pageName}` : ''} · {width ? `${width} px` : 'pleine largeur'}
         </span>
         <IconButton label="Recommencer (remet les variables à zéro)" onClick={() => setReloadKey((k) => k + 1)}>
           <RotateCcw size={15} />

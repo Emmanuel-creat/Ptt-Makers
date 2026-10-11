@@ -2,6 +2,8 @@
 
 **L'atelier visuel de création logicielle.** Assemble des briques, règle-les, teste ton application en direct… et regarde le vrai code s'écrire en même temps.
 
+👉 **Essayer en ligne : [emmanuel-creat.github.io/Ptt-Makers](https://emmanuel-creat.github.io/Ptt-Makers/)** (fonctionne aussi sur téléphone).
+
 ![Ptt-Makers en thème clair : bibliothèque de briques, zone de création, propriétés et code surligné](docs/captures/editeur-clair.png)
 
 ## Pourquoi ?
@@ -10,15 +12,18 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 
 ## Ce que tu peux faire
 
-- 🧱 **18 briques** en 4 familles colorées (structure, texte, interaction, médias), à glisser ou à ajouter d'un clic.
+- 🧱 **19 briques** en 4 familles colorées (structure, texte, interaction, médias), à glisser ou à ajouter d'un clic.
 - 🖱️ **Zone de création** fidèle au résultat : sélection, glisser-déposer avec indicateur, barre d'actions flottante, édition du texte sur place, formats mobile / tablette / ordinateur.
 - 🎛️ **Propriétés** claires : contenu, mise en page, apparence, typographie, interactions.
 - ⚡ **Interactions sans code** : variables, textes dynamiques `{{nom}}`, champs reliés, affichage conditionnel, actions au clic.
+- 📄 **Plusieurs pages** avec navigation, dans un seul fichier exporté.
+- 🔁 **Listes dynamiques** : une brique Répétition affiche une copie par élément (tâches, fiches, produits…).
+- 🧠 **Logique** : actions « Si… alors… sinon… » et **données d'API** chargées à l'ouverture d'une page.
 - 👀 **Aperçu interactif** en temps réel, isolé dans une iframe.
 - 💻 **Code en direct** (HTML / CSS / JS) commenté en français, coloré, avec **surlignage de la brique sélectionnée**.
 - 🧭 **Espace de travail personnalisable** : panneaux redimensionnables et repliables, aperçu à droite ou en bas, thème clair / sombre / système.
 - 🎓 **Mode débutant** : visite guidée, explications et astuces partout.
-- ↩️ Annuler / rétablir, raccourcis clavier, sauvegarde automatique, 5 modèles de départ, export HTML ou projet `.json`.
+- ↩️ Annuler / rétablir, raccourcis clavier, sauvegarde automatique, 8 modèles de départ (dont une liste de tâches, un annuaire relié à une API et un site de plusieurs pages), export HTML ou projet `.json`.
 
 ![Ptt-Makers en thème sombre, format mobile, avec les calques et l'aperçu à droite](docs/captures/editeur-sombre.png)
 

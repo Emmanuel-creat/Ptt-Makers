@@ -1,9 +1,10 @@
 import { BRICKS } from './bricks'
+import { mapActions } from './actions'
 import { makeNode, type Nodes } from './tree'
 import type { Action, BrickStyle, BrickType, Project, PropValue, Variable } from './types'
 
 /** Description compacte d'un arbre de briques pour écrire les modèles. */
-interface Spec {
+export interface Spec {
   type: BrickType
   ref?: string
   name?: string
@@ -18,19 +19,23 @@ interface Spec {
 
 export const ROOT_ID = 'page'
 
-export function buildProject(
-  name: string,
-  page: { title?: string; style?: BrickStyle },
-  children: Spec[],
-  variables: Variable[] = [],
-): Project {
-  const root = {
-    ...makeNode({}, 'page', { props: { title: page.title ?? name }, style: page.style, name: 'Page' }),
-    id: ROOT_ID,
-  }
-  let nodes: Nodes = { [ROOT_ID]: root }
+/** Une page d'un modèle. */
+export interface PageSpec {
+  ref?: string
+  name: string
+  title?: string
+  style?: BrickStyle
+  /** Actions lancées quand la page s'affiche. */
+  onLoad?: Action[]
+  children: Spec[]
+}
+
+/** Construit un projet de plusieurs pages ; la première est la page d'accueil. */
+export function buildApp(name: string, pages: PageSpec[], variables: Variable[] = []): Project {
+  let nodes: Nodes = {}
   const refs = new Map<string, string>()
-  const pending: { id: string; actions: Action[] }[] = []
+  const pending: { id: string; key: 'onClick' | 'onLoad'; actions: Action[] }[] = []
+  const pageIds: string[] = []
 
   const add = (spec: Spec, parentId: string) => {
     const node = makeNode(nodes, spec.type, { props: spec.props, style: spec.style, name: spec.name })
@@ -39,20 +44,44 @@ export function buildProject(
     node.showIf = spec.showIf
     nodes = { ...nodes, [node.id]: node, [parentId]: { ...nodes[parentId], children: [...nodes[parentId].children, node.id] } }
     if (spec.ref) refs.set(spec.ref, node.id)
-    if (spec.onClick) pending.push({ id: node.id, actions: spec.onClick })
+    if (spec.onClick) pending.push({ id: node.id, key: 'onClick', actions: spec.onClick })
     spec.children?.forEach((c) => add(c, node.id))
   }
-  children.forEach((c) => add(c, ROOT_ID))
 
-  for (const { id, actions } of pending) {
+  pages.forEach((page, i) => {
+    const made = makeNode(nodes, 'page', { props: { title: page.title ?? (i === 0 ? name : page.name) }, style: page.style, name: page.name })
+    const id = i === 0 ? ROOT_ID : made.id
+    nodes = { ...nodes, [id]: { ...made, id } }
+    pageIds.push(id)
+    if (page.ref) refs.set(page.ref, id)
+    if (page.onLoad) pending.push({ id, key: 'onLoad', actions: page.onLoad })
+    page.children.forEach((c) => add(c, id))
+  })
+
+  const resolve = (ref: string) => (ref.startsWith('@') ? (refs.get(ref.slice(1)) ?? ref) : ref)
+  for (const { id, key, actions } of pending) {
     nodes[id] = {
       ...nodes[id],
-      onClick: actions.map((a) =>
-        'target' in a && a.target.startsWith('@') ? { ...a, target: refs.get(a.target.slice(1)) ?? a.target } : a,
+      [key]: mapActions(actions, (a) =>
+        'target' in a ? { ...a, target: resolve(a.target) } : a.type === 'navigate' ? { ...a, page: resolve(a.page) } : a,
       ),
     }
   }
-  return { version: 1, name, rootId: ROOT_ID, nodes, variables }
+  for (const node of Object.values(nodes)) {
+    if (node.type === 'link' && typeof node.props.page === 'string' && node.props.page) {
+      nodes[node.id] = { ...node, props: { ...node.props, page: resolve(node.props.page) } }
+    }
+  }
+  return { version: 1, name, rootId: ROOT_ID, pages: pageIds, nodes, variables }
+}
+
+export function buildProject(
+  name: string,
+  page: { title?: string; style?: BrickStyle; onLoad?: Action[] },
+  children: Spec[],
+  variables: Variable[] = [],
+): Project {
+  return buildApp(name, [{ name: 'Page', title: page.title ?? name, style: page.style, onLoad: page.onLoad, children }], variables)
 }
 
 export interface Template {
@@ -277,6 +306,176 @@ export const TEMPLATES: Template[] = [
         [{ name: 'abonnes', kind: 'number', initial: 128 }],
       ),
   },
+  {
+    id: 'taches',
+    name: 'Liste de tâches',
+    description: 'Une vraie petite appli : ajouter, cocher et retirer des tâches avec une liste.',
+    accent: '#8b5cf6',
+    create: () =>
+      buildProject(
+        'Liste de tâches',
+        { style: { padding: 32, align: 'center', background: '#f5f3ff', color: '#1b1d29' } },
+        [
+          {
+            type: 'card',
+            name: 'Appli tâches',
+            style: { padding: 28, gap: 16, width: '100%', maxWidth: '520px', shadow: 'md' },
+            children: [
+              H('Mes tâches', '2'),
+              P('{{taches}} tâche(s) à faire', { color: '#6b7083', fontSize: 14 }),
+              {
+                type: 'row',
+                name: 'Ajout',
+                style: { gap: 8, align: 'end', wrap: false },
+                children: [
+                  { type: 'input', props: { label: 'Nouvelle tâche', placeholder: 'Ex. Réviser les maths', inputType: 'text', bind: 'nouvelle' }, style: { width: '100%' } },
+                  {
+                    type: 'button',
+                    props: { text: 'Ajouter', variant: 'primary' },
+                    onClick: [
+                      {
+                        type: 'if',
+                        variable: 'nouvelle',
+                        op: 'notEmpty',
+                        value: '',
+                        then: [
+                          { type: 'listAdd', variable: 'taches', value: '{{nouvelle}}' },
+                          { type: 'set', variable: 'nouvelle', value: '' },
+                        ],
+                        else: [{ type: 'alert', message: 'Écris d’abord une tâche.' }],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: 'repeat',
+                name: 'Tâches',
+                props: { source: 'taches', columns: 1, empty: 'Bravo, plus rien à faire ! 🎉' },
+                style: { gap: 8 },
+                children: [
+                  {
+                    type: 'row',
+                    name: 'Ligne de tâche',
+                    style: { gap: 10, justify: 'space-between', padding: 10, background: '#f8f7ff', borderRadius: 10, wrap: false },
+                    children: [
+                      { type: 'text', name: 'Texte de la tâche', props: { text: '{{position}}. {{element}}' } },
+                      {
+                        type: 'button',
+                        props: { text: 'Fait ✓', variant: 'secondary' },
+                        onClick: [{ type: 'listRemove', variable: 'taches', which: 'current' }],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: 'button',
+                props: { text: 'Tout effacer', variant: 'ghost' },
+                onClick: [{ type: 'listClear', variable: 'taches' }],
+              },
+            ],
+          },
+        ],
+        [
+          { name: 'taches', kind: 'list', initial: ['Découvrir Ptt-Makers', 'Créer ma première appli'] },
+          { name: 'nouvelle', kind: 'text', initial: '' },
+        ],
+      ),
+  },
+  {
+    id: 'annuaire',
+    name: 'Annuaire (API)',
+    description: 'Charge des données depuis Internet et les affiche en cartes.',
+    accent: '#0d9488',
+    create: () =>
+      buildProject(
+        'Annuaire',
+        {
+          style: { padding: 32, gap: 20, background: '#f0fdfa', color: '#1b1d29' },
+          onLoad: [{ type: 'fetch', url: 'https://jsonplaceholder.typicode.com/users', variable: 'personnes', path: '' }],
+        },
+        [
+          H('Annuaire', '1'),
+          P('Ces fiches viennent d’une API : elles sont chargées quand la page s’ouvre. {{personnes}} personnes trouvées.', { color: '#4b5068' }),
+          {
+            type: 'repeat',
+            name: 'Fiches',
+            props: { source: 'personnes', columns: 3, empty: 'Chargement…' },
+            style: { gap: 16 },
+            children: [
+              {
+                type: 'card',
+                name: 'Fiche',
+                style: { gap: 6 },
+                children: [
+                  H('{{element.name}}', '3'),
+                  P('✉️ {{element.email}}', { fontSize: 14, color: '#4b5068' }),
+                  P('🏙️ {{element.address.city}}', { fontSize: 14, color: '#4b5068' }),
+                  { type: 'button', props: { text: 'Saluer', variant: 'secondary' }, onClick: [{ type: 'alert', message: 'Bonjour {{element.name}} !' }] },
+                ],
+              },
+            ],
+          },
+        ],
+        [{ name: 'personnes', kind: 'list', initial: [] }],
+      ),
+  },
+  {
+    id: 'site',
+    name: 'Site de plusieurs pages',
+    description: 'Accueil, À propos et Contact, avec un menu pour passer d’une page à l’autre.',
+    accent: '#e11d48',
+    create: () => {
+      const menu = (): Spec => ({
+        type: 'row',
+        name: 'Menu',
+        style: { gap: 16, padding: 16, background: '#1b1d29', justify: 'center' },
+        children: [
+          { type: 'link', props: { text: 'Accueil', page: '@accueil', href: '', newTab: false }, style: { color: '#ffffff' } },
+          { type: 'link', props: { text: 'À propos', page: '@apropos', href: '', newTab: false }, style: { color: '#ffffff' } },
+          { type: 'link', props: { text: 'Contact', page: '@contact', href: '', newTab: false }, style: { color: '#ffffff' } },
+        ],
+      })
+      const pageStyle: BrickStyle = { padding: 0, gap: 0, background: '#ffffff', color: '#1b1d29' }
+      const body = (children: Spec[]): Spec => ({ type: 'section', style: { padding: 40, gap: 16, borderRadius: 0 }, children })
+      return buildApp('Mon site', [
+        {
+          ref: 'accueil',
+          name: 'Accueil',
+          title: 'Mon site',
+          style: pageStyle,
+          children: [
+            menu(),
+            body([
+              H('Bienvenue sur mon site', '1'),
+              P('Chaque page est un onglet au-dessus de la zone de création. Le menu passe de l’une à l’autre.'),
+              { type: 'button', props: { text: 'Me contacter', variant: 'primary' }, onClick: [{ type: 'navigate', page: '@contact' }] },
+            ]),
+          ],
+        },
+        {
+          ref: 'apropos',
+          name: 'À propos',
+          style: pageStyle,
+          children: [menu(), body([H('À propos', '1'), P('Raconte ici ton histoire, ton projet ou ton équipe.')])],
+        },
+        {
+          ref: 'contact',
+          name: 'Contact',
+          style: pageStyle,
+          children: [
+            menu(),
+            body([
+              H('Contact', '1'),
+              { type: 'input', props: { label: 'Ton e-mail', placeholder: 'toi@exemple.fr', inputType: 'email', bind: 'email' } },
+              { type: 'button', props: { text: 'Envoyer', variant: 'primary' }, onClick: [{ type: 'alert', message: 'Merci, on t’écrit à {{email}} !' }] },
+            ]),
+          ],
+        },
+      ], [{ name: 'email', kind: 'text', initial: '' }])
+    },
+  },
 ]
 
 export const createDefaultProject = () => TEMPLATES[1].create()
@@ -286,7 +485,17 @@ export function isProject(value: unknown): value is Project {
   if (!value || typeof value !== 'object') return false
   const p = value as Project
   if (p.version !== 1 || typeof p.rootId !== 'string' || !p.nodes || !p.nodes[p.rootId] || !Array.isArray(p.variables)) return false
+  if (p.pages !== undefined && !Array.isArray(p.pages)) return false
   return Object.values(p.nodes).every(
     (n) => n && typeof n.id === 'string' && n.type in BRICKS && Array.isArray(n.children) && Array.isArray(n.onClick) && typeof n.props === 'object',
   )
+}
+
+/** Valide un projet importé et le met à niveau (les projets d'avant les pages multiples n'ont pas de liste « pages »). */
+export function parseProject(value: unknown): Project | null {
+  if (!isProject(value)) return null
+  const p = value
+  const pages = (p.pages ?? []).filter((id, i, all) => p.nodes[id]?.type === 'page' && !p.nodes[id].parent && all.indexOf(id) === i)
+  if (!pages.includes(p.rootId)) pages.unshift(p.rootId)
+  return { ...p, pages }
 }

@@ -10,6 +10,7 @@ export function brickClass(node: BrickNode): string {
     case 'stack':
     case 'grid':
     case 'card':
+    case 'repeat':
     case 'badge':
     case 'spacer':
       return node.type
@@ -49,11 +50,15 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 .page ul, .page ol { margin: 0; padding-left: 1.4em; line-height: 1.75; }
 .page img { display: block; max-width: 100%; object-fit: cover; }
 .page hr { width: 100%; margin: 0; border: 0; border-top: 1px solid #e4e6ef; }
-.page [hidden] { display: none !important; }
+.page[hidden], .page [hidden] { display: none !important; }
 
 .page .section, .page .row, .page .stack, .page .card { display: flex; flex-direction: column; min-width: 0; }
 .page .row { flex-direction: row; }
 .page .grid { display: grid; }
+/* Une répétition affiche une copie de son contenu par élément de la liste. */
+.page .repeat { display: flex; flex-direction: column; min-width: 0; }
+.page .repeat-item { display: contents; }
+.page .repeat-empty { color: #6b7083; }
 .page .spacer { flex-shrink: 0; }
 
 .page .badge {
@@ -109,7 +114,7 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 
 /* Sur petit écran, les grilles passent sur une seule colonne. */
 @container (max-width: 640px) {
-  .page .grid { grid-template-columns: 1fr !important; }
+  .page .grid, .page .repeat { grid-template-columns: 1fr !important; }
 }
 `
 

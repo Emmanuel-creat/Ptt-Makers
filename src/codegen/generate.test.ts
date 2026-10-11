@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TEMPLATES, buildProject } from '../model/templates'
+import { TEMPLATES, buildApp, buildProject, parseProject } from '../model/templates'
 import { bundle, generate } from './generate'
 import { highlightLines } from './highlight'
 import { sanitizeColor, sanitizeLength } from './style'
@@ -94,5 +94,79 @@ describe('coloration syntaxique', () => {
     const lines = highlightLines(src, 'html')
     expect(lines).toHaveLength(2)
     expect(lines[0]).toContain('<span class="tok-tag">&lt;p</span>')
+  })
+})
+
+describe('pages, listes, conditions et API', () => {
+  it('écrit une condition si / sinon lisible', () => {
+    const p = buildProject(
+      'X',
+      {},
+      [
+        {
+          type: 'button',
+          onClick: [
+            {
+              type: 'if',
+              variable: 'score',
+              op: 'gt',
+              value: '10',
+              then: [{ type: 'alert', message: 'Gagné' }],
+              else: [{ type: 'add', variable: 'score', amount: 1 }],
+            },
+          ],
+        },
+      ],
+      [{ name: 'score', kind: 'number', initial: 0 }],
+    )
+    const { js } = generate(p)
+    expect(js).toContain('  if (etat.score > 10) {\n    alert(`Gagné`);\n  } else {\n    etat.score = etat.score + 1;\n  }\n  afficher();')
+    expect(() => new Function(js)).not.toThrow()
+  })
+
+  it('une répétition devient un modèle <template> et ses briques des classes', () => {
+    const p = TEMPLATES.find((t) => t.id === 'taches')!.create()
+    const { html, css, js } = generate(p)
+    expect(html).toMatch(/<div id="repetition-1" class="repeat">\n\s+<template>\n\s+<div class="repeat-item">/)
+    expect(html).toContain('<p class="texte-2">{{position}}. {{element}}</p>')
+    expect(css).toContain('.ligne-2 {')
+    expect(js).toContain('rendreListe("repetition-1", etat.taches, (copie, element, position) => {')
+    expect(js).toContain('copie.querySelector(".texte-2").textContent = `${position}. ${element}`;')
+    expect(js).toContain('etat.taches.splice(position - 1, 1);')
+    expect(js).toContain('taches: ["Découvrir Ptt-Makers", "Créer ma première appli"],')
+  })
+
+  it('ignore proprement les adresses d’API non sûres', () => {
+    const p = buildProject('X', { onLoad: [{ type: 'fetch', url: 'javascript:alert(1)', variable: 'v', path: '' }] }, [], [
+      { name: 'v', kind: 'list', initial: [] },
+    ])
+    const { js } = generate(p)
+    expect(js).toContain('// Action ignorée : l’adresse doit commencer par https://')
+    expect(js).not.toContain('fetch(')
+  })
+
+  it('plusieurs pages : une seule page visible et un aperçu qui démarre où on veut', () => {
+    const p = TEMPLATES.find((t) => t.id === 'site')!.create()
+    const code = generate(p)
+    expect(p.pages).toEqual(['page', 'page-1', 'page-2'])
+    expect(code.html).toContain('<main id="page" class="page">')
+    expect(code.html).toContain('<main id="page-1" class="page" hidden>')
+    expect(code.html).toContain('<a id="lien-2" href="#page-1">À propos</a>')
+    expect(code.js).toContain('const PAGES = ["page", "page-1", "page-2"];')
+    expect(code.js).toContain('allerA("page-2");')
+    expect(bundle(code, { startPage: 'page-2' })).toContain('const PAGE_DEPART = "page-2";')
+  })
+
+  it('le code intégré garde les « $ » des textes', () => {
+    const p = buildProject('X', {}, [{ type: 'text', props: { text: "Prix : 5 $& 6 $' {{n}}" } }], [{ name: 'n', kind: 'number', initial: 1 }])
+    expect(bundle(generate(p))).toContain("`Prix : 5 $& 6 $' ${etat.n}`")
+  })
+
+  it('met à niveau un ancien projet sans liste de pages', () => {
+    const old = buildApp('Ancien', [{ name: 'Page', children: [] }]) as Partial<ReturnType<typeof buildApp>>
+    delete old.pages
+    const p = parseProject(old)!
+    expect(p.pages).toEqual(['page'])
+    expect(parseProject({ version: 2 })).toBeNull()
   })
 })
