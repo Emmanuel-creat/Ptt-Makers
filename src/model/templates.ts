@@ -1,4 +1,5 @@
 import { BRICKS } from './bricks'
+import { migrateProject } from './migrate'
 import { BUSINESS_TEMPLATES } from './businessTemplates'
 import { buildApp, buildProject, type Spec, type Template } from './appBuilder'
 import { scaffoldCollection } from './scaffold'
@@ -836,7 +837,7 @@ export const TEMPLATES: Template[] = [
                           { type: 'repeat', props: { source: 'clients', sortField: 'rendez_vous', sortDir: 'asc' }, style: { gap: 6 }, children: [P('{{element.nom}} : {{element.rendez_vous}}', { fontSize: 14 })] },
                         ],
                       },
-                      { type: 'chart', props: { kind: 'barres', title: 'Chiffre d’affaires', data: 'Juil. : 8200\nAoût : 6400\nSept. : 9100\nOct. : 11800' }, style: { area: 'graphique' } },
+                      { type: 'chart', name: 'Chiffre d’affaires', props: { kind: 'barres', data: 'Juil. : 8200\nAoût : 6400\nSept. : 9100\nOct. : 11800' }, style: { area: 'graphique' } },
                     ],
                   },
                 ]),
@@ -902,11 +903,8 @@ export function isProject(value: unknown): value is Project {
   )
 }
 
-/** Valide un projet importé et le met à niveau (les projets d'avant les pages multiples n'ont pas de liste « pages »). */
+/** Met à niveau un projet lu (fichier, navigateur, lien de partage) puis le valide. */
 export function parseProject(value: unknown): Project | null {
-  if (!isProject(value)) return null
-  const p = value
-  const pages = (p.pages ?? []).filter((id, i, all) => p.nodes[id]?.type === 'page' && !p.nodes[id].parent && all.indexOf(id) === i)
-  if (!pages.includes(p.rootId)) pages.unshift(p.rootId)
-  return { ...p, pages }
+  const { project } = migrateProject(value)
+  return isProject(project) ? project : null
 }

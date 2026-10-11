@@ -1,6 +1,9 @@
+import { VERSION_RE } from '../model/migrate'
 import type { Project } from '../model/types'
-import { escapeTemplate } from './escape'
+import type { ZipEntry } from '../utils/zip'
+import { escapeHtml, escapeTemplate } from './escape'
 import { generate, type GeneratedCode } from './generate'
+import { slug } from './pwa'
 
 /**
  * Export vers React et Vue.
@@ -136,4 +139,86 @@ export function toVue(project: Project, code: GeneratedCode = generate(project))
     '</style>',
     '',
   ].join('\n')
+}
+
+/**
+ * Projet Vite + React complet, prêt à lancer : « npm install » puis « npm run dev ».
+ * Le numéro de version de l'application devient celui du package.json.
+ */
+export function viteReactFiles(project: Project): ZipEntry[] {
+  const name = project.name.trim() || 'Mon application'
+  const id = slug(name)
+  const version = project.appVersion && VERSION_RE.test(project.appVersion) ? project.appVersion : '1.0.0'
+  const { jsx, css } = toReact(project)
+  const pkg = {
+    name: id,
+    private: true,
+    version,
+    type: 'module',
+    scripts: { dev: 'vite', build: 'vite build', preview: 'vite preview' },
+    dependencies: { react: '^19.2.8', 'react-dom': '^19.2.8' },
+    devDependencies: { '@vitejs/plugin-react': '^6.1.1', vite: '^8.3.0' },
+  }
+  const html = [
+    '<!doctype html>',
+    '<html lang="fr">',
+    '  <head>',
+    '    <meta charset="UTF-8" />',
+    '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+    `    <meta name="version" content="${version}" />`,
+    `    <title>${escapeHtml(name)}</title>`,
+    '  </head>',
+    '  <body>',
+    '    <div id="root"></div>',
+    '    <script type="module" src="/src/main.jsx"></script>',
+    '  </body>',
+    '</html>',
+    '',
+  ].join('\n')
+  const main = [
+    "import { StrictMode } from 'react'",
+    "import { createRoot } from 'react-dom/client'",
+    "import App from './App.jsx'",
+    '',
+    "createRoot(document.getElementById('root')).render(",
+    '  <StrictMode>',
+    '    <App />',
+    '  </StrictMode>,',
+    ')',
+    '',
+  ].join('\n')
+  const config = [
+    "import { defineConfig } from 'vite'",
+    "import react from '@vitejs/plugin-react'",
+    '',
+    'export default defineConfig({',
+    '  plugins: [react()],',
+    "  base: './',",
+    '})',
+    '',
+  ].join('\n')
+  const readme = [
+    `${name} (version ${version})`,
+    '',
+    'Projet Vite + React généré par Ptt-Makers.',
+    '',
+    'Pour le lancer :',
+    '  1. Installe Node.js (https://nodejs.org).',
+    '  2. Dans ce dossier, tape : npm install',
+    '  3. Puis : npm run dev, et ouvre l’adresse affichée.',
+    '',
+    'Pour le mettre en ligne : npm run build, puis envoie le dossier dist/.',
+    '',
+  ].join('\n')
+  const root = `${id}/`
+  return [
+    { path: root + 'package.json', data: JSON.stringify(pkg, null, 2) + '\n' },
+    { path: root + 'index.html', data: html },
+    { path: root + 'vite.config.js', data: config },
+    { path: root + '.gitignore', data: 'node_modules\ndist\n' },
+    { path: root + 'LISEZ-MOI.txt', data: readme },
+    { path: root + 'src/main.jsx', data: main },
+    { path: root + 'src/App.jsx', data: jsx },
+    { path: root + 'src/App.css', data: css },
+  ]
 }

@@ -355,11 +355,59 @@ test.describe('assistant IA (Pro)', () => {
     await page.getByRole('radio', { name: 'Modifier ce projet' }).click()
     await page.getByLabel('Que faut-il changer ?').fill('Ajoute un titre')
     await page.getByRole('button', { name: 'Modifier le projet' }).click()
+    // Relecture avant d'appliquer : la liste des changements et un aperçu du résultat.
+    const review = page.getByRole('region', { name: 'Changements proposés' })
+    await expect(review.getByText('Ajouté (1)')).toBeVisible()
+    await expect(review.frameLocator('iframe').locator('h2')).toHaveText('Titre ajouté par l’IA')
+    await expect(page.locator('.pm-frame').getByText('Titre ajouté par l’IA')).toHaveCount(0)
+    await review.getByRole('button', { name: 'Appliquer' }).click()
     await expect(page.locator('.pm-ai-answer')).toHaveText('J’ai ajouté un titre.')
     await page.getByRole('button', { name: 'Fermer' }).click()
     await expect(page.locator('.pm-frame h2')).toHaveText('Titre ajouté par l’IA')
     await page.keyboard.press('Control+z')
     await expect(page.getByText('Titre ajouté par l’IA')).toHaveCount(0)
+  })
+
+  test('ne change que la brique sélectionnée, et rien du tout si on rejette', async ({ page }) => {
+    const brick = (ref: string, type: string, text: string) => ({ ref, parent: 'page', type, name: '', props: [{ key: 'text', value: text }], style: [], hidden: false, showIf: '', onClick: [] })
+    // L'assistant renvoie tout le projet, et change aussi le titre : seule la brique visée doit compter.
+    const answer = {
+      name: 'x',
+      summary: 'J’ai réécrit le paragraphe.',
+      theme: { primary: '', radius: 0, font: '' },
+      variables: [],
+      pages: [{ ref: 'page', name: 'Page', title: 'Nouveau projet', style: [], onLoad: [] }],
+      bricks: [brick('titre-1', 'heading', 'Titre changé par erreur'), brick('texte-1', 'text', 'Paragraphe réécrit')],
+    }
+    const sent: { messages: { content: string }[] }[] = []
+    await page.route('https://api.anthropic.com/**', async (route) => {
+      sent.push(route.request().postDataJSON())
+      await route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream', 'access-control-allow-origin': '*' }, body: sse(JSON.stringify(answer)) })
+    })
+    await openBlank(page)
+    await page.evaluate(() => localStorage.setItem('ptt-makers:ia', JSON.stringify({ apiKey: 'sk-ant-test', proxyUrl: '' })))
+    await page.locator('.pm-tile', { hasText: 'Titre' }).click()
+    await page.locator('.pm-tile', { hasText: 'Paragraphe' }).click()
+    const title = await page.locator('.pm-frame h2').textContent()
+
+    await page.getByRole('button', { name: /Assistant IA/ }).click()
+    await page.getByRole('radio', { name: 'Modifier ce projet' }).click()
+    await expect(page.getByText(/Seulement la brique sélectionnée : Paragraphe/)).toBeVisible()
+    await page.getByLabel('Que faut-il changer ?').fill('Réécris ce paragraphe')
+    await page.getByRole('button', { name: 'Modifier le projet' }).click()
+    const review = page.getByRole('region', { name: 'Changements proposés' })
+    await expect(review.getByText('Modifié (1)')).toBeVisible()
+    expect(sent[0].messages[0].content).toContain('la ref est « texte-1 »')
+
+    await review.getByRole('button', { name: 'Rejeter' }).click()
+    await expect(review).toHaveCount(0)
+    await expect(page.locator('.pm-frame p').first()).not.toHaveText('Paragraphe réécrit')
+
+    await page.getByRole('button', { name: 'Modifier le projet' }).click()
+    await review.getByRole('button', { name: 'Appliquer' }).click()
+    await page.getByRole('button', { name: 'Fermer' }).click()
+    await expect(page.locator('.pm-frame p').first()).toHaveText('Paragraphe réécrit')
+    await expect(page.locator('.pm-frame h2')).toHaveText(title!)
   })
 })
 
@@ -680,6 +728,25 @@ test.describe('logiciels prêts à livrer', () => {
     await page.getByRole('button', { name: /Application installable/ }).click()
     expect((await download).suggestedFilename()).toBe('nouveau-projet-application.zip')
   })
+
+  test('numéro de version : passer à la suivante, puis exporter un projet Vite + React', async ({ page }) => {
+    await openBlank(page)
+    await page.getByRole('button', { name: 'Fichier', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Versions…' }).click()
+    await expect(page.locator('.pm-app-version-number')).toHaveText('1.0.0')
+    await page.getByRole('button', { name: 'Évolution (1.1.0)' }).click()
+    await expect(page.locator('.pm-app-version-number')).toHaveText('1.1.0')
+    // Passer à la version suivante garde aussi une photo du projet.
+    await expect(page.locator('.pm-project', { hasText: 'Version 1.1.0' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await page.getByRole('tab', { name: 'Code', exact: true }).click()
+    await expect(page.locator('.pm-code-scroll')).toContainText('<meta name="version" content="1.1.0">')
+
+    await page.getByRole('button', { name: 'Exporter' }).click()
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: /Projet Vite \+ React complet/ }).click()
+    expect((await download).suggestedFilename()).toBe('nouveau-projet-vite-react.zip')
+  })
 })
 
 test.describe('logique avancée', () => {
@@ -829,5 +896,35 @@ test.describe('style pro et gabarits', () => {
     await p.getByRole('button', { name: 'Clair ou sombre' }).click()
     await expect(p.locator('html')).toHaveAttribute('data-ambiance', /sombre|claire/)
     await expect(p.locator('.page').first()).toHaveCSS('background-color', /rgb\(17, 19, 24\)|rgb\(246, 247, 251\)|rgb\(255, 255, 255\)/)
+  })
+})
+
+test.describe('gros projets', () => {
+  test('2 000 briques : les calques et le code n’affichent que ce qui est à l’écran, et suivent la sélection', async ({ page }) => {
+    const nodes: Record<string, object> = {}
+    const children: string[] = []
+    for (let i = 1; i <= 2000; i++) {
+      const id = `texte-${i}`
+      children.push(id)
+      nodes[id] = { id, type: 'text', name: `Paragraphe ${i}`, props: { text: `Ligne numéro ${i}` }, style: {}, children: [], parent: 'page', onClick: [] }
+    }
+    nodes.page = { id: 'page', type: 'page', name: 'Page', props: { title: 'Gros projet' }, style: {}, children, parent: null, onClick: [] }
+    const project = { version: 1, name: 'Gros projet', rootId: 'page', pages: ['page'], nodes, variables: [] }
+    await openBlank(page)
+    await page.getByRole('button', { name: 'Exporter' }).click()
+    await page.locator('input[type=file]').setInputFiles({ name: 'gros.ptt.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(project)) })
+    await expect(page.getByLabel('Nom du projet')).toHaveValue('Gros projet')
+
+    await page.getByRole('tab', { name: 'Calques' }).click()
+    await expect(page.locator('.pm-layer').first()).toBeVisible()
+    expect(await page.locator('.pm-layer').count()).toBeLessThan(200)
+
+    // Une brique tout en bas : sa ligne de calque arrive à l'écran, son code est surligné.
+    await page.getByRole('tab', { name: 'Code', exact: true }).click()
+    expect(await page.locator('.pm-code-line').count()).toBeLessThan(400)
+    await page.locator('.pm-frame [data-ptt-id="texte-1998"]').click()
+    await expect(page.locator('.pm-layer.is-selected')).toContainText('Paragraphe 1998')
+    await expect(page.locator('.pm-layer.is-selected')).toBeInViewport()
+    await expect(page.locator('.pm-code-line.is-hl')).toContainText('Ligne numéro 1998')
   })
 })

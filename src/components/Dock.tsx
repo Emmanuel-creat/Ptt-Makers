@@ -1,5 +1,5 @@
 import { Bug, Check, CircleAlert, Code2, Copy, Download, ExternalLink, Eye, Info, RotateCcw, StepForward, Trash2 } from 'lucide-react'
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { bundle, generate, type GeneratedCode } from '../codegen/generate'
 import { highlightLines, type Lang } from '../codegen/highlight'
 import type { Project } from '../model/types'
@@ -8,6 +8,7 @@ import { DEVICE_WIDTH, useWorkspace, type CodeTab } from '../store/workspace'
 import { downloadFile } from '../utils/download'
 import { ProblemsPanel, useProblems } from './ProblemsPanel'
 import { IconButton } from './ui'
+import { CODE_WINDOW_FROM, useRowWindow } from './virtual'
 
 const cache = new WeakMap<Project, GeneratedCode>()
 /** Code généré pour le projet courant (calculé une seule fois par version du projet). */
@@ -225,6 +226,9 @@ function formatDebugValue(v: unknown): string {
   return String(v)
 }
 
+/** Marge en haut du code (voir .pm-code-pre). */
+const CODE_PAD_TOP = 10
+
 const FILES: Record<CodeTab, { file: string; lang: Lang; mime: string }> = {
   html: { file: 'index.html', lang: 'html', mime: 'text/html' },
   css: { file: 'style.css', lang: 'css', mime: 'text/css' },
@@ -244,16 +248,22 @@ function CodeView() {
   const range = selectedId ? code.map[selectedId]?.[tab] : undefined
   const firstLine = range?.[0]
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Hauteur d'une ligne de code, mesurée sur la première ligne affichée.
+  const [lineHeight, setLineHeight] = useState(20.625)
+  const win = useRowWindow(scrollRef, lines.length, lineHeight, 60, CODE_WINDOW_FROM)
 
-  // Amène les lignes de la brique sélectionnée à l'écran.
+  useLayoutEffect(() => {
+    const h = scrollRef.current?.querySelector('.pm-code-line')?.getBoundingClientRect().height
+    if (h && Math.abs(h - lineHeight) > 0.01) setLineHeight(h)
+  }, [lines, lineHeight])
+
+  // Amène les lignes de la brique sélectionnée à l'écran (calculé : la ligne n'est pas forcément dans la page).
   useEffect(() => {
-    if (!firstLine || !scrollRef.current) return
-    const el = scrollRef.current.querySelector(`[data-line="${firstLine}"]`) as HTMLElement | null
-    if (!el) return
     const box = scrollRef.current
-    const top = el.offsetTop - box.clientHeight / 3
+    if (!firstLine || !box) return
+    const top = CODE_PAD_TOP + (firstLine - 1) * lineHeight - box.clientHeight / 3
     box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
-  }, [selectedId, tab, firstLine])
+  }, [selectedId, tab, firstLine, lineHeight])
 
   const copy = async () => {
     try {
@@ -302,7 +312,9 @@ function CodeView() {
       )}
       <div className="pm-code-scroll" ref={scrollRef} tabIndex={0} aria-label={`Code ${FILES[tab].file}`}>
         <pre className="pm-code-pre">
-          {lines.map((html, i) => {
+          {win.before > 0 && <div aria-hidden="true" style={{ height: win.before }} />}
+          {lines.slice(win.start, win.end).map((html, j) => {
+            const i = win.start + j
             const n = i + 1
             const hl = range && n >= range[0] && n <= range[1]
             return (
@@ -314,6 +326,7 @@ function CodeView() {
               </div>
             )
           })}
+          {win.after > 0 && <div aria-hidden="true" style={{ height: win.after }} />}
         </pre>
       </div>
     </div>

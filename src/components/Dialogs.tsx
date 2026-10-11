@@ -1,9 +1,10 @@
-import { Atom, Check, Copy, FileCode, FileJson, Files, FolderOpen, History, Link2, Plus, RotateCcw, Search, Smartphone, Trash2, Upload, X } from 'lucide-react'
+import { Atom, Check, Copy, FileCode, FileJson, Files, FolderOpen, History, Link2, Package, Plus, RotateCcw, Search, Smartphone, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { toReact, toVue } from '../codegen/frameworks'
+import { toReact, toVue, viteReactFiles } from '../codegen/frameworks'
 import { AssistantDialog } from './Assistant'
 import { bundle, generate } from '../codegen/generate'
 import { CHALLENGES } from '../model/challenges'
+import { bumpVersion, migrateProject } from '../model/migrate'
 import { TEMPLATES, TEMPLATE_FAMILIES, buildProject, parseProject, type TemplateFamily } from '../model/templates'
 import { useEditor } from '../store/editor'
 import { listProjects } from '../store/library'
@@ -174,6 +175,10 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     downloadFile('App.css', css, 'text/css')
     notify('Fichiers App.jsx et App.css téléchargés')
   }
+  const exportViteReact = () => {
+    downloadBytes(`${base}-vite-react.zip`, zip(viteReactFiles(project)), 'application/zip')
+    notify('Projet Vite + React téléchargé : lis LISEZ-MOI.txt pour le lancer')
+  }
   const exportVue = () => {
     downloadFile('App.vue', toVue(project), 'text/plain')
     notify('Fichier App.vue téléchargé')
@@ -193,7 +198,12 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   }
   const importJson = async (file: File) => {
     try {
-      const data = parseProject(JSON.parse(await file.text()))
+      const raw: unknown = JSON.parse(await file.text())
+      if (migrateProject(raw).tooNew) {
+        notify('Ce projet vient d’une version plus récente de Ptt-Makers : mets Ptt-Makers à jour pour l’ouvrir')
+        return
+      }
+      const data = parseProject(raw)
       if (!data) throw new Error('format')
       createProject(data)
       notify(`Projet « ${data.name} » importé dans Mes projets`)
@@ -239,6 +249,13 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
           <span>
             <strong>Composant React</strong>
             <small>App.jsx et App.css, à mettre dans un projet Vite + React.</small>
+          </span>
+        </button>
+        <button type="button" className="pm-export" onClick={exportViteReact}>
+          <Package size={22} />
+          <span>
+            <strong>Projet Vite + React complet</strong>
+            <small>Un .zip prêt à lancer avec npm install puis npm run dev, numéro de version compris.</small>
           </span>
         </button>
         <button type="button" className="pm-export" onClick={exportVue}>
@@ -407,7 +424,8 @@ function ProjectsDialog({ onClose }: { onClose: () => void }) {
 function VersionsDialog({ onClose }: { onClose: () => void }) {
   const projectId = useEditor((s) => s.projectId)
   const projectName = useEditor((s) => s.project.name)
-  const { loadProject, notify } = useEditor.getState()
+  const appVersion = useEditor((s) => s.project.appVersion) ?? '1.0.0'
+  const { loadProject, notify, bumpAppVersion } = useEditor.getState()
   const [name, setName] = useState('')
   const [, refresh] = useState(0)
   const versions = listVersions(projectId)
@@ -423,6 +441,34 @@ function VersionsDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal title="Versions" subtitle={`Des photos de « ${projectName} » que tu peux retrouver plus tard, dans ce navigateur.`} onClose={onClose} wide>
+      <div className="pm-app-version">
+        <div>
+          <span className="pm-muted">Numéro de version de l’application</span>
+          <strong className="pm-app-version-number">{appVersion}</strong>
+          <small className="pm-muted">Il est écrit dans le code exporté. Passer au suivant garde aussi une photo du projet.</small>
+        </div>
+        <div className="pm-app-version-actions">
+          {(
+            [
+              ['correctif', 'Correctif'],
+              ['evolution', 'Évolution'],
+              ['majeure', 'Version majeure'],
+            ] as const
+          ).map(([kind, label]) => (
+            <button
+              key={kind}
+              type="button"
+              className="pm-btn pm-btn-secondary"
+              onClick={() => {
+                bumpAppVersion(kind)
+                update()
+              }}
+            >
+              {label} ({bumpVersion(appVersion, kind)})
+            </button>
+          ))}
+        </div>
+      </div>
       <form
         className="pm-versions-new"
         onSubmit={(e) => {

@@ -1,29 +1,90 @@
 import { ChevronRight, Component, EyeOff, Repeat, Variable, Zap } from 'lucide-react'
-import { useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { EVENT_FIELDS, countActions } from '../model/actions'
 import { isContainer } from '../model/bricks'
 import { canDrop } from '../model/tree'
-import type { DropPosition } from '../model/types'
+import type { BrickNode, DropPosition } from '../model/types'
 import { useEditor } from '../store/editor'
 import { BrickBadge } from './BrickIcon'
+import { useRowWindow } from './virtual'
 
-/** Arbre des calques : la structure du projet, réorganisable par glisser-déposer. */
+/** Hauteur d'une ligne de calque (voir .pm-layer). */
+const ROW = 30
+
+interface LayerRow {
+  id: string
+  depth: number
+}
+
+/** Les lignes visibles de l'arbre, dans l'ordre : on ne descend pas dans les conteneurs repliés. */
+function layerRows(nodes: Record<string, BrickNode>, rootId: string, closed: Set<string>): LayerRow[] {
+  const rows: LayerRow[] = []
+  const walk = (id: string, depth: number) => {
+    const node = nodes[id]
+    if (!node) return
+    rows.push({ id, depth })
+    if (isContainer(node.type) && !closed.has(id)) for (const c of node.children) walk(c, depth + 1)
+  }
+  walk(rootId, 0)
+  return rows
+}
+
+/**
+ * Arbre des calques : la structure du projet, réorganisable par glisser-déposer.
+ * L'arbre est mis à plat et fenêtré : il reste fluide avec des milliers de briques.
+ */
 export function Layers() {
   const rootId = useEditor((s) => s.currentPage)
+  const nodes = useEditor((s) => s.project.nodes)
+  const selectedId = useEditor((s) => s.selectedId)
+  const [closed, setClosed] = useState<Set<string>>(() => new Set())
+  const rows = useMemo(() => layerRows(nodes, rootId, closed), [nodes, rootId, closed])
+  const ref = useRef<HTMLDivElement>(null)
+  const win = useRowWindow(ref, rows.length, ROW)
+
+  const toggle = (id: string) =>
+    setClosed((c) => {
+      const next = new Set(c)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+
+  // La brique choisie sur le canevas : on ouvre ses conteneurs et on l'amène à l'écran.
+  useEffect(() => {
+    if (!selectedId) return
+    const { nodes } = useEditor.getState().project
+    const parents: string[] = []
+    for (let p = nodes[selectedId]?.parent; p; p = nodes[p]?.parent ?? null) parents.push(p)
+    if (parents.some((p) => closed.has(p))) {
+      setClosed((c) => new Set([...c].filter((id) => !parents.includes(id))))
+      return
+    }
+    const el = ref.current
+    const i = rows.findIndex((r) => r.id === selectedId)
+    if (!el || i < 0) return
+    const top = i * ROW
+    if (top < el.scrollTop || top + ROW > el.scrollTop + el.clientHeight) el.scrollTop = Math.max(0, top - el.clientHeight / 3)
+    // Seulement quand la sélection change (ou qu'un conteneur vient de s'ouvrir pour elle).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, closed])
+
   return (
-    <div className="pm-layers" role="tree" aria-label="Calques du projet">
-      <LayerItem id={rootId} depth={0} />
+    <div className="pm-layers" role="tree" aria-label="Calques du projet" ref={ref}>
+      {win.before > 0 && <div aria-hidden="true" style={{ height: win.before }} />}
+      {rows.slice(win.start, win.end).map((r) => (
+        <LayerItem key={r.id} id={r.id} depth={r.depth} open={!closed.has(r.id)} onToggle={toggle} />
+      ))}
+      {win.after > 0 && <div aria-hidden="true" style={{ height: win.after }} />}
     </div>
   )
 }
 
-function LayerItem({ id, depth }: { id: string; depth: number }) {
+const LayerItem = memo(function LayerItem({ id, depth, open, onToggle }: { id: string; depth: number; open: boolean; onToggle: (id: string) => void }) {
   const node = useEditor((s) => s.project.nodes[id])
   const selected = useEditor((s) => s.selectedId === id || s.selection.includes(id))
   const hovered = useEditor((s) => s.hoveredId === id)
   const drop = useEditor((s) => (s.dropTarget?.id === id ? s.dropTarget.position : null))
   const { select, toggleSelect, hover, setDragging, setDropTarget, updateNode } = useEditor.getState()
-  const [open, setOpen] = useState(true)
   const [editing, setEditing] = useState(false)
   if (!node) return null
   const actionCount = EVENT_FIELDS.reduce((n, f) => n + countActions(node[f]), 0)
@@ -51,7 +112,7 @@ function LayerItem({ id, depth }: { id: string; depth: number }) {
   }
 
   return (
-    <div role="treeitem" aria-selected={selected} aria-expanded={container && hasChildren ? open : undefined}>
+    <div role="treeitem" aria-level={depth + 1} aria-selected={selected} aria-expanded={container && hasChildren ? open : undefined}>
       <div
         className={`pm-layer ${selected ? 'is-selected' : ''} ${hovered ? 'is-hovered' : ''} ${drop ? `drop-${drop}` : ''}`}
         style={{ paddingLeft: 8 + depth * 14 }}
@@ -82,7 +143,7 @@ function LayerItem({ id, depth }: { id: string; depth: number }) {
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation()
-            setOpen(!open)
+            onToggle(id)
           }}
         >
           {hasChildren && <ChevronRight size={13} className={open ? 'is-open' : ''} />}
@@ -141,13 +202,6 @@ function LayerItem({ id, depth }: { id: string; depth: number }) {
           )}
         </span>
       </div>
-      {container && open && hasChildren && (
-        <div role="group">
-          {node.children.map((c) => (
-            <LayerItem key={c} id={c} depth={depth + 1} />
-          ))}
-        </div>
-      )}
     </div>
   )
-}
+})

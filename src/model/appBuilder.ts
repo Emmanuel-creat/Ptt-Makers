@@ -1,4 +1,5 @@
 import { mapActions } from './actions'
+import { PROJECT_FORMAT } from './migrate'
 import { fixPlacements } from './freeGrid'
 import { makeNode, type Nodes } from './tree'
 import type { Action, AppFunction, BrickNode, BrickStyle, BrickType, EventField, GridPlace, Project, PropValue, Variable } from './types'
@@ -47,9 +48,9 @@ export interface PageSpec {
 }
 
 /** Construit un projet de plusieurs pages ; la première est la page d'accueil. */
-export function buildApp(name: string, pages: PageSpec[], variables: Variable[] = [], functions?: AppFunction[]): Project {
+/** `refs` (facultatif) reçoit la correspondance « ref du modèle » vers identifiant de la brique créée. */
+export function buildApp(name: string, pages: PageSpec[], variables: Variable[] = [], functions?: AppFunction[], refs = new Map<string, string>()): Project {
   let nodes: Nodes = {}
-  const refs = new Map<string, string>()
   const pending: { id: string; key: EventField; actions: Action[] }[] = []
   const pageIds: string[] = []
 
@@ -99,7 +100,7 @@ export function buildApp(name: string, pages: PageSpec[], variables: Variable[] 
       nodes[node.id] = { ...node, props: { ...node.props, loginPage: resolve(node.props.loginPage) } }
     }
   }
-  const project: Project = { version: 1, name, rootId: ROOT_ID, pages: pageIds, nodes: fixPlacements(nodes), variables }
+  const project: Project = { version: 1, format: PROJECT_FORMAT, name, rootId: ROOT_ID, pages: pageIds, nodes: fixPlacements(nodes), variables }
   if (functions?.length) project.functions = functions.map((f) => ({ name: f.name, actions: resolveActions(f.actions) }))
   return project
 }

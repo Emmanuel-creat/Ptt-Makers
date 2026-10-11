@@ -6,6 +6,7 @@ import type { Action, BrickNode, CollectionField, Condition, EventField, Project
 import { FIELD_TYPES, forEachAction, forEachNodeAction, linePairs, loopingFunctions } from '../model/actions'
 import { collectSubtree } from '../model/tree'
 import { applyVariants } from '../model/instances'
+import { VERSION_RE } from '../model/migrate'
 import { VAR_NAME_RE, interpolate, parseTemplate, toVariableName } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
 import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
@@ -1141,6 +1142,7 @@ function emitJs(g: Gen): string {
   const usesAmbiance = !!project.theme?.darkMode && usesAction(project, 'toggleTheme')
 
   out.push('// Code généré par Ptt-Makers. Tu peux le lire, le copier et le modifier librement !')
+  if (VERSION_RE.test(project.appVersion ?? '')) out.push(`// Version ${project.appVersion} de « ${oneLine(project.name)} ».`)
 
   if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !timers.length && !hasTabs && !hasModals && !hasWidgets && !customCode.length && !functions.length && !forms.length && !usesAmbiance) {
     out.push('// Ce projet ne contient pas encore d’interactions.')
@@ -2044,6 +2046,7 @@ function generateAll(project: Project): GeneratedCode {
   html.push('  <meta charset="UTF-8">')
   html.push('  <meta name="viewport" content="width=device-width, initial-scale=1.0">')
   html.push(`  <title>${escapeHtml(String(root.props.title || project.name))}</title>`)
+  if (VERSION_RE.test(project.appVersion ?? '')) html.push(`  <meta name="version" content="${project.appVersion}">`)
   const fonts = themeFontsUrl(project.theme)
   if (fonts) html.push(`  <link rel="stylesheet" href="${fonts.replace(/&/g, '&amp;')}">`)
   html.push('  <link rel="stylesheet" href="style.css">')

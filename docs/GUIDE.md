@@ -331,8 +331,12 @@ Ensuite, trois modes :
 | Mode | Ce que tu écris | Ce qui se passe |
 |---|---|---|
 | Créer une appli | Une description (« un quiz de 3 questions avec un score ») | Un nouveau projet s'ouvre, construit avec les briques. Ton projet actuel reste dans Mes projets. |
-| Modifier ce projet | Une consigne (« ajoute une page contact ») | Le projet ouvert est mis à jour. `Ctrl/⌘ + Z` annule tout le changement. |
+| Modifier ce projet | Une consigne (« ajoute une page contact ») | L'assistant propose ses changements : tu les relis, puis **Appliquer** ou **Rejeter**. `Ctrl/⌘ + Z` annule ensuite tout le changement. |
 | Expliquer le code | Une question (« à quoi sert afficher() ? ») | La réponse s'écrit en direct, en français simple. |
+
+**Relire avant d'appliquer** <img src="icones/relecture.svg" width="16" height="16" alt=""> : en mode *Modifier ce projet*, rien ne change tant que tu n'as pas choisi. La relecture liste ce qui est **ajouté**, **modifié** et **retiré** (briques, variables, fonctions, style), à côté d'un aperçu du résultat qu'on peut essayer.
+
+**Retouche ciblée** : sélectionne une brique avant d'ouvrir l'assistant. L'interrupteur *Seulement la brique sélectionnée* (allumé par défaut) limite le changement à cette brique et à ce qu'elle contient : « mets ce bouton en rouge avec une icône », « ajoute un champ téléphone à ce formulaire ». Le reste du projet ne bouge pas.
 
 Tout ce que l'assistant crée se modifie ensuite à la main, comme n'importe quel projet.
 
@@ -352,6 +356,7 @@ Les lignes de la brique sélectionnée sont **surlignées**, et un point violet 
 - **Exporter** propose : une page HTML autonome, les trois fichiers séparés, un **composant React** (`App.jsx` et `App.css`), un **composant Vue** (`App.vue`), ou le projet `.json` (à réimporter plus tard).
 - **Copier un lien de partage** met tout le projet dans l'adresse (rien ne part sur un serveur). La personne qui ouvre le lien reçoit sa propre copie dans « Mes projets ».
 - **Application installable** <img src="icones/installable.svg" width="16" height="16" alt=""> télécharge un `.zip`. Mets le dossier `www` en ligne sur une adresse `https://` (GitHub Pages, Netlify…) : le navigateur propose *Installer l'application*, et elle marche ensuite sans internet. Pour Android et iOS, le même dossier se prépare avec Capacitor : `npm install`, puis `npm run android` (Android Studio) ou `npm run ios` (Xcode sur un Mac). Le fichier `LISEZ-MOI.txt` du `.zip` détaille chaque étape.
+- **Projet Vite + React complet** télécharge un `.zip` prêt à lancer : décompresse-le, puis `npm install` et `npm run dev` dans le dossier. `npm run build` prépare le dossier `dist/` à mettre en ligne. Le `package.json` reprend le numéro de version de l'application.
 - Pour React ou Vue : crée un projet avec `npm create vite@latest` (modèle *react* ou *vue*), puis remplace `src/App.jsx` et `src/App.css`, ou `src/App.vue`, par les fichiers exportés.
 
 ## Installer Ptt-Makers sur ton ordinateur
@@ -379,6 +384,16 @@ Un clic sur une ligne sélectionne la brique concernée, ou ouvre la variable. L
 ## Les versions
 
 Menu **Fichier**, **Versions…** <img src="icones/versions.svg" width="16" height="16" alt=""> : donne un nom (« avant la refonte ») et enregistre une photo du projet. Plus tard, **Revenir à cette version** remet le projet dans cet état. Rien ne se perd : l'état actuel est d'abord gardé dans une version automatique, et `Ctrl + Z` annule le retour. Chaque projet garde jusqu'à 30 versions, dans ce navigateur.
+
+### Le numéro de version de l'application
+
+En haut de la fenêtre **Versions…** <img src="icones/numero.svg" width="16" height="16" alt="">, le numéro de ton application (1.0.0 au départ). Trois boutons passent au suivant : **Correctif** (1.0.1, une petite réparation), **Évolution** (1.1.0, une nouveauté) ou **Version majeure** (2.0.0, un grand changement). Chaque passage garde aussi une photo du projet, nommée d'après le numéro. Le numéro est écrit dans le code exporté.
+
+Un projet enregistré avec une ancienne version de Ptt-Makers est **mis à niveau** tout seul à l'ouverture ou à l'import. Un projet venu d'une version plus récente est refusé : mets Ptt-Makers à jour pour l'ouvrir.
+
+## Les gros projets
+
+Ptt-Makers reste fluide avec des milliers de briques <img src="icones/fluide.svg" width="16" height="16" alt="">. Les **calques** (au-delà de 300 lignes) et le **code** (au-delà de 1 500 lignes) n'affichent que les lignes visibles : le défilement les complète au fur et à mesure. Un clic sur une brique de la zone de création ouvre ses conteneurs dans les calques et amène sa ligne à l'écran.
 
 ## Raccourcis clavier
 

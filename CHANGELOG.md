@@ -2,6 +2,20 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.14.0] : 2026-10-11
+
+Des projets qui durent : la huitième vague du plan des 200 améliorations.
+
+### Ajouté
+- **Numéro de version de l'application** (menu Fichier, *Versions…*) : trois boutons font passer au correctif, à l'évolution ou à la version majeure suivante (1.0.0, 1.0.1, 1.1.0, 2.0.0) et gardent une photo du projet. Le numéro est écrit dans le code exporté (`<meta name="version">` et l'en-tête de `script.js`).
+- **Mise à niveau des anciens projets** : chaque projet enregistré porte le numéro de son format. Un projet plus ancien, importé ou ouvert depuis un lien, est mis à niveau tout seul (champs manquants complétés, anciens emoji d'icônes remplacés par des icônes dessinées) ; un projet venu d'une version plus récente de Ptt-Makers est refusé avec un message clair.
+- **Projet Vite + React complet** (Exporter) : un `.zip` prêt à lancer avec `npm install` puis `npm run dev`, avec `package.json` (au numéro de version de l'application), `vite.config.js`, `index.html`, `src/main.jsx`, `src/App.jsx`, `src/App.css` et un `LISEZ-MOI.txt`.
+- **Retouche ciblée par l'assistant IA** : en mode *Modifier ce projet*, avec une brique sélectionnée, l'interrupteur *Seulement la brique sélectionnée* limite le changement à cette brique et à son contenu. Le reste du projet ne bouge pas, même si l'assistant propose autre chose.
+- **Relecture avant d'appliquer** : les changements de l'assistant ne s'appliquent plus directement. Une liste montre ce qui est ajouté, modifié et retiré, à côté d'un aperçu du résultat ; **Appliquer** ou **Rejeter**.
+
+### Amélioré
+- **Gros projets** : les calques et le code n'affichent que les lignes à l'écran. Avec 2 400 briques, ouvrir les calques ne bloque plus l'écran (0,7 s avant), ouvrir le code dix fois moins longtemps. Choisir une brique sur la zone de création ouvre ses conteneurs dans les calques et y amène sa ligne.
+
 ## [2.13.0] : 2026-10-11
 
 Un style de logiciel pro : la septième vague du plan des 200 améliorations.

@@ -1,13 +1,24 @@
-import { KeyRound, Lightbulb, LoaderCircle, Sparkles, Wand2 } from 'lucide-react'
+import { Check, KeyRound, Lightbulb, LoaderCircle, Sparkles, Wand2, X } from 'lucide-react'
 import { useState } from 'react'
 import { describeError, explain, generateProject, isConfigured, modifyProject, readSettings, writeSettings, type AiSettings } from '../ai/assistant'
 import { aiToProject } from '../ai/format'
-import { generate } from '../codegen/generate'
+import { brickTitle, changeCount, diffProjects, graftBrick, type ProjectChanges } from '../ai/review'
+import { bundle, generate } from '../codegen/generate'
+import type { Project } from '../model/types'
 import { useEditor } from '../store/editor'
 import { Modal } from './Dialogs'
-import { Segmented } from './ui'
+import { Segmented, Switch } from './ui'
 
 type Mode = 'create' | 'modify' | 'explain'
+
+/** Changements proposés par l'assistant, en attente d'être appliqués ou rejetés. */
+interface Review {
+  project: Project
+  changes: ProjectChanges
+  summary: string
+  /** Retouche ciblée : la brique à resélectionner après avoir appliqué. */
+  focus?: { id: string; page: string }
+}
 
 const IDEAS = [
   'Un quiz de 3 questions sur l’espace avec un score et un message à la fin',
@@ -26,6 +37,25 @@ export function AssistantDialog({ onClose }: { onClose: () => void }) {
   const [progress, setProgress] = useState(0)
   const [answer, setAnswer] = useState('')
   const [error, setError] = useState('')
+  const [review, setReview] = useState<Review | null>(null)
+  const selected = useEditor((st) => (st.selectedId ? st.project.nodes[st.selectedId] : undefined))
+  const target = selected && selected.type !== 'page' ? selected : undefined
+  const [onlySelected, setOnlySelected] = useState(true)
+
+  const apply = () => {
+    if (!review) return
+    const ed = useEditor.getState()
+    ed.loadProject(review.project)
+    if (review.focus && review.project.nodes[review.focus.id]) useEditor.setState({ selectedId: review.focus.id, currentPage: review.focus.page })
+    ed.notify('Changements de l’assistant appliqués (Ctrl+Z pour annuler)')
+    setAnswer(review.summary)
+    setReview(null)
+    setPrompt('')
+  }
+  const reject = () => {
+    setReview(null)
+    useEditor.getState().notify('Changements de l’assistant rejetés : ton projet n’a pas bougé')
+  }
 
   const run = async () => {
     const text = prompt.trim()
@@ -33,6 +63,7 @@ export function AssistantDialog({ onClose }: { onClose: () => void }) {
     setBusy(true)
     setError('')
     setAnswer('')
+    setReview(null)
     setProgress(0)
     const ed = useEditor.getState()
     try {
@@ -47,15 +78,26 @@ export function AssistantDialog({ onClose }: { onClose: () => void }) {
         setAnswer(ai.summary || 'Ton application est prête.')
         setPrompt('')
       } else {
-        const ai = await modifyProject(settings, ed.project, text, setProgress)
-        const next = aiToProject(ai)
+        const focus = target && onlySelected ? { id: target.id, page: ed.currentPage } : undefined
+        const ai = await modifyProject(settings, ed.project, text, setProgress, focus?.id)
+        const refs = new Map<string, string>()
+        const next = aiToProject(ai, refs)
         const current = useEditor.getState().project
-        // Les réglages faits dans le Studio de style restent si l'assistant garde le même style.
-        const theme = next.theme && current.theme?.tokens && next.theme.style === current.theme.style ? { ...next.theme, tokens: current.theme.tokens } : next.theme
-        ed.loadProject({ ...next, theme, name: current.name, components: current.components })
-        ed.notify('Projet modifié par l’assistant (Ctrl+Z pour annuler)')
-        setAnswer(ai.summary || 'C’est fait.')
-        setPrompt('')
+        let project: Project
+        let changes: ProjectChanges
+        if (focus) {
+          const grafted = graftBrick(current, next, refs, focus.id)
+          if (!grafted) throw new Error('L’assistant a retiré la brique au lieu de la modifier. Reformule ta demande.')
+          project = grafted
+          changes = diffProjects(current, grafted, new Map(Object.keys(grafted.nodes).map((id) => [id, id])))
+        } else {
+          // Les réglages faits dans le Studio de style restent si l'assistant garde le même style.
+          const theme = next.theme && current.theme?.tokens && next.theme.style === current.theme.style ? { ...next.theme, tokens: current.theme.tokens } : next.theme
+          project = { ...next, theme, name: current.name, appVersion: current.appVersion, components: current.components }
+          changes = diffProjects(current, project, refs)
+        }
+        if (!changeCount(changes)) setAnswer('L’assistant n’a rien changé. Essaie de préciser ta demande.')
+        else setReview({ project, changes, summary: ai.summary || 'C’est fait.', focus })
       }
     } catch (e) {
       setError(await describeError(e))
@@ -88,6 +130,7 @@ export function AssistantDialog({ onClose }: { onClose: () => void }) {
             value={mode}
             onChange={(m) => {
               setMode(m)
+              setReview(null)
               setAnswer('')
               setError('')
             }}
@@ -121,6 +164,9 @@ export function AssistantDialog({ onClose }: { onClose: () => void }) {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) run()
           }}
         />
+        {mode === 'modify' && target && (
+          <Switch checked={onlySelected} onChange={setOnlySelected} label={`Seulement la brique sélectionnée : ${brickTitle(target)}`} />
+        )}
         {mode === 'create' && !prompt && (
           <div className="pm-ai-ideas">
             <Lightbulb size={14} aria-hidden="true" />
@@ -137,13 +183,14 @@ export function AssistantDialog({ onClose }: { onClose: () => void }) {
             {busy ? (mode === 'explain' ? 'L’assistant réfléchit…' : 'L’assistant construit…') : mode === 'create' ? 'Créer l’application' : mode === 'modify' ? 'Modifier le projet' : 'Demander'}
           </button>
           {busy && mode !== 'explain' && <span className="pm-muted">{progress ? `${progress.toLocaleString('fr-FR')} caractères reçus` : 'Préparation…'}</span>}
-          {mode === 'modify' && !busy && <span className="pm-muted">Tu pourras annuler avec Ctrl+Z.</span>}
+          {mode === 'modify' && !busy && <span className="pm-muted">Tu verras les changements avant de les appliquer.</span>}
         </div>
         {error && (
           <p className="pm-ai-error" role="alert">
             {error}
           </p>
         )}
+        {review && <ReviewPanel review={review} onApply={apply} onReject={reject} />}
         {answer && (
           <div className="pm-ai-answer" aria-live="polite">
             {answer}
@@ -151,6 +198,51 @@ export function AssistantDialog({ onClose }: { onClose: () => void }) {
         )}
       </div>
     </Modal>
+  )
+}
+
+const SHOWN = 8
+
+function ChangeList({ title, items, kind }: { title: string; items: string[]; kind: 'added' | 'removed' | 'changed' }) {
+  if (!items.length) return null
+  return (
+    <div className={`pm-ai-changes is-${kind}`}>
+      <strong>
+        {title} ({items.length})
+      </strong>
+      <ul>
+        {items.slice(0, SHOWN).map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+        {items.length > SHOWN && <li className="pm-muted">et {items.length - SHOWN} autres</li>}
+      </ul>
+    </div>
+  )
+}
+
+/** Relecture : ce qui change, un aperçu du résultat, et le choix d'appliquer ou non. */
+function ReviewPanel({ review, onApply, onReject }: { review: Review; onApply: () => void; onReject: () => void }) {
+  const html = bundle(generate(review.project), { startPage: review.focus?.page })
+  return (
+    <section className="pm-ai-review" aria-label="Changements proposés">
+      <p className="pm-ai-review-summary">{review.summary}</p>
+      <div className="pm-ai-review-body">
+        <div className="pm-ai-review-lists">
+          <ChangeList title="Ajouté" items={review.changes.added} kind="added" />
+          <ChangeList title="Modifié" items={review.changes.changed} kind="changed" />
+          <ChangeList title="Retiré" items={review.changes.removed} kind="removed" />
+        </div>
+        <iframe className="pm-ai-review-frame" title="Aperçu des changements proposés" sandbox="allow-scripts allow-forms" srcDoc={html} />
+      </div>
+      <div className="pm-ai-actions">
+        <button type="button" className="pm-btn pm-btn-primary" onClick={onApply}>
+          <Check size={16} /> Appliquer
+        </button>
+        <button type="button" className="pm-btn pm-btn-ghost" onClick={onReject}>
+          <X size={16} /> Rejeter
+        </button>
+      </div>
+    </section>
   )
 }
 

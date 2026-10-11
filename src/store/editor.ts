@@ -4,6 +4,7 @@ import { VAR_NAME_RE } from '../model/variables'
 import { isContainer } from '../model/bricks'
 import { clampPlace, defaultSize, fixPlacements, isFreeGrid, setFreeGrid } from '../model/freeGrid'
 import { PAGE_TEMPLATES, addPageTemplate } from '../model/pageTemplates'
+import { bumpVersion } from '../model/migrate'
 import { alignSelfFor, arrangePlaces, type ArrangeMode } from '../model/arrange'
 import { detachAll, instanceRoots, syncInstances, withVariant } from '../model/instances'
 import { renameFunctionCalls, renameVariableInFunctions, renameVariableInNodes } from '../model/refactor'
@@ -20,7 +21,7 @@ import {
   setCurrentProjectId,
   writeProject,
 } from './library'
-import { removeAllVersions } from './versions'
+import { removeAllVersions, saveVersion } from './versions'
 import {
   cloneSubtree,
   collectSubtree,
@@ -147,6 +148,8 @@ interface EditorState {
   scaffoldCollection: (name: string) => void
 
   renameProject: (name: string) => void
+  /** Passe au numéro de version suivant et garde une photo du projet sous ce numéro (Versions). */
+  bumpAppVersion: (kind: 'correctif' | 'evolution' | 'majeure') => string
   /** Remplace le contenu du projet ouvert (annulable). */
   loadProject: (p: Project) => void
   /** Crée un nouveau projet dans « Mes projets » et l'ouvre. */
@@ -804,6 +807,14 @@ export const useEditor = create<EditorState>((rawSet, get) => {
         set({ selectedId: rootId })
         get().notify(`Formulaire et tableau de « ${name} » ajoutés à la page`)
       }
+    },
+
+    bumpAppVersion: (kind) => {
+      const next = bumpVersion(get().project.appVersion, kind)
+      commit(() => ({ appVersion: next }))
+      saveVersion(get().projectId, `Version ${next}`, get().project)
+      get().notify(`Version ${next} : une photo du projet est gardée dans Versions`)
+      return next
     },
 
     renameProject: (name) => commit(() => ({ name }), 'project-name'),
