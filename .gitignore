@@ -27,3 +27,4 @@ dist-ssr
 # Tests
 test-results
 playwright-report
+dist-local

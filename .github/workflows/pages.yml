@@ -25,6 +25,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # Le paquet pour ordinateur se télécharge à côté du site : Ptt-Makers-local.zip
+      - run: npm run paquet:local
+      - run: cp dist-local/Ptt-Makers-local.zip dist/
       - uses: actions/configure-pages@v5
         with:
           enablement: true

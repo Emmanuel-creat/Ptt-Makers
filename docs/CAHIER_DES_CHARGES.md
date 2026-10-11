@@ -141,6 +141,11 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F61** L'action **Aller sur une page** peut **envoyer une valeur**, que la page d'arrivée range dans une variable ; l'adresse `#page/valeur` se partage.
 - **F62** Les actions **s'enchaînent** : un chargement d'API est attendu avant l'action suivante, et l'action **Attendre** fait une pause. Le code généré utilise `async` et `await`.
 
+### 4.17 Version pour ordinateur (version 2.8)
+
+- **F63** Un paquet téléchargeable installe Ptt-Makers sur Windows, macOS ou Linux, sans droits administrateur : l'atelier tient dans un seul fichier et marche sans internet (sauf l'assistant IA).
+- **F64** L'installation pose un raccourci sur le bureau avec l'icône de Ptt-Makers ; il ouvre l'atelier dans sa propre fenêtre.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -171,4 +176,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 13. Le modèle « Gestion de projet » fait passer une carte du kanban dans la colonne suivante et remplit sa barre d'avancement d'un clic ; le modèle « Messagerie mobile » ajoute un message envoyé à la discussion ; le tableau du « Tableau de bord » se trie d'un clic sur un titre.
 14. Dans une collection créée dans l'éditeur, « Créer un formulaire et un tableau » produit un formulaire qui ajoute une fiche au tableau de l'aperçu, et le bouton « Supprimer » d'une ligne la retire ; un fichier CSV importé remplit la collection ; dans le modèle « Gestion de stock », une fiche ajoutée est encore là après un rechargement.
 15. Dans le modèle « Gestion de stock », la valeur du stock est la somme des quantités multipliées par les prix ; chercher « epicerie » ne garde que les deux produits d'épicerie ; le bouton Ajouter, sans nom de produit, affiche « Ce champ est obligatoire. » et n'ajoute rien. Dans le modèle « Formulaire de contact », la confirmation n'apparaît qu'une fois l'e-mail et le message valides.
-16. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+16. Le paquet pour ordinateur ouvre l'atelier depuis un fichier, sans réseau : un modèle choisi s'affiche dans l'aperçu et reste là après un rechargement.
+17. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

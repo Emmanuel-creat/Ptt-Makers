@@ -52,6 +52,18 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 
 ![Ptt-Makers en thème sombre, format mobile, avec les calques et l'aperçu à droite](docs/captures/editeur-sombre.png)
 
+## Installer sur ton ordinateur
+
+<img src="local/icones/ptt-makers.png" width="64" height="64" alt="Icône de Ptt-Makers">
+
+Télécharge [Ptt-Makers-local.zip](https://emmanuel-creat.github.io/Ptt-Makers/Ptt-Makers-local.zip) (ou menu Fichier, « Installer sur mon ordinateur »), décompresse-le et lance l'installateur de ton système :
+
+- **Windows** : double-clic sur `Installer-Windows.bat` ;
+- **macOS** : clic droit sur `Installer-macOS.command`, puis « Ouvrir » ;
+- **Linux** : `installer-linux.sh`.
+
+Un raccourci Ptt-Makers avec son icône apparaît sur le bureau. L'atelier marche alors sans internet (sauf l'assistant IA), et tes projets restent sur ton ordinateur.
+
 ## Démarrer
 
 Prérequis : [Node.js](https://nodejs.org) 22 ou plus.

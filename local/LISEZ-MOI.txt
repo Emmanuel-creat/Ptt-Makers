@@ -1,0 +1,43 @@
+Ptt-Makers, version pour ton ordinateur
+=======================================
+
+Cette version marche sans internet : tout l'atelier tient dans un seul fichier.
+Tes projets sont enregistrés sur ton ordinateur, dans le navigateur qui ouvre l'atelier.
+
+Installation
+------------
+
+Décompresse d'abord le dossier (Windows : clic droit sur le fichier .zip, puis
+« Extraire tout »), puis :
+
+Windows
+  Double-clique sur « Installer-Windows.bat ».
+  Le raccourci Ptt-Makers apparaît sur le bureau et dans le menu Démarrer.
+  Si Windows affiche « Windows a protégé votre ordinateur », clique sur
+  « Informations complémentaires » puis « Exécuter quand même ».
+
+macOS
+  Clic droit sur « Installer-macOS.command », puis « Ouvrir » (la première fois seulement).
+  Ptt-Makers apparaît sur le bureau et dans ton dossier Applications.
+
+Linux
+  Lance « installer-linux.sh » (double-clic, ou ./installer-linux.sh dans un terminal).
+  Ptt-Makers apparaît sur le bureau et dans le menu des applications.
+
+L'atelier s'ouvre dans sa propre fenêtre avec Edge, Chrome, Brave ou Chromium.
+Sans l'un d'eux, il s'ouvre dans ton navigateur habituel.
+
+Bon à savoir
+------------
+
+- Pour retrouver un projet commencé sur le site en ligne : sur le site, menu
+  Fichier, « Exporter… », « Projet Ptt-Makers (.json) ». Puis, dans la version
+  installée, menu Fichier, « Exporter… », « Importer un projet ».
+- L'assistant IA a besoin d'internet ; tout le reste marche hors ligne.
+- Mise à jour : télécharge le nouveau paquet et relance l'installation,
+  tes projets sont gardés.
+- Désinstaller : supprime le raccourci du bureau et le dossier de l'application
+  (Windows : %LOCALAPPDATA%\Ptt-Makers ; macOS : ~/Applications/Ptt-Makers.app ;
+  Linux : ~/.local/share/ptt-makers et ~/.local/share/applications/ptt-makers.desktop).
+
+Auteur : BAILLY emmanuel

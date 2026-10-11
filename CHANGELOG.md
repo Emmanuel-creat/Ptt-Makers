@@ -2,6 +2,16 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.8.0] : 2026-10-11
+
+Ptt-Makers s'installe sur l'ordinateur.
+
+### Ajouté
+- **Version pour ordinateur** : un paquet (Windows, macOS, Linux) qui installe l'atelier en un seul fichier, utilisable sans internet, et pose un **raccourci sur le bureau** avec l'icône de Ptt-Makers. L'atelier s'ouvre dans sa propre fenêtre avec Edge, Chrome, Brave ou Chromium. Sous Windows, le raccourci est aussi dans le menu Démarrer, sans droits administrateur.
+- **Icône d'application** dessinée (les trois blocs de Ptt-Makers sur fond nuit), aux formats Windows, macOS et Linux.
+- Menu Fichier : **Installer sur mon ordinateur** télécharge le paquet, mis à jour à chaque publication sur le site.
+- `npm run paquet:local` prépare le paquet dans `dist-local/`.
+
 ## [2.7.0] : 2026-10-11
 
 La logique d'un vrai logiciel : la deuxième vague du plan des 200 améliorations.
