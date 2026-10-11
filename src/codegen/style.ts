@@ -1,6 +1,6 @@
 import { placeEntries } from '../model/freeGrid'
-import { resolveTokens, type FontId, type ShadowKind } from '../model/styles'
-import type { BrickNode, BrickStyle, ProjectTheme, StyleOverride } from '../model/types'
+import { DEFAULT_TOKENS, alternateTokens, resolveTokens, type FontId, type ShadowKind, type StyleTokens } from '../model/styles'
+import type { BrickNode, BrickStyle, ProjectTheme, StateScope, StyleOverride } from '../model/types'
 
 const ALIGN: Record<string, string> = { start: 'flex-start', center: 'center', end: 'flex-end', stretch: 'stretch' }
 const JUSTIFY: Record<string, string> = {
@@ -105,6 +105,7 @@ export function styleEntries(node: BrickNode, style: BrickStyle = node.style): [
   }
   if (s.shadow && s.shadow !== 'none') add('box-shadow', SHADOWS[s.shadow])
   if (typeof s.opacity === 'number' && s.opacity < 1) add('opacity', String(s.opacity))
+  if (typeof s.scale === 'number' && Number.isFinite(s.scale) && s.scale !== 100) add('transform', `scale(${Math.max(10, Math.min(300, s.scale)) / 100})`)
   // Place de la brique dans son parent.
   if (s.grow) add('flex', '1 1 0')
   if (s.alignSelf) add('align-self', ALIGN[s.alignSelf])
@@ -132,8 +133,35 @@ export function overrideEntries(node: BrickNode, o: StyleOverride | undefined): 
   return out
 }
 
+/** Déclarations d'un état (survol, focus…) : ce qui change, y compris un retour à « rien » (sans ombre, sans bordure…). */
+export function stateEntries(node: BrickNode, style: Partial<BrickStyle> | undefined): [string, string][] {
+  if (!style) return []
+  const out = overrideEntries(node, style)
+  if (style.shadow === 'none') out.push(['box-shadow', 'none'])
+  if (style.opacity === 1) out.push(['opacity', '1'])
+  if (style.borderWidth === 0) out.push(['border', 'none'])
+  if (style.scale === 100) out.push(['transform', 'none'])
+  return out
+}
+
+/** Le sélecteur CSS d'un état : le focus d'un conteneur ou d'un champ suit l'élément qu'il contient. */
+export function stateSelector(node: BrickNode, state: StateScope, sel: string): string {
+  if (state === 'hover') return `${sel}:hover`
+  if (state === 'active') return `${sel}:active`
+  if (state === 'focus') return node.type === 'button' || node.type === 'link' ? `${sel}:focus-visible` : `${sel}:focus-within`
+  return `${sel}:disabled, ${sel}.is-disabled`
+}
+
+/** Les états qui ont un style. */
+export const styledStates = (node: BrickNode): StateScope[] =>
+  (Object.keys(node.states ?? {}) as StateScope[]).filter((k) => Object.keys(node.states![k] ?? {}).length)
+
 /** Style vu sur un format donné : le style de base, puis tablette, puis mobile. */
-export function effectiveStyle(node: BrickNode, device: 'desktop' | 'tablet' | 'mobile'): { style: BrickStyle; hidden: boolean } {
+export function effectiveStyle(node: BrickNode, device: 'desktop' | 'tablet' | 'mobile', state?: StateScope | null): { style: BrickStyle; hidden: boolean } {
+  if (state && node.states?.[state]) {
+    const view = effectiveStyle(node, device)
+    return { style: { ...view.style, ...node.states[state] }, hidden: view.hidden }
+  }
   if (device === 'desktop' || !node.responsive) return { style: node.style, hidden: false }
   const layers = device === 'mobile' ? [node.responsive.tablet, node.responsive.mobile] : [node.responsive.tablet]
   let style = node.style
@@ -233,7 +261,19 @@ function shadows(kind: ShadowKind | undefined, depth: number, dark: boolean): { 
 /** Variables CSS du thème : couleurs, surfaces, relief, flou, arrondis et polices. */
 export function themeEntries(theme: ProjectTheme | undefined): [string, string][] {
   if (!theme) return []
-  const t = resolveTokens(theme)
+  return tokenEntries(resolveTokens(theme), !!(theme.style || theme.tokens))
+}
+
+/** Les variables CSS de l'autre ambiance (sombre ou claire), ou null si le projet n'en a pas. */
+export function alternateThemeEntries(theme: ProjectTheme | undefined): [string, string][] | null {
+  if (!theme?.darkMode) return null
+  return tokenEntries(alternateTokens({ ...DEFAULT_TOKENS, ...resolveTokens(theme) }), true)
+}
+
+/** Le style de base est-il sombre ? (l'autre ambiance est alors claire) */
+export const themeIsDark = (theme: ProjectTheme | undefined) => !!resolveTokens(theme).dark
+
+function tokenEntries(t: Partial<StyleTokens>, full: boolean): [string, string][] {
   const out: [string, string][] = []
   const add = (k: string, v: string | null | undefined) => {
     if (v) out.push([k, v])
@@ -244,7 +284,7 @@ export function themeEntries(theme: ProjectTheme | undefined): [string, string][
   if (radius !== null) add('--arrondi', `${radius}px`)
   if (t.font && t.font !== 'inter' && FONT_STACKS[t.font]) add('--police', FONT_STACKS[t.font])
   // Le reste n'existe que pour un style ou des réglages du Studio.
-  if (!theme.style && !theme.tokens) return out
+  if (!full) return out
   if (t.headingFont && FONT_STACKS[t.headingFont]) add('--police-titre', FONT_STACKS[t.headingFont])
   add('--sur-couleur', sanitizeColor(t.onAccent))
   add('--fond', sanitizeBackground(t.background))

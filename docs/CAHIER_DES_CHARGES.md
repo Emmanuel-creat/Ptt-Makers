@@ -178,6 +178,14 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F83** Un **tableau avancé** : cases modifiables, sélection de lignes et suppression groupée, colonnes redimensionnables.
 - **F84** Des **grilles à zones nommées** et le placement fin dans une rangée ou une colonne (grandir, alignement propre, ordre).
 
+### 4.22 Style de logiciel pro (version 2.13)
+
+- **F85** Des **variantes de composants**, choisies copie par copie.
+- **F86** Un style par **état** (survol, focus, appui, désactivé) et la désactivation d'un bouton ou d'un champ par une variable.
+- **F87** Un **mode sombre** dans l'application générée, selon l'appareil ou avec un bouton, gardé dans le navigateur.
+- **F88** **Aligner et répartir** une multi-sélection.
+- **F89** Des **gabarits de pages** : tableau de bord, paramètres, connexion, liste et détail.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -213,4 +221,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 18. La galerie filtrée sur « Gestion et métiers » et la recherche « tva » ne montrent que la facturation, dont le total TTC vaut 2 284 € ; une brique Code personnalisé affiche le résultat de son script dans l'éditeur et dans l'aperçu ; dans le modèle « Espace membres », la page réservée renvoie vers la connexion puis s'ouvre après la création d'un compte ; l'application installable se télécharge en .zip, et une fois en ligne son service worker est actif.
 19. Dans la liste de tâches, la touche Entrée ajoute une tâche ; une fonction créée dans le panneau Variables et lancée par un bouton change le texte de l'aperçu ; avec le débogueur en pas à pas, le compteur reste à 0 tant que l'on n'a pas cliqué sur *Action suivante*, puis passe à 1.
 20. Dans le modèle « Back-office », le lien *Clients* de la barre latérale ouvre la page des clients ; le formulaire vide affiche « Ce champ est obligatoire. », un e-mail mal écrit bloque l'envoi, puis une fiche complète arrive dans le tableau avec le message « Fleurs de Lyon est ajouté. » ; une case du tableau se modifie sur place ; deux lignes cochées disparaissent avec *Supprimer la sélection*.
-21. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+21. Un fond rouge réglé dans l'état *Survol* d'un bouton n'apparaît dans l'aperçu qu'au passage de la souris ; une variante créée sur une copie d'un composant change le fond de cette copie seulement ; deux briques sélectionnées se centrent d'un clic ; le gabarit « Liste et détail » ouvre la fiche choisie puis revient à la liste ; le bouton *Clair ou sombre* du Back-office change l'ambiance de l'aperçu.
+22. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

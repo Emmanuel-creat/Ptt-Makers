@@ -100,6 +100,24 @@ Par défaut, les briques d'une page s'empilent les unes sous les autres. Pour le
 
 Le modèle **Back-office** réunit le cadre, l'en-tête, un tableau de bord en zones, un formulaire et un tableau avancé.
 
+### États, variantes et alignement
+
+- **États** <img src="icones/etats.svg" width="16" height="16" alt=""> : sous « Style pour », choisis l'**état réglé** : *Survol* (la souris passe dessus), *Focus* (choisie au clavier, ou un champ à l'intérieur), *Appui* (pendant le clic) ou *Désactivé*. Ce que tu changes alors ne vaut que pour cet état, et la brique sélectionnée le montre dans la zone de création. Exemple : un fond plus foncé et une **Taille (%)** de 104 au survol, 97 à l'appui. Reviens sur *Normal* pour le style habituel.
+- **Désactiver si** (Interactions, pour un bouton ou un champ) : tant que la variable choisie est vraie, la brique ne réagit plus. Son allure se règle dans l'état *Désactivé*.
+- **Variantes** : sélectionne une copie liée d'un composant (voir *Mes composants*), écris un nom dans **Nom de la nouvelle variante** puis **Créer**. La copie prend la variante, et le style que tu règles maintenant ne change que la variante, sur toutes les copies qui la choisissent. Le menu **Variante** d'une autre copie la lui donne ; la corbeille la supprime.
+- **Aligner** : sélectionne plusieurs briques (`Maj + clic`). Les boutons *Aligner* les mettent au même bord ou au même centre. Sur une page en grille, *Répartir* laisse le même écart entre elles.
+
+### Gabarits de pages
+
+Le bouton **Gabarit** <img src="icones/gabarits.svg" width="16" height="16" alt=""> (à côté de *Page*, ou le menu Ajouter) ajoute une page toute faite :
+
+- **Tableau de bord** : trois chiffres clés, un graphique et un tableau triable, rangés en zones ;
+- **Paramètres** : un formulaire de profil et de préférences, gardé dans le navigateur ;
+- **Connexion** : se connecter ou créer un compte, puis aller sur la page d'accueil ;
+- **Liste et détail** : deux pages, une liste de fiches avec recherche et la fiche choisie en détail.
+
+Les variables nécessaires sont créées ; si une variable du même nom existe avec un autre type, celle du gabarit est renommée (`utilisateur_2`).
+
 ### Les briques pro
 
 ![Le modèle Gestion de projet : avancement, kanban et calendrier](captures/briques-pro.png)
@@ -246,6 +264,15 @@ Un **Tableau** ou une **Répétition** relié à une collection a, dans ses prop
 La collection elle-même ne change pas : seul l'affichage suit. « Créer un formulaire et un tableau » ajoute déjà une barre de recherche au-dessus du tableau.
 
 Coche **Garder dans le navigateur** sur une variable pour que l'application générée la retrouve après un rechargement de la page (elle est enregistrée dans le navigateur de la personne qui utilise l'application). Le modèle **Gestion de stock** montre tout cela.
+
+### Mode sombre
+
+Dans le **Studio de style** <img src="icones/ambiance.svg" width="16" height="16" alt="">, **Version sombre** ajoute à l'application générée une ambiance sombre calculée à partir de ton style (une ambiance claire si ton style est déjà sombre) :
+
+- **Selon l'appareil** : elle suit le réglage du téléphone ou de l'ordinateur ;
+- **Avec un bouton** : elle ne change qu'avec l'action **Changer d'ambiance**.
+
+Dans les deux cas, l'action **Changer d'ambiance** (groupe *Autres*) bascule et garde le choix dans le navigateur de la personne. *Voir la version sombre* la montre dans la zone de création. Les couleurs données à la main à une brique ne changent pas : *Adapter toutes les briques au style* les retire.
 
 ### Code personnalisé
 

@@ -123,6 +123,9 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 .page .btn:hover { filter: brightness(1.06); }
 .page .btn:active { transform: translateY(1px); }
 .page .btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--couleur, #6c5ce7) 45%, transparent); outline-offset: 2px; }
+.page .btn:disabled, .page .btn.is-disabled { opacity: 0.5; cursor: not-allowed; filter: none; transform: none; }
+.page .is-disabled:has(:disabled) { opacity: 0.6; }
+.page .field :disabled, .page .check :disabled { cursor: not-allowed; }
 .page .btn-primary { background: var(--couleur, #6c5ce7); color: var(--sur-couleur, #ffffff); }
 .page .btn-secondary { background: var(--surface, #ffffff); color: var(--texte, #1b1d29); border: var(--bordure, 1px solid #d6d9e4); }
 .page .btn-ghost { background: transparent; color: var(--couleur, #6c5ce7); }

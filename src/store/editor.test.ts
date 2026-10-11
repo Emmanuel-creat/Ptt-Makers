@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildProject } from '../model/templates'
+import { generate } from '../codegen/generate'
 import { useEditor } from './editor'
 import { listProjects } from './library'
 
@@ -296,6 +297,44 @@ describe('studio de style', () => {
     expect(useEditor.getState().selection).toHaveLength(2)
     useEditor.getState().removeSelection()
     expect(useEditor.getState().project.nodes.page.children).toEqual([card, other])
+  })
+
+  it('une variante change le style des copies qui la choisissent, sans toucher aux autres', () => {
+    const { addBrick, addBrickNearSelection, saveComponent, insertComponent, select } = useEditor.getState()
+    const card = addBrick('card')
+    addBrickNearSelection('text')
+    saveComponent(card, 'Offre')
+    const componentId = useEditor.getState().project.components![0].id
+    select(null)
+    insertComponent(componentId)
+    const copy = useEditor.getState().selectedId!
+    expect(useEditor.getState().addVariant(copy, 'Mise en avant')).toBe(true)
+    expect(useEditor.getState().addVariant(copy, 'Mise en avant')).toBe(false)
+    useEditor.getState().updateVariantStyle(componentId, 'Mise en avant', { background: '#fff3bf', borderWidth: 2 })
+    let css = generate(useEditor.getState().project).css
+    expect(css).toMatch(new RegExp(`#${copy} \\{[^}]*background: #fff3bf`))
+    expect(css).not.toMatch(new RegExp(`#${card} \\{[^}]*background: #fff3bf`))
+    // Modifier l'intérieur d'une copie garde la variante de chacune.
+    const copyText = useEditor.getState().project.nodes[copy].children[0]
+    useEditor.getState().updateProps(copyText, { text: 'Promo' })
+    expect(useEditor.getState().project.nodes[copy].variant).toBe('Mise en avant')
+    expect(useEditor.getState().project.nodes[card].variant).toBeUndefined()
+    // Supprimer la variante ramène ses copies au style normal.
+    useEditor.getState().removeVariant(componentId, 'Mise en avant')
+    expect(useEditor.getState().project.nodes[copy].variant).toBeUndefined()
+    css = generate(useEditor.getState().project).css
+    expect(css).not.toContain('#fff3bf')
+  })
+
+  it('aligne une sélection : hors grille, chaque brique prend le même alignement propre', () => {
+    const { addBrick } = useEditor.getState()
+    const a = addBrick('button')
+    useEditor.getState().select(null)
+    const b = addBrick('button')
+    useEditor.setState({ selection: [a, b], selectedId: b })
+    useEditor.getState().arrangeSelection('centerH')
+    const { nodes } = useEditor.getState().project
+    expect([nodes[a].style.alignSelf, nodes[b].style.alignSelf]).toEqual(['center', 'center'])
   })
 
   it('les copies liées d’un composant restent identiques', () => {

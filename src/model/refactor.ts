@@ -19,6 +19,7 @@ export function renameVariableInNodes(nodes: Nodes, from: string, to: string): N
       ...mapNodeActions(n, renameAction),
       props,
       showIf: n.showIf === from ? to : n.showIf,
+      disabledIf: n.disabledIf === from ? to : n.disabledIf,
     }
   }
   return out
@@ -88,6 +89,7 @@ export function countVariableUses(nodes: Nodes, name: string, functions?: AppFun
       if (typeof v === 'string' && ((VARIABLE_PROPS.has(k) && v === name) || re.test(v))) count++
     }
     if (n.showIf === name) count++
+    if (n.disabledIf === name) count++
     forEachNodeAction(n, countAction)
   }
   for (const f of functions ?? []) forEachAction(f.actions, countAction)

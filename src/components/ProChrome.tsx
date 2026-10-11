@@ -45,6 +45,7 @@ import {
   History,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { PAGE_TEMPLATES } from '../model/pageTemplates'
 import { BRICKS } from '../model/bricks'
 import type { BrickType } from '../model/types'
 import { useEditor } from '../store/editor'
@@ -119,6 +120,7 @@ function useMenus() {
         ...QUICK.map(({ type, icon: Icon }): Item => ({ label: BRICKS[type].label, icon: <Icon size={14} />, run: () => ed.addBrickNearSelection(type) })),
         'sep',
         { label: 'Page', icon: <Plus size={14} />, run: () => ed.addPage() },
+        ...PAGE_TEMPLATES.map((t): Item => ({ label: `Page : ${t.name}`, icon: <LayoutTemplate size={14} />, run: () => ed.addPageTemplate(t.id) })),
       ],
     },
     {

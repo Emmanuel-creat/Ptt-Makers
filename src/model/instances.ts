@@ -1,6 +1,6 @@
 import { EVENT_FIELDS, mapNodeActions } from './actions'
 import { collectSubtree, nextId, type Nodes } from './tree'
-import type { Action, BrickNode, Project, SavedComponent } from './types'
+import type { Action, BrickNode, BrickStyle, Project, SavedComponent } from './types'
 
 /*
  * Composants maîtres et copies liées.
@@ -33,7 +33,7 @@ export function canonical(nodes: Nodes, rootId: string): string {
   return JSON.stringify(
     ids.map((id, i) => {
       const n = nodes[id]
-      const own = i === 0 ? {} : { name: n.name, place: n.place, hidden: n.hidden, showIf: n.showIf }
+      const own = i === 0 ? {} : { name: n.name, place: n.place, hidden: n.hidden, showIf: n.showIf, disabledIf: n.disabledIf }
       const events = mapNodeActions(n, target)
       return {
         ...own,
@@ -41,6 +41,7 @@ export function canonical(nodes: Nodes, rootId: string): string {
         props: n.props,
         style: n.style,
         responsive: n.responsive,
+        states: n.states,
         ...Object.fromEntries(EVENT_FIELDS.map((f) => [f, events[f]])),
         children: n.children.map((c) => index.get(c)),
       }
@@ -55,6 +56,7 @@ function masterFrom(nodes: Nodes, rootId: string, component: SavedComponent): Sa
   const root = { ...subtree[rootId], parent: null, name: component.name }
   delete root.place
   delete root.instanceOf
+  delete root.variant
   return { ...component, rootId, nodes: structuredClone({ ...subtree, [rootId]: root }) }
 }
 
@@ -93,10 +95,12 @@ export function replaceInstance(nodes: Nodes, sourceId: string, targetId: string
       children: n.children.map((c) => map.get(c)!),
     }
   }
-  const root = { ...next[targetId], name: old.name, instanceOf: old.instanceOf, hidden: old.hidden, showIf: old.showIf, place: old.place }
+  const root = { ...next[targetId], name: old.name, instanceOf: old.instanceOf, hidden: old.hidden, showIf: old.showIf, disabledIf: old.disabledIf, place: old.place, variant: old.variant }
   if (!old.place) delete root.place
   if (old.hidden === undefined) delete root.hidden
   if (old.showIf === undefined) delete root.showIf
+  if (old.disabledIf === undefined) delete root.disabledIf
+  if (old.variant === undefined) delete root.variant
   next[targetId] = root
   return next
 }
@@ -126,11 +130,33 @@ export function syncInstances(prev: Project, next: Project): Pick<Project, 'node
 }
 
 /** Détache les copies d'un composant supprimé : elles deviennent des blocs ordinaires. */
-export function detachAll(nodes: Nodes, componentId: string): Nodes {
+export function detachAll(nodes: Nodes, componentId: string, components?: SavedComponent[]): Nodes {
   const out = { ...nodes }
   for (const r of instanceRoots(nodes, componentId)) {
-    const { instanceOf: _gone, ...rest } = r
+    // Une copie détachée garde l'allure de sa variante.
+    const { instanceOf: _gone, variant: _variant, ...rest } = withVariant(r, components)
     out[r.id] = rest
   }
   return out
+}
+
+/** Le style d'une variante, ou rien si la brique n'est pas une copie avec une variante connue. */
+export function variantStyle(node: BrickNode, components: SavedComponent[] | undefined): Partial<BrickStyle> | null {
+  if (!node.instanceOf || !node.variant) return null
+  return components?.find((c) => c.id === node.instanceOf)?.variants?.find((v) => v.name === node.variant)?.style ?? null
+}
+
+/** La brique telle qu'elle s'affiche : le style de sa variante s'ajoute au sien. */
+export function withVariant(node: BrickNode, components: SavedComponent[] | undefined): BrickNode {
+  const extra = variantStyle(node, components)
+  return extra && Object.keys(extra).length ? { ...node, style: { ...node.style, ...extra } } : node
+}
+
+/** Le projet avec les variantes appliquées aux copies (pour le code généré). */
+export function applyVariants(project: Project): Project {
+  const roots = instanceRoots(project.nodes).filter((n) => variantStyle(n, project.components))
+  if (!roots.length) return project
+  const nodes = { ...project.nodes }
+  for (const r of roots) nodes[r.id] = withVariant(r, project.components)
+  return { ...project, nodes }
 }

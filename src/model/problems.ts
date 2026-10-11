@@ -135,6 +135,9 @@ export function findProblems(project: Project): Problem[] {
         if (!a.name) add({ level: 'erreur', message: 'Une action « Lancer une fonction » n’a pas de fonction choisie.', nodeId: node.id })
         else if (!project.functions?.some((f) => f.name === a.name)) add({ level: 'erreur', message: `Une action lance la fonction « ${a.name} », qui n’existe pas.`, nodeId: node.id })
       }
+      if (a.type === 'toggleTheme' && !project.theme?.darkMode) {
+        add({ level: 'attention', message: 'L’action « Changer d’ambiance » ne fait rien tant que la version sombre n’est pas activée dans le Studio de style.', nodeId: node.id })
+      }
       if (a.type === 'if') {
         for (const c of a.more ?? []) {
           if (!c.variable) add({ level: 'erreur', message: 'Une condition « Si » n’a pas de variable choisie.', nodeId: node.id })
@@ -191,6 +194,7 @@ export function findProblems(project: Project): Problem[] {
       for (const value of Object.values(node.props)) {
         if (typeof value === 'string') for (const issue of templateIssues(value, scope)) add({ ...issue, nodeId: node.id })
       }
+      if (node.disabledIf && !variable(node.disabledIf)) add({ level: 'erreur', message: `« Désactiver si » utilise la variable « ${node.disabledIf} », qui n’existe pas.`, nodeId: node.id })
       if (node.showIf && !variable(node.showIf)) add({ level: 'erreur', message: `« Afficher seulement si » utilise la variable « ${node.showIf} », qui n’existe pas.`, nodeId: node.id })
 
       if (node.type === 'repeat' && !String(node.props.source ?? '')) add({ level: 'attention', message: 'La répétition ne parcourt aucune liste.', nodeId: node.id })

@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronRight, Copy, CornerLeftUp, LayoutTemplate, MousePointerClick, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { themeEntries, themeFontsUrl } from '../codegen/style'
+import { alternateThemeEntries, themeEntries, themeFontsUrl } from '../codegen/style'
 import { BRICKS, isContainer } from '../model/bricks'
 import { clampPlace, defaultSize, isFreeGrid } from '../model/freeGrid'
 import { canDrop, getPath, isDescendant } from '../model/tree'
@@ -75,10 +75,12 @@ export function Canvas() {
   const device = useWorkspace((s) => s.device)
   const beginner = useWorkspace((s) => s.beginner)
   const theme = useEditor((s) => s.project.theme)
-  const themeStyle = useMemo(
-    () => Object.fromEntries(themeEntries(theme).map(([k, v]) => [k.startsWith('--') ? k : k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()), v])) as React.CSSProperties,
-    [theme],
-  )
+  // « Voir l'autre ambiance » montre la version sombre (ou claire) dans la zone de création.
+  const showAlternate = useWorkspace((s) => s.showAlternate)
+  const themeStyle = useMemo(() => {
+    const entries = (showAlternate && alternateThemeEntries(theme)) || themeEntries(theme)
+    return Object.fromEntries(entries.map(([k, v]) => [k.startsWith('--') ? k : k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()), v])) as React.CSSProperties
+  }, [theme, showAlternate])
   const fontsUrl = themeFontsUrl(theme)
   // Polices du style chargées dans l'éditeur aussi.
   useEffect(() => {

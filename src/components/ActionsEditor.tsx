@@ -31,6 +31,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   login: 'Se connecter',
   logout: 'Se déconnecter',
   call: 'Lancer une fonction',
+  toggleTheme: 'Changer d’ambiance (claire / sombre)',
 }
 
 const ACTION_GROUPS: { label: string; types: ActionType[] }[] = [
@@ -39,7 +40,7 @@ const ACTION_GROUPS: { label: string; types: ActionType[] }[] = [
   { label: 'Logique', types: ['if', 'call', 'validate', 'wait'] },
   { label: 'Pages et briques', types: ['navigate', 'show', 'hide', 'toggle', 'scrollTo'] },
   { label: 'Comptes', types: ['signup', 'login', 'logout'] },
-  { label: 'Autres', types: ['alert', 'openUrl', 'fetch'] },
+  { label: 'Autres', types: ['alert', 'openUrl', 'fetch', 'toggleTheme'] },
 ]
 
 const CONDITION_OPS: { value: ConditionOp; label: string; needsValue?: boolean }[] = [
@@ -104,6 +105,8 @@ function defaultAction(type: ActionType, ctx: Ctx): Action {
       return { type, variable: ctx.firstVar(['text']) }
     case 'call':
       return { type, name: useEditor.getState().project.functions?.[0]?.name ?? '' }
+    case 'toggleTheme':
+      return { type }
     default:
       return { type, target: ctx.selfId }
   }
@@ -407,6 +410,8 @@ function ActionFields({ action: a, onChange, ctx }: { action: Action; onChange: 
           {a.value?.trim() && <p className="pm-row-help">La page reçoit cette valeur dans la variable choisie dans ses propriétés (« Valeur reçue dans la variable »).</p>}
         </>
       )
+    case 'toggleTheme':
+      return <ThemeToggleHelp />
     case 'validate':
       return (
         <>
@@ -672,5 +677,15 @@ function SetValue({ action, onChange }: { action: Extract<Action, { type: 'set' 
       <span>à</span>
       <TextInput value={action.value} dynamic={variable?.kind !== 'number'} placeholder={variable?.kind === 'number' ? '0' : 'texte'} onChange={onChange} />
     </div>
+  )
+}
+
+/** Rappelle que l'action a besoin de la version sombre du Studio de style. */
+function ThemeToggleHelp() {
+  const darkMode = useEditor((s) => s.project.theme?.darkMode)
+  return darkMode ? (
+    <p className="pm-row-help">Passe de l’ambiance claire à la sombre (ou l’inverse). Le choix est gardé dans le navigateur de la personne.</p>
+  ) : (
+    <p className="pm-row-help is-warning">Active d’abord la « Version sombre » dans le Studio de style : sans elle, cette action ne fait rien.</p>
   )
 }

@@ -3,7 +3,7 @@ import { clampPlace, isFreeGrid } from '../model/freeGrid'
 import { ICON_NAMES } from '../model/icons'
 import { FONT_IDS, STYLE_IDS, stylePreset, type FontId } from '../model/styles'
 import { buildApp, type PageSpec, type Spec } from '../model/templates'
-import { HTTP_METHODS, type Action, type BrickNode, type BrickStyle, type BrickType, type CollectionField, type Condition, type ConditionOp, type HttpMethod, type Project, type ProjectTheme, type PropValue, type Variable, type VariableKind } from '../model/types'
+import { HTTP_METHODS, type Action, type BrickNode, type BrickStyle, type BrickType, type CollectionField, type Condition, type ConditionOp, type HttpMethod, type Project, type ProjectTheme, type PropValue, type StateScope, type Variable, type VariableKind } from '../model/types'
 import { DEFAULT_FIELDS, FIELD_TYPE_LABEL, inferFields, isRecord } from '../model/collections'
 import { VAR_NAME_RE } from '../model/variables'
 
@@ -57,6 +57,18 @@ export interface AiBrick {
   events?: AiEvent[]
   /** Case sur une page en grille (tout à 0 si la page est en pile). */
   place: { col: number; row: number; w: number; h: number }
+  /** Style au survol, au focus, à l'appui ou quand la brique est désactivée (seulement ce qui change). */
+  states?: AiState[]
+  /** Boutons et champs : désactivés tant que cette variable est vraie. */
+  disabledIf?: string
+}
+
+export const AI_STATES = { survol: 'hover', focus: 'focus', appui: 'active', desactive: 'disabled' } as const
+export type AiStateName = keyof typeof AI_STATES
+
+export interface AiState {
+  state: AiStateName
+  style: AiKeyValue[]
 }
 
 export const AI_EVENTS = { survol: 'onHover', saisie: 'onInput', changement: 'onChange', touche: 'onKey', envoi: 'onSubmit' } as const
@@ -97,7 +109,7 @@ export interface AiVariable {
 export interface AiProject {
   name: string
   summary: string
-  theme: { style: string; primary: string; radius: number; font: FontId | '' }
+  theme: { style: string; primary: string; radius: number; font: FontId | ''; darkMode?: 'auto' | 'bouton' | '' }
   variables: AiVariable[]
   pages: AiPage[]
   bricks: AiBrick[]
@@ -130,6 +142,7 @@ const ACTION_TYPES: Action['type'][] = [
   'login',
   'logout',
   'call',
+  'toggleTheme',
 ]
 const BRICK_TYPES = (Object.keys(BRICKS) as BrickType[]).filter((t) => t !== 'page')
 const STYLE_KEYS: (keyof BrickStyle)[] = [
@@ -158,8 +171,9 @@ const STYLE_KEYS: (keyof BrickStyle)[] = [
   'order',
   'area',
   'span',
+  'scale',
 ]
-const NUMERIC_STYLE = new Set<keyof BrickStyle>(['gap', 'padding', 'margin', 'borderRadius', 'borderWidth', 'opacity', 'fontSize', 'order', 'span'])
+const NUMERIC_STYLE = new Set<keyof BrickStyle>(['gap', 'padding', 'margin', 'borderRadius', 'borderWidth', 'opacity', 'fontSize', 'order', 'span', 'scale'])
 
 const obj = (properties: Record<string, unknown>) => ({
   type: 'object',
@@ -205,6 +219,7 @@ export const PROJECT_SCHEMA = obj({
     primary: str,
     radius: { type: 'number' },
     font: { type: 'string', enum: [...FONT_IDS, ''] },
+    darkMode: { type: 'string', enum: ['auto', 'bouton', ''] },
   }),
   variables: { type: 'array', items: obj({ name: str, kind: { type: 'string', enum: ['text', 'number', 'boolean', 'list', 'collection'] }, initial: str, persist: { type: 'boolean' } }) },
   pages: {
@@ -225,6 +240,8 @@ export const PROJECT_SCHEMA = obj({
       onClick: { type: 'array', items: action },
       events: { type: 'array', items: obj({ on: { type: 'string', enum: Object.keys(AI_EVENTS) }, key: str, actions: { type: 'array', items: action } }) },
       place: obj({ col: { type: 'integer' }, row: { type: 'integer' }, w: { type: 'integer' }, h: { type: 'integer' } }),
+      states: { type: 'array', items: obj({ state: { type: 'string', enum: Object.keys(AI_STATES) }, style: keyValues(STYLE_KEYS) }) },
+      disabledIf: str,
     }),
   },
   functions: { type: 'array', items: obj({ name: str, actions: { type: 'array', items: action } }) },
@@ -264,6 +281,24 @@ function toStyle(list: AiKeyValue[]): BrickStyle | undefined {
     else style[key] = value
   }
   return Object.keys(style).length ? (style as BrickStyle) : undefined
+}
+
+/** États (survol, focus, appui, désactivé) de l'IA vers ceux de l'éditeur. */
+function toStates(b: AiBrick): Pick<Spec, 'states' | 'disabledIf'> {
+  const out: Pick<Spec, 'states' | 'disabledIf'> = {}
+  for (const s of b.states ?? []) {
+    const scope = AI_STATES[s.state]
+    const style = scope && toStyle(s.style)
+    if (style) out.states = { ...out.states, [scope]: style }
+  }
+  if (b.disabledIf) out.disabledIf = b.disabledIf
+  return out
+}
+
+function fromStates(n: BrickNode): AiState[] {
+  return (Object.entries(AI_STATES) as [AiStateName, StateScope][])
+    .filter(([, scope]) => n.states?.[scope] && Object.keys(n.states[scope]!).length)
+    .map(([state, scope]) => ({ state, style: kv(n.states![scope] as Record<string, unknown>) }))
 }
 
 /** Événements de l'IA vers ceux de l'éditeur (les touches inconnues deviennent Entrée). */
@@ -350,6 +385,8 @@ function toAction(a: AiBaseAction | AiAction): Action | null {
       return { type: 'logout', variable: a.variable }
     case 'call':
       return { type: 'call', name: a.value }
+    case 'toggleTheme':
+      return { type: 'toggleTheme' }
     case 'addRecord': {
       // value : les valeurs de la fiche en JSON, ex. {"nom": "{{nom_saisi}}", "prix": "{{prix_saisi}}"}
       let values: Record<string, string> = {}
@@ -449,6 +486,7 @@ export function aiToProject(ai: AiProject): Project {
       style: toStyle(b.style),
       hidden: b.hidden || undefined,
       showIf: b.showIf || undefined,
+      ...toStates(b),
       onClick: toActions(b.onClick),
       ...toEvents(b, props),
       place: b.place && b.place.col > 0 && b.place.row > 0 && b.place.w > 0 && b.place.h > 0 ? clampPlace(b.place) : undefined,
@@ -487,12 +525,13 @@ export function aiToProject(ai: AiProject): Project {
     .map((f) => ({ name: f.name, actions: toActions(f.actions) }))
   const project = buildApp(ai.name || 'Projet IA', pages, variables, functions)
   const theme = ai.theme
-  if (theme && (theme.style || theme.primary || theme.font || theme.radius)) {
+  if (theme && (theme.style || theme.primary || theme.font || theme.radius || theme.darkMode)) {
     const t: ProjectTheme = {
       style: stylePreset(theme.style) ? theme.style : undefined,
       primary: /^#[0-9a-f]{6}$/i.test(theme.primary) ? theme.primary : undefined,
       radius: theme.radius > 0 ? theme.radius : undefined,
       font: (FONT_IDS as readonly string[]).includes(theme.font) ? (theme.font as FontId) : undefined,
+      darkMode: theme.darkMode === 'auto' || theme.darkMode === 'bouton' ? theme.darkMode : undefined,
     }
     for (const k of Object.keys(t) as (keyof ProjectTheme)[]) if (t[k] === undefined) delete t[k]
     if (Object.keys(t).length) project.theme = t
@@ -585,6 +624,8 @@ export function projectToAi(p: Project): AiProject {
         showIf: c.showIf ?? '',
         onClick: (c.onClick ?? []).map(fromAction),
         events: fromEvents(c),
+        states: fromStates(c),
+        disabledIf: c.disabledIf ?? '',
         place: c.place ? { ...c.place } : { col: 0, row: 0, w: 0, h: 0 },
       })
       walk(c)
@@ -610,7 +651,7 @@ export function projectToAi(p: Project): AiProject {
   return {
     name: p.name,
     summary: '',
-    theme: { style: p.theme?.style ?? '', primary: p.theme?.primary ?? '', radius: p.theme?.radius ?? 0, font: p.theme?.font ?? '' },
+    theme: { style: p.theme?.style ?? '', primary: p.theme?.primary ?? '', radius: p.theme?.radius ?? 0, font: p.theme?.font ?? '', darkMode: p.theme?.darkMode ?? '' },
     variables: p.variables.map((v) => ({
       name: v.name,
       kind: v.kind,

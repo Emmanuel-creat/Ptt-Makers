@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { StateScope } from '../model/types'
 
 export type Theme = 'system' | 'light' | 'dark'
 /** Interface de l'éditeur : « pro » (sombre et compacte, façon logiciel de 3D) ou « classique ». */
@@ -14,6 +15,8 @@ export type CodeTab = 'html' | 'css' | 'js'
 export type MobileView = 'tools' | 'create' | 'props' | 'preview'
 /** Format dont on modifie le style dans les propriétés. */
 export type StyleScope = 'all' | 'tablet' | 'mobile'
+/** État dont on règle le style : normal, ou survol, focus, appui, désactivé. */
+export type StyleState = 'normal' | StateScope
 
 export const DEVICE_WIDTH: Record<Device, number | null> = { mobile: 390, tablet: 820, desktop: null }
 
@@ -52,6 +55,9 @@ interface WorkspaceState extends Layout {
   codeTab: CodeTab
   mobileView: MobileView
   styleScope: StyleScope
+  styleState: StyleState
+  /** Zone de création : montrer l'autre ambiance (sombre ou claire) du style. */
+  showAlternate: boolean
   /** Défi guidé en cours, lié au projet créé pour lui. */
   challenge: { id: string; projectId: string } | null
   challengesDone: string[]
@@ -77,6 +83,8 @@ export const useWorkspace = create<WorkspaceState>()(
       codeTab: 'html',
       mobileView: 'create',
       styleScope: 'all',
+      styleState: 'normal',
+      showAlternate: false,
       challenge: null,
       challengesDone: [],
       dialog: null,
@@ -85,7 +93,7 @@ export const useWorkspace = create<WorkspaceState>()(
     }),
     {
       name: 'ptt-makers:espace',
-      partialize: ({ dialog: _dialog, splashOpen: _splash, set: _set, resetLayout: _reset, ...rest }) => rest,
+      partialize: ({ dialog: _dialog, splashOpen: _splash, styleState: _state, set: _set, resetLayout: _reset, ...rest }) => rest,
     },
   ),
 )
