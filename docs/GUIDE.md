@@ -22,7 +22,7 @@ Les bords entre zones se **redimensionnent** (glisser, ou flèches du clavier ; 
 
 | Famille | Briques |
 |---|---|
-| 🟪 Structure | Section, Ligne (côte à côte), Colonne (empilé), Grille, Carte |
+| 🟪 Structure | Section, Ligne (côte à côte), Colonne (empilé), Grille, Carte, Répétition |
 | 🟦 Texte | Titre, Paragraphe, Lien, Étiquette, Liste |
 | 🟩 Interaction | Bouton, Champ texte, Zone de texte, Case à cocher, Menu déroulant |
 | 🟧 Médias | Image, Séparateur, Espace |
@@ -45,6 +45,40 @@ Dans la section **Interactions** d'une brique, ajoute des actions qui s'exécute
 donner une valeur à une variable, ajouter un nombre, inverser vrai/faux, afficher/masquer une brique, défiler jusqu'à une brique, afficher un message, ouvrir un lien.
 
 > Exemple : un bouton « + 1 » avec l'action *Ajouter 1 à compteur*, et un titre `{{compteur}}`. C'est le modèle **Compteur**.
+
+Les actions sont rangées par familles : variables, listes, logique, pages et briques, autres (message, lien, données d'API).
+
+### Les conditions
+L'action **Si… alors… sinon…** teste une variable (vraie, fausse, égale à, plus grande que, vide…) et lance les actions de la branche *Alors* ou *Sinon*. Une condition peut en contenir d'autres.
+
+> Exemple : *Si nouvelle n'est pas vide, alors ajouter `{{nouvelle}}` à taches et vider nouvelle, sinon afficher « Écris d'abord une tâche ».* C'est le bouton « Ajouter » du modèle **Liste de tâches**.
+
+## Les listes
+
+1. Dans *Variables*, crée une variable de type **Liste**. Ses éléments de départ s'écrivent un par ligne.
+2. Ajoute une brique **Répétition** (famille Structure) et choisis la liste à parcourir.
+3. Place des briques dedans : elles seront **copiées pour chaque élément**. Écris `{{element}}` pour afficher l'élément, `{{position}}` pour son numéro.
+4. Un bouton placé dans la répétition peut **retirer l'élément de sa copie**.
+
+![Le modèle Liste de tâches : une répétition, une condition « Si… alors… sinon… » et son code JavaScript](captures/liste-taches.png)
+
+`{{taches}}` écrit ailleurs affiche le **nombre** d'éléments de la liste. Dans la zone de création, la première copie est modifiable et les suivantes apparaissent en transparence.
+
+## Plusieurs pages
+
+Les **onglets au-dessus de la zone de création** listent les pages. Le bouton **+ Page** en ajoute une ; le bouton **⋯** permet de la renommer, la dupliquer, la déplacer, en faire la page d'accueil (🏠) ou la supprimer. Double-clique un onglet pour le renommer.
+
+Pour passer d'une page à l'autre : l'action **Aller sur une page**, ou un **Lien** dont le champ *Vers une page du projet* est rempli. L'aperçu s'ouvre sur la page en cours d'édition. Dans le code exporté, toutes les pages sont dans `index.html` et l'adresse se termine par `#nom-de-la-page`.
+
+## Charger des données (API)
+
+Sélectionne une page (*Réglages de la page*) puis la section **Au chargement de la page**, et ajoute l'action **Charger des données** :
+
+- l'**adresse** d'une API qui renvoie du JSON (elle doit commencer par `https://`) ;
+- la **variable** qui recevra le résultat (une Liste pour un tableau de données) ;
+- un **chemin** facultatif pour ne garder qu'une partie de la réponse (ex. `results` ou `data.items`).
+
+Dans une répétition, `{{element.name}}` ou `{{element.address.city}}` affiche un champ de chaque élément. Le modèle **Annuaire (API)** montre tout cela avec une API de démonstration.
 
 ## Comprendre le code
 

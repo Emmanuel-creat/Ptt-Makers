@@ -1,6 +1,6 @@
-import type { BrickStyle, BrickType, Category, PropValue } from './types'
+import type { BrickStyle, BrickType, Category, PropValue, VariableKind } from './types'
 
-export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url'
+export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url' | 'page'
 
 export interface FieldDef {
   key: string
@@ -11,6 +11,8 @@ export interface FieldDef {
   help?: string
   /** Le texte accepte les variables {{nom}}. */
   dynamic?: boolean
+  /** Champ « variable » : types de variables acceptés. */
+  kinds?: VariableKind[]
 }
 
 export interface BrickDef {
@@ -124,6 +126,22 @@ export const BRICKS: Record<BrickType, BrickDef> = {
       shadow: 'sm',
     },
   },
+  repeat: {
+    type: 'repeat',
+    label: 'Répétition',
+    category: 'structure',
+    icon: 'repeat',
+    description: 'Répète son contenu pour chaque élément d’une liste. Écris {{element}} pour afficher l’élément.',
+    container: true,
+    idPrefix: 'repetition',
+    fields: [
+      { key: 'source', label: 'Liste à parcourir', kind: 'variable', kinds: ['list'] },
+      { key: 'columns', label: 'Colonnes', kind: 'number', help: '1 pour une liste, plus pour une grille de cartes.' },
+      { key: 'empty', label: 'Texte si la liste est vide', kind: 'text', placeholder: 'Rien pour le moment.' },
+    ],
+    defaultProps: { source: '', columns: 1, empty: '' },
+    defaultStyle: { direction: 'column', gap: 10 },
+  },
   heading: {
     type: 'heading',
     label: 'Titre',
@@ -170,10 +188,11 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     idPrefix: 'lien',
     fields: [
       { key: 'text', label: 'Texte', kind: 'text', dynamic: true },
+      { key: 'page', label: 'Vers une page du projet', kind: 'page', help: 'Si une page est choisie, le lien y mène au lieu de l’adresse.' },
       { key: 'href', label: 'Adresse', kind: 'url', placeholder: 'https://…' },
       { key: 'newTab', label: 'Ouvrir dans un nouvel onglet', kind: 'boolean' },
     ],
-    defaultProps: { text: 'En savoir plus', href: 'https://example.com', newTab: true },
+    defaultProps: { text: 'En savoir plus', href: 'https://example.com', newTab: true, page: '' },
     defaultStyle: {},
   },
   badge: {
@@ -249,7 +268,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
           { value: 'password', label: 'Mot de passe' },
         ],
       },
-      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', help: 'Ce qui est écrit met à jour la variable.' },
+      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', kinds: ['text', 'number', 'boolean'], help: 'Ce qui est écrit met à jour la variable.' },
     ],
     defaultProps: { label: 'Ton prénom', placeholder: 'Ex. Camille', inputType: 'text', bind: '' },
     defaultStyle: {},
@@ -265,7 +284,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     fields: [
       { key: 'label', label: 'Libellé', kind: 'text' },
       { key: 'placeholder', label: 'Texte indicatif', kind: 'text' },
-      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable' },
+      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', kinds: ['text', 'number', 'boolean'] },
     ],
     defaultProps: { label: 'Message', placeholder: 'Écris ton message…', bind: '' },
     defaultStyle: {},
@@ -280,7 +299,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     idPrefix: 'case',
     fields: [
       { key: 'label', label: 'Libellé', kind: 'text' },
-      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable' },
+      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', kinds: ['boolean', 'text'] },
     ],
     defaultProps: { label: "J'accepte les conditions", bind: '' },
     defaultStyle: {},
@@ -296,7 +315,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     fields: [
       { key: 'label', label: 'Libellé', kind: 'text' },
       { key: 'options', label: 'Choix (un par ligne)', kind: 'textarea' },
-      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable' },
+      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', kinds: ['text', 'number', 'boolean'] },
     ],
     defaultProps: { label: 'Ton choix', options: 'Option A\nOption B\nOption C', bind: '' },
     defaultStyle: {},
@@ -310,7 +329,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     container: false,
     idPrefix: 'image',
     fields: [
-      { key: 'src', label: "Adresse de l'image", kind: 'url', placeholder: 'https://…' },
+      { key: 'src', label: "Adresse de l'image", kind: 'url', placeholder: 'https://…', dynamic: true },
       { key: 'alt', label: 'Description (accessibilité)', kind: 'text', help: 'Lue par les lecteurs d’écran.' },
     ],
     defaultProps: { src: '', alt: 'Illustration' },
@@ -348,6 +367,7 @@ export const PALETTE_ORDER: BrickType[] = [
   'stack',
   'grid',
   'card',
+  'repeat',
   'heading',
   'text',
   'link',

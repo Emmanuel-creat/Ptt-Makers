@@ -43,8 +43,11 @@ export function styleEntries(node: BrickNode): [string, string][] {
     if (value != null && value !== '') out.push([prop, value])
   }
 
+  const cols = Math.max(1, Math.min(12, Math.round(Number(node.props.columns) || 1)))
   if (node.type === 'grid') {
-    const cols = Math.max(1, Math.min(12, Math.round(Number(node.props.columns) || 1)))
+    add('grid-template-columns', `repeat(${cols}, minmax(0, 1fr))`)
+  } else if (node.type === 'repeat' && cols > 1) {
+    add('display', 'grid')
     add('grid-template-columns', `repeat(${cols}, minmax(0, 1fr))`)
   } else if (s.direction) {
     add('flex-direction', s.direction)

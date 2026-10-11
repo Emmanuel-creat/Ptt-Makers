@@ -2,6 +2,27 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.1.0] : 2026-10-11
+
+Ptt-Makers sait maintenant créer de vraies petites applications : plusieurs pages, des listes, de la logique et des données venues d'Internet.
+
+### Ajouté
+- Mise en ligne automatique sur GitHub Pages à chaque mise à jour de `main`.
+- Éditeur utilisable sur téléphone : une zone à la fois et une barre d'onglets en bas de l'écran.
+- **Pages multiples** : onglets de pages au-dessus de la zone de création (ajouter, renommer, dupliquer, réordonner, choisir la page d'accueil, supprimer). L'export reste un seul fichier, avec une navigation par l'adresse (`#nom-de-la-page`).
+- Action « Aller sur une page » et liens vers une page du projet. L'aperçu s'ouvre sur la page en cours d'édition.
+- **Listes dynamiques** : variables de type Liste, brique **Répétition** qui crée une copie de son contenu par élément (`{{element}}`, `{{element.nom}}`, `{{position}}`), texte affiché quand la liste est vide, grille de cartes.
+- Actions de liste : ajouter un élément, retirer l'élément de la copie cliquée (ou le premier, ou le dernier), vider la liste.
+- **Conditions** : action « Si… alors… sinon… » (vrai, faux, égal, différent, plus grand, plus petit, vide, non vide), imbricable.
+- **Données d'API** : action « Charger des données » (JSON) vers une variable, avec un chemin facultatif dans la réponse, et actions **au chargement de la page**.
+- Images dont l'adresse peut venir d'une variable ou d'un élément de liste.
+- Modèles : Liste de tâches, Annuaire (API), Site de plusieurs pages.
+- Tests : 43 tests unitaires et 12 tests de bout en bout.
+
+### Corrigé
+- Un texte contenant `$&` ou `$'` était mal recopié dans la page exportée.
+- Une page masquée (attribut `hidden`) restait visible à cause du style `.page`.
+
 ## [1.0.0] : 2026-10-11
 
 Première version de Ptt-Makers.

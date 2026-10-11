@@ -1,7 +1,7 @@
 import { FileCode, FileJson, Files, Upload, X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { bundle, generate } from '../codegen/generate'
-import { TEMPLATES, isProject } from '../model/templates'
+import { TEMPLATES, parseProject } from '../model/templates'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 import { downloadFile, slugify } from '../utils/download'
@@ -124,8 +124,8 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   }
   const importJson = async (file: File) => {
     try {
-      const data = JSON.parse(await file.text())
-      if (!isProject(data)) throw new Error('format')
+      const data = parseProject(JSON.parse(await file.text()))
+      if (!data) throw new Error('format')
       loadProject(data)
       notify(`Projet « ${data.name} » importé`)
       onClose()

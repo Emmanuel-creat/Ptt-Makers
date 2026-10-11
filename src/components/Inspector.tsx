@@ -9,17 +9,21 @@ import {
   LayoutPanelLeft,
   MousePointerClick,
   Palette as PaletteIcon,
+  Rocket,
   Trash2,
   Type,
   Zap,
 } from 'lucide-react'
+import { useContext } from 'react'
 import { BRICKS, CATEGORIES, type FieldDef } from '../model/bricks'
 import type { BrickNode, BrickStyle } from '../model/types'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
-import { ActionsEditor } from './ActionsEditor'
+import { repeatOf } from '../model/tree'
+import { ActionsEditor, PageSelect } from './ActionsEditor'
 import { BrickBadge } from './BrickIcon'
 import { ColorInput, NumberInput, SelectInput, TextInput, VariableSelect } from './fields'
+import { REPEAT_TOKENS, ScopeTokens } from './scope'
 import { IconButton, Row, Section, Segmented, Switch } from './ui'
 
 const TEXT_TYPES = new Set(['page', 'section', 'row', 'stack', 'grid', 'card', 'heading', 'text', 'link', 'badge', 'list', 'button'])
@@ -28,12 +32,19 @@ const TEXT_TYPES = new Set(['page', 'section', 'row', 'stack', 'grid', 'card', '
 export function Inspector() {
   const selectedId = useEditor((s) => s.selectedId)
   const node = useEditor((s) => (s.selectedId ? s.project.nodes[s.selectedId] : null))
+  const inRepeat = useEditor((s) => (s.selectedId ? repeatOf(s.project.nodes, s.selectedId) != null : false))
   if (!selectedId || !node) return <NoSelection />
-  return <NodeInspector key={node.id} node={node} />
+  return (
+    <ScopeTokens.Provider value={inRepeat ? REPEAT_TOKENS : NO_TOKENS}>
+      <NodeInspector key={node.id} node={node} />
+    </ScopeTokens.Provider>
+  )
 }
 
+const NO_TOKENS: { token: string; hint: string }[] = []
+
 function NoSelection() {
-  const rootId = useEditor((s) => s.project.rootId)
+  const rootId = useEditor((s) => s.currentPage)
   const select = useEditor((s) => s.select)
   return (
     <div className="pm-inspector-empty">
@@ -284,6 +295,22 @@ function NodeInspector({ node }: { node: BrickNode }) {
           </Section>
         )}
 
+        {isRoot && (
+          <Section
+            title="Au chargement de la page"
+            icon={<Rocket size={15} />}
+            defaultOpen={!!node.onLoad?.length}
+            badge={node.onLoad?.length ? <span className="pm-count">{node.onLoad.length}</span> : undefined}
+          >
+            {beginner && (
+              <p className="pm-row-help">
+                Ces actions se lancent à chaque fois que la page s'affiche : idéal pour charger des données depuis une API.
+              </p>
+            )}
+            <ActionsEditor id={node.id} field="onLoad" />
+          </Section>
+        )}
+
         {!isRoot && (
           <Section
             title="Interactions"
@@ -319,11 +346,15 @@ function NodeInspector({ node }: { node: BrickNode }) {
 
 function ContentField({ field: f, node, onChange }: { field: FieldDef; node: BrickNode; onChange: (v: string | number | boolean) => void }) {
   const value = node.props[f.key]
+  const inRepeat = useContext(ScopeTokens).length > 0
+  const tip = inRepeat
+    ? 'Astuce : {{element}} affiche l’élément de la liste, {{element.nom}} un de ses champs, {{position}} son numéro.'
+    : 'Astuce : {{nom}} affiche la valeur d’une variable.'
   if (f.kind === 'boolean') {
     return <Row label={f.label}>{() => <Switch checked={!!value} onChange={onChange} label={value ? 'Oui' : 'Non'} />}</Row>
   }
   return (
-    <Row label={f.label} help={f.help ?? (f.dynamic ? 'Astuce : {{nom}} affiche la valeur d’une variable.' : undefined)} stacked>
+    <Row label={f.label} help={f.help ?? (f.dynamic ? tip : undefined)} stacked>
       {(id) => {
         switch (f.kind) {
           case 'select':
@@ -331,7 +362,9 @@ function ContentField({ field: f, node, onChange }: { field: FieldDef; node: Bri
           case 'number':
             return <NumberInput id={id} value={Number(value) || undefined} unit="" min={1} max={12} onChange={(v) => onChange(v ?? 1)} />
           case 'variable':
-            return <VariableSelect id={id} value={String(value ?? '') || undefined} onChange={onChange} kinds={node.type === 'checkbox' ? ['boolean', 'text'] : undefined} />
+            return <VariableSelect id={id} value={String(value ?? '') || undefined} onChange={onChange} kinds={f.kinds} />
+          case 'page':
+            return <PageSelect id={id} value={String(value ?? '')} onChange={onChange} placeholder="Aucune (utiliser l’adresse)" />
           case 'textarea':
             return <TextInput id={id} value={String(value ?? '')} onChange={onChange} multiline dynamic={f.dynamic} placeholder={f.placeholder} />
           default:
