@@ -46,7 +46,7 @@ interface WorkspaceState extends Layout {
   /** Défi guidé en cours, lié au projet créé pour lui. */
   challenge: { id: string; projectId: string } | null
   challengesDone: string[]
-  dialog: null | 'templates' | 'shortcuts' | 'export' | 'projects' | 'challenges'
+  dialog: null | 'templates' | 'shortcuts' | 'export' | 'projects' | 'challenges' | 'assistant'
   set: (patch: Partial<Omit<WorkspaceState, 'set' | 'resetLayout'>>) => void
   resetLayout: () => void
 }

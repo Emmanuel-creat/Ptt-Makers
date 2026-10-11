@@ -1,6 +1,6 @@
 # Ptt-Makers : cahier des charges
 
-> Version 1.3 · 11 octobre 2026
+> Version 2.0 · 11 octobre 2026
 
 ## 1. Problématique
 
@@ -96,6 +96,12 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F34** Lien de partage : le projet compressé dans l'adresse, ouvert comme une copie dans Mes projets.
 - **F35** Export React (`App.jsx`, `App.css`) et Vue (`App.vue`).
 
+### 4.10 Version Pro : assistant IA (version 2.0)
+- **F36** Créer une application complète (pages, briques, variables, actions, thème) à partir d'une description.
+- **F37** Modifier le projet ouvert à partir d'une consigne, en une étape annulable.
+- **F38** Expliquer le code généré, réponse affichée au fil de l'eau.
+- **F39** Connexion par clé personnelle (gardée dans le navigateur) ou par un serveur relais déployable gratuitement (Cloudflare Worker) qui garde la clé.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -119,4 +125,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 6. Le modèle « Liste de tâches » ajoute et retire des tâches dans l'aperçu ; le modèle « Site de plusieurs pages » passe d'une page à l'autre par un bouton et par le menu ; le modèle « Annuaire » affiche les données reçues d'une API.
 7. Un bloc enregistré dans Mes composants se place à nouveau en un clic ; une brique masquée sur mobile disparaît de l'aperçu mobile seulement ; choisir un modèle garde l'ancien projet dans Mes projets.
 8. Le défi « Ma première page » se coche au fil des ajouts ; un lien de partage ouvert dans un autre navigateur affiche le même projet ; l'export React s'affiche et fonctionne dans React.
-9. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+9. Avec une réponse d'API simulée, l'assistant ouvre un projet qui fonctionne dans l'aperçu, et une modification s'annule avec Ctrl+Z.
+10. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

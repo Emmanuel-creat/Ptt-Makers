@@ -1,0 +1,6 @@
+name = "ptt-makers-ia"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+ORIGINES_AUTORISEES = "https://emmanuel-creat.github.io,http://localhost:5173"

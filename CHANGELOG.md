@@ -2,6 +2,19 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.0] : 2026-10-11
+
+**Ptt-Makers Pro** : un assistant IA construit des applications complètes avec les mêmes briques que toi.
+
+### Ajouté
+- **Assistant IA** (bouton « Assistant IA · Pro ») avec trois modes :
+  - **Créer une appli** : décris ton idée, l'assistant fabrique un nouveau projet (pages, briques, variables, actions, thème) qui s'ouvre dans Mes projets.
+  - **Modifier ce projet** : une consigne (« ajoute une page contact et un menu ») et le projet est mis à jour ; `Ctrl/⌘ + Z` annule.
+  - **Expliquer le code** : une question sur le code généré, la réponse s'écrit en direct.
+- Deux façons de connecter l'assistant : une **clé API Anthropic personnelle**, gardée dans le navigateur, ou un **serveur relais** (dossier `serveur-ia/`, Cloudflare Worker gratuit) qui garde la clé côté serveur pour une classe ou un club.
+- L'assistant utilise le modèle Claude Opus 5.5 avec une sortie JSON contrôlée par un schéma : le projet reçu est vérifié avant d'être ouvert (briques, propriétés et actions inconnues ignorées).
+- Tests : 78 tests unitaires (format d'échange, aller-retour de tous les modèles, relais) et 20 tests de bout en bout (dont l'assistant avec une API simulée).
+
 ## [1.3.0] : 2026-10-11
 
 Apprendre en jouant, partager d'un lien et continuer dans React ou Vue.
