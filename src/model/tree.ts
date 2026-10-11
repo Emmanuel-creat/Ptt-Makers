@@ -1,4 +1,4 @@
-import { mapActions } from './actions'
+import { mapNodeActions } from './actions'
 import { BRICKS, isContainer, type StarterSpec } from './bricks'
 import type { Action, BrickNode, BrickType, DropTarget, PropValue, BrickStyle } from './types'
 
@@ -153,13 +153,11 @@ export function cloneSubtree(source: Nodes, rootId: string, target: Nodes): { no
     const n = source[id]
     const newId = map.get(id)!
     out[newId] = {
-      ...structuredClone(n),
+      ...mapNodeActions(structuredClone(n), retarget),
       id: newId,
       name: n.name.endsWith(' (copie)') ? n.name : `${n.name} (copie)`,
       parent: n.parent && map.has(n.parent) ? map.get(n.parent)! : null,
       children: n.children.map((c) => map.get(c)!),
-      onClick: mapActions(n.onClick, retarget),
-      ...(n.onLoad ? { onLoad: mapActions(n.onLoad, retarget) } : {}),
     }
   }
   // Seule la racine copiée garde le suffixe « (copie) ».

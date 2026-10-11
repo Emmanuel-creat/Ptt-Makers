@@ -81,6 +81,13 @@ export type StyleOverride = Partial<BrickStyle> & {
 /** Comparaisons possibles dans une action « Si ». */
 export type ConditionOp = 'true' | 'false' | 'eq' | 'neq' | 'gt' | 'lt' | 'empty' | 'notEmpty'
 
+/** Une comparaison : variable, opérateur, valeur (un texte, un nombre ou {{une autre variable}}). */
+export interface Condition {
+  variable: string
+  op: ConditionOp
+  value: string
+}
+
 export type Action =
   | { type: 'set'; variable: string; value: string }
   | { type: 'add'; variable: string; amount: number }
@@ -99,18 +106,33 @@ export type Action =
   /** Retirer un élément : celui de la copie cliquée (dans une répétition), le premier ou le dernier. */
   | { type: 'listRemove'; variable: string; which: 'current' | 'first' | 'last' }
   | { type: 'listClear'; variable: string }
-  /** Si la condition est remplie, faire « alors », sinon faire « sinon ». */
-  | { type: 'if'; variable: string; op: ConditionOp; value: string; then: Action[]; else: Action[] }
-  /** Charger des données depuis une adresse web (API JSON) dans une variable. */
-  | { type: 'fetch'; url: string; variable: string; path: string }
+  /**
+   * Si la condition est remplie, faire « alors », sinon faire « sinon ». `more` ajoute d'autres conditions, reliées par
+   * `join` (« et » : toutes vraies, « ou » : au moins une). La valeur comparée peut être une autre variable : {{nom}}.
+   */
+  | { type: 'if'; variable: string; op: ConditionOp; value: string; then: Action[]; else: Action[]; join?: 'and' | 'or'; more?: Condition[] }
+  /**
+   * Appeler une adresse web (API JSON). GET charge des données dans la variable ; POST, PUT, PATCH et DELETE envoient
+   * le corps (une ligne « nom: valeur » par champ, avec des {{variables}}) et peuvent garder la réponse.
+   * Les en-têtes s'écrivent aussi une ligne « Nom: valeur » chacun.
+   */
+  | { type: 'fetch'; url: string; variable: string; path: string; method?: HttpMethod; headers?: string; body?: string }
   /** Ajouter une fiche à une collection : une valeur (qui peut contenir des {{variables}}) par champ. */
   | { type: 'addRecord'; variable: string; values: Record<string, string> }
   /** Comptes de l'application : créer un compte, se connecter (la variable reçoit l'e-mail), se déconnecter (elle est vidée). */
   | { type: 'signup'; variable: string; email: string; password: string }
   | { type: 'login'; variable: string; email: string; password: string }
   | { type: 'logout'; variable: string }
+  /** Lancer une fonction réutilisable du projet (ses actions, puis on continue). */
+  | { type: 'call'; name: string }
 
 export type ActionType = Action['type']
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+export const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
+
+/** Les listes d'actions d'une brique, une par événement. */
+export type EventField = 'onClick' | 'onLoad' | 'onHover' | 'onInput' | 'onChange' | 'onKey' | 'onTimer'
 
 /** Case occupée sur une page en grille : colonne et rangée de départ (à partir de 1), largeur en colonnes, hauteur en rangées. */
 export interface GridPlace {
@@ -134,6 +156,15 @@ export interface BrickNode {
   onClick: Action[]
   /** Pages uniquement : actions lancées quand la page s'affiche. */
   onLoad?: Action[]
+  /** Quand la souris arrive sur la brique. */
+  onHover?: Action[]
+  /** Champs : à chaque lettre tapée, et quand la valeur est validée (champ quitté, choix fait, case cochée). */
+  onInput?: Action[]
+  onChange?: Action[]
+  /** Champs : quand on appuie sur la touche choisie (props.eventKey, Entrée par défaut). */
+  onKey?: Action[]
+  /** Pages : actions répétées toutes les props.timerMs millisecondes. */
+  onTimer?: Action[]
   /** Style propre à la tablette (largeur ≤ 900 px) et au mobile (≤ 600 px). */
   responsive?: Partial<Record<ResponsiveScope, StyleOverride>>
   /** Masquée au démarrage (peut être affichée par une action). */
@@ -190,6 +221,12 @@ export interface ProjectTheme {
   font?: FontId
 }
 
+/** Fonction réutilisable : une suite d'actions nommée, lancée par l'action « Lancer une fonction ». */
+export interface AppFunction {
+  name: string
+  actions: Action[]
+}
+
 /** Bloc réutilisable enregistré par l'utilisateur (une copie est insérée à chaque utilisation). */
 export interface SavedComponent {
   id: string
@@ -209,6 +246,7 @@ export interface Project {
   variables: Variable[]
   theme?: ProjectTheme
   components?: SavedComponent[]
+  functions?: AppFunction[]
 }
 
 export type DropPosition = 'before' | 'after' | 'inside'

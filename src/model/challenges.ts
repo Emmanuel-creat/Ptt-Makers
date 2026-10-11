@@ -1,4 +1,4 @@
-import { forEachAction } from './actions'
+import { forEachNodeAction } from './actions'
 import { BRICKS } from './bricks'
 import type { Action, BrickNode, BrickType, Project } from './types'
 import { parseTemplate } from './variables'
@@ -24,8 +24,7 @@ const has = (p: Project, type: BrickType) => bricks(p, type).length > 0
 const allActions = (p: Project): Action[] => {
   const list: Action[] = []
   for (const n of bricks(p)) {
-    forEachAction(n.onClick ?? [], (a) => list.push(a))
-    forEachAction(n.onLoad ?? [], (a) => list.push(a))
+    forEachNodeAction(n, (a) => list.push(a))
   }
   return list
 }

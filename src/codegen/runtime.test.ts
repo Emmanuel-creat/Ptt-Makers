@@ -24,7 +24,17 @@ function run(source: string | Project) {
 
 const listeners: [string, EventListener][] = []
 
+// Les minuteries lancées par un script sont arrêtées après chaque test.
+const intervals: ReturnType<typeof setInterval>[] = []
+const realSetInterval = globalThis.setInterval
+globalThis.setInterval = ((...args: Parameters<typeof setInterval>) => {
+  const id = realSetInterval(...args)
+  intervals.push(id)
+  return id
+}) as typeof setInterval
+
 afterEach(() => {
+  for (const id of intervals.splice(0)) clearInterval(id)
   for (const [type, fn] of listeners.splice(0)) window.removeEventListener(type, fn)
   document.body.innerHTML = ''
 })
@@ -107,7 +117,7 @@ describe('listes, conditions, pages et API', () => {
     const calls: string[] = []
     globalThis.fetch = ((url: string) => {
       calls.push(url)
-      return Promise.resolve({ json: () => Promise.resolve(users) })
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(users) })
     }) as unknown as typeof fetch
     const $ = run('annuaire')
     expect($('repetition-1').textContent).toContain('Chargement…')
@@ -469,7 +479,7 @@ describe('logique : validation, pages avec une valeur, actions qui attendent', (
     expect(shown()).toBe('attente 0')
     await new Promise((r) => setTimeout(r, 40))
     expect(shown()).toBe('chargement 0')
-    resolveFetch({ json: () => Promise.resolve({ valeur: 42 }) })
+    resolveFetch({ ok: true, json: () => Promise.resolve({ valeur: 42 }) })
     await new Promise((r) => setTimeout(r, 0))
     expect(shown()).toBe('fini 42')
   })
@@ -523,5 +533,269 @@ describe('comptes et pages réservées', () => {
     seConnecter.click()
     await settle()
     expect($(espace).hidden).toBe(false)
+  })
+})
+
+describe('événements : survol, saisie, touche, minuterie', () => {
+  it('chaque événement lance ses actions dans l’application exportée', async () => {
+    const project = buildApp(
+      'Evenements',
+      [
+        {
+          name: 'Accueil',
+          onTimer: [{ type: 'add', variable: 'tours', amount: 1 }],
+          timerMs: 100,
+          children: [
+            {
+              type: 'input',
+              props: { bind: 'saisie', eventKey: 'Enter' },
+              on: {
+                onInput: [{ type: 'add', variable: 'lettres', amount: 1 }],
+                onKey: [
+                  { type: 'listAdd', variable: 'notes', value: '{{saisie}}' },
+                  { type: 'set', variable: 'saisie', value: '' },
+                ],
+              },
+            },
+            { type: 'text', props: { text: '{{lettres}} saisies, {{notes}}' } },
+            { type: 'button', props: { text: 'Survole-moi' }, on: { onHover: [{ type: 'set', variable: 'survol', value: 'oui' }] } },
+            { type: 'text', props: { text: 'survol {{survol}}, tours {{tours}}' } },
+          ],
+        },
+      ],
+      [
+        { name: 'saisie', kind: 'text', initial: '' },
+        { name: 'lettres', kind: 'number', initial: 0 },
+        { name: 'notes', kind: 'list', initial: [] },
+        { name: 'survol', kind: 'text', initial: 'non' },
+        { name: 'tours', kind: 'number', initial: 0 },
+      ],
+    )
+    const $ = run(project)
+    const champ = $('champ-1-champ') as HTMLInputElement
+    champ.value = 'lait'
+    champ.dispatchEvent(new Event('input'))
+    // Une autre touche ne fait rien, Entrée ajoute la note.
+    champ.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }))
+    expect($('texte-1').textContent).toBe('1 saisies, 0')
+    champ.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }))
+    expect($('texte-1').textContent).toBe('1 saisies, 1')
+    expect(champ.value).toBe('')
+    $('bouton-1').dispatchEvent(new MouseEvent('mouseenter'))
+    await new Promise((r) => setTimeout(r, 230))
+    expect($('texte-2').textContent).toMatch(/^survol oui, tours [2-3]$/)
+  })
+})
+
+describe('appels d’API complets', () => {
+  it('POST avec en-têtes et corps JSON, puis la réponse rangée dans une variable', async () => {
+    const calls: { url: string; init?: RequestInit }[] = []
+    globalThis.fetch = ((url: string, init?: RequestInit) => {
+      calls.push({ url, init })
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 7 }) })
+    }) as unknown as typeof fetch
+    const project = buildApp(
+      'Envoi',
+      [
+        {
+          name: 'Accueil',
+          children: [
+            {
+              type: 'button',
+              onClick: [
+                {
+                  type: 'fetch',
+                  method: 'POST',
+                  url: 'https://api.exemple.fr/clients',
+                  headers: 'Authorization: Bearer {{jeton}}',
+                  body: 'nom: {{nom}}\nage: {{age}}\nnote: Client "fidèle" de {{nom}}',
+                  variable: 'cree',
+                  path: 'id',
+                },
+              ],
+            },
+            { type: 'text', props: { text: 'Fiche {{cree}}' } },
+          ],
+        },
+      ],
+      [
+        { name: 'jeton', kind: 'text', initial: 'abc' },
+        { name: 'nom', kind: 'text', initial: 'Léa' },
+        { name: 'age', kind: 'number', initial: 31 },
+        { name: 'cree', kind: 'number', initial: 0 },
+      ],
+    )
+    const $ = run(project)
+    $('bouton-1').click()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(calls).toHaveLength(1)
+    expect(calls[0].init?.method).toBe('POST')
+    expect(calls[0].init?.headers).toEqual({ 'Content-Type': 'application/json', Authorization: 'Bearer abc' })
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ nom: 'Léa', age: 31, note: 'Client "fidèle" de Léa' })
+    expect($('texte-1').textContent).toBe('Fiche 7')
+  })
+
+  it('une réponse en erreur ne remplace pas la variable', async () => {
+    globalThis.fetch = (() => Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) })) as unknown as typeof fetch
+    const error = console.error
+    console.error = () => {}
+    const project = buildApp(
+      'Erreur',
+      [{ name: 'Accueil', children: [{ type: 'button', onClick: [{ type: 'fetch', method: 'DELETE', url: 'https://api.exemple.fr/x', variable: 'r', path: '' }] }, { type: 'text', props: { text: '[{{r}}]' } }] }],
+      [{ name: 'r', kind: 'text', initial: 'avant' }],
+    )
+    const $ = run(project)
+    $('bouton-1').click()
+    await new Promise((r) => setTimeout(r, 0))
+    console.error = error
+    expect($('texte-1').textContent).toBe('[avant]')
+  })
+})
+
+describe('conditions et/ou', () => {
+  const app = (join: 'and' | 'or') =>
+    buildApp(
+      'Conditions',
+      [
+        {
+          name: 'Accueil',
+          children: [
+            {
+              type: 'button',
+              onClick: [
+                {
+                  type: 'if',
+                  variable: 'age',
+                  op: 'gt',
+                  value: '{{minimum}}',
+                  join,
+                  more: [{ variable: 'nom', op: 'eq', value: '{{attendu}}' }],
+                  then: [{ type: 'set', variable: 'resultat', value: 'oui' }],
+                  else: [{ type: 'set', variable: 'resultat', value: 'non' }],
+                },
+              ],
+            },
+            { type: 'text', props: { text: '{{resultat}}' } },
+          ],
+        },
+      ],
+      [
+        { name: 'age', kind: 'number', initial: 20 },
+        { name: 'minimum', kind: 'number', initial: 18 },
+        { name: 'nom', kind: 'text', initial: 'Léa' },
+        { name: 'attendu', kind: 'text', initial: 'Sam' },
+        { name: 'resultat', kind: 'text', initial: '' },
+      ],
+    )
+
+  it('« et » demande que toutes les conditions soient vraies, en comparant deux variables', () => {
+    const $ = run(app('and'))
+    $('bouton-1').click()
+    expect($('texte-1').textContent).toBe('non')
+  })
+
+  it('« ou » se contente d’une seule', () => {
+    const $ = run(app('or'))
+    $('bouton-1').click()
+    expect($('texte-1').textContent).toBe('oui')
+  })
+})
+
+describe('fonctions réutilisables', () => {
+  it('deux boutons lancent la même fonction ; une fonction qui se relance elle-même est ignorée', () => {
+    const project = buildApp(
+      'Fonctions',
+      [
+        {
+          name: 'Accueil',
+          children: [
+            { type: 'button', onClick: [{ type: 'add', variable: 'score', amount: 5 }, { type: 'call', name: 'reinitialiser' }] },
+            { type: 'button', onClick: [{ type: 'call', name: 'reinitialiser' }, { type: 'add', variable: 'score', amount: 1 }] },
+            { type: 'button', onClick: [{ type: 'call', name: 'boucle' }] },
+            { type: 'text', props: { text: '{{score}} / {{essais}}' } },
+          ],
+        },
+      ],
+      [
+        { name: 'score', kind: 'number', initial: 0 },
+        { name: 'essais', kind: 'number', initial: 0 },
+      ],
+      [
+        { name: 'reinitialiser', actions: [{ type: 'set', variable: 'score', value: '0' }, { type: 'add', variable: 'essais', amount: 1 }] },
+        { name: 'boucle', actions: [{ type: 'call', name: 'boucle' }] },
+      ],
+    )
+    const code = generate(project)
+    expect(code.js).toContain('async function fonction_reinitialiser() {')
+    expect(code.js).toContain('Action ignorée : la fonction « boucle » s’appelle elle-même')
+    const $ = run(project)
+    $('bouton-1').click()
+    return new Promise<void>((done) =>
+      setTimeout(() => {
+        expect($('texte-1').textContent).toBe('0 / 1')
+        $('bouton-2').click()
+        $('bouton-3').click()
+        setTimeout(() => {
+          expect($('texte-1').textContent).toBe('1 / 2')
+          done()
+        }, 0)
+      }, 0),
+    )
+  })
+})
+
+describe('débogueur de l’aperçu', () => {
+  it.each(TEMPLATES.map((t) => t.id))('le code avec débogueur du modèle %s est valide, et absent du code normal', (id) => {
+    const project = TEMPLATES.find((t) => t.id === id)!.create()
+    const js = generate(project, { debug: true }).js
+    expect(() => new Function(js)).not.toThrow()
+    expect(generate(project).js).not.toContain('debogueur')
+  })
+
+  it('en pas à pas, chaque action attend « Action suivante »', async () => {
+    const messages: { ptt: string; texte?: string }[] = []
+    const onMessage = (e: MessageEvent) => messages.push(e.data)
+    window.addEventListener('message', onMessage)
+    const project = buildApp(
+      'Pas',
+      [
+        {
+          name: 'Accueil',
+          children: [
+            { type: 'button', onClick: [{ type: 'add', variable: 'n', amount: 1 }, { type: 'add', variable: 'n', amount: 10 }] },
+            { type: 'text', props: { text: '{{n}}' } },
+          ],
+        },
+      ],
+      [{ name: 'n', kind: 'number', initial: 0 }],
+    )
+    const code = generate(project, { debug: true })
+    const body = code.html.slice(code.html.indexOf('<body>') + 6, code.html.indexOf('<script'))
+    document.body.innerHTML = body
+    const add = window.addEventListener
+    window.addEventListener = ((type: string, fn: EventListener) => {
+      listeners.push([type, fn])
+      add.call(window, type, fn)
+    }) as typeof window.addEventListener
+    try {
+      new Function(code.js)()
+    } finally {
+      window.addEventListener = add
+    }
+    const tick = () => new Promise((r) => setTimeout(r, 0))
+    const send = (data: object) => window.dispatchEvent(new MessageEvent('message', { data: { ptt: 'debogueur', ...data } }))
+    send({ pasAPas: true })
+    document.getElementById('bouton-1')!.click()
+    await tick()
+    const text = () => document.getElementById('texte-1')!.textContent
+    expect(text()).toBe('0')
+    send({ suivant: true })
+    await tick()
+    expect(text()).toBe('1')
+    send({ suivant: true })
+    await tick()
+    expect(text()).toBe('11')
+    expect(messages.filter((m) => m.ptt === 'pas').map((m) => m.texte)).toEqual(['Bouton 1 « Cliquer ici », au clic : n + 1', 'Bouton 1 « Cliquer ici », au clic : n + 10'])
+    window.removeEventListener('message', onMessage)
   })
 })

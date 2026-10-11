@@ -2,7 +2,7 @@ import { BRICKS } from './bricks'
 import { BUSINESS_TEMPLATES } from './businessTemplates'
 import { buildApp, buildProject, type Spec, type Template } from './appBuilder'
 import { scaffoldCollection } from './scaffold'
-import type { BrickStyle, Project, Variable } from './types'
+import type { Action, BrickStyle, Project, Variable } from './types'
 
 export { ROOT_ID, buildApp, buildProject, TEMPLATE_FAMILIES } from './appBuilder'
 export type { PageSpec, Spec, Template, TemplateFamily } from './appBuilder'
@@ -13,6 +13,20 @@ const H = (text: string, level: '1' | '2' | '3', style?: BrickStyle): Spec => ({
   style,
 })
 const P = (text: string, style?: BrickStyle): Spec => ({ type: 'text', props: { text }, style })
+
+const ADD_TASK: Action[] = [
+  {
+    type: 'if',
+    variable: 'nouvelle',
+    op: 'notEmpty',
+    value: '',
+    then: [
+      { type: 'listAdd', variable: 'taches', value: '{{nouvelle}}' },
+      { type: 'set', variable: 'nouvelle', value: '' },
+    ],
+    else: [{ type: 'alert', message: 'Écris d’abord une tâche.' }],
+  },
+]
 
 export const TEMPLATES: Template[] = [
   {
@@ -262,24 +276,14 @@ export const TEMPLATES: Template[] = [
                 name: 'Ajout',
                 style: { gap: 8, align: 'end', wrap: false },
                 children: [
-                  { type: 'input', props: { label: 'Nouvelle tâche', placeholder: 'Ex. Réviser les maths', inputType: 'text', bind: 'nouvelle' }, style: { width: '100%' } },
                   {
-                    type: 'button',
-                    props: { text: 'Ajouter', variant: 'primary' },
-                    onClick: [
-                      {
-                        type: 'if',
-                        variable: 'nouvelle',
-                        op: 'notEmpty',
-                        value: '',
-                        then: [
-                          { type: 'listAdd', variable: 'taches', value: '{{nouvelle}}' },
-                          { type: 'set', variable: 'nouvelle', value: '' },
-                        ],
-                        else: [{ type: 'alert', message: 'Écris d’abord une tâche.' }],
-                      },
-                    ],
+                    type: 'input',
+                    props: { label: 'Nouvelle tâche', placeholder: 'Ex. Réviser les maths', inputType: 'text', bind: 'nouvelle', eventKey: 'Enter' },
+                    style: { width: '100%' },
+                    // La touche Entrée ajoute la tâche, comme le bouton.
+                    on: { onKey: ADD_TASK },
                   },
+                  { type: 'button', props: { text: 'Ajouter', variant: 'primary' }, onClick: ADD_TASK },
                 ],
               },
               {

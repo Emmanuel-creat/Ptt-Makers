@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Code2, Copy, Download, ExternalLink, Eye, Info, RotateCcw } from 'lucide-react'
+import { Bug, Check, CircleAlert, Code2, Copy, Download, ExternalLink, Eye, Info, RotateCcw, StepForward, Trash2 } from 'lucide-react'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { bundle, generate, type GeneratedCode } from '../codegen/generate'
 import { highlightLines, type Lang } from '../codegen/highlight'
@@ -51,8 +51,23 @@ export function Dock() {
   )
 }
 
+/** Code de l'aperçu avec débogueur (jamais exporté). */
+function useDebugCode(on: boolean): GeneratedCode | null {
+  const project = useDeferredValue(useEditor((s) => s.project))
+  return useMemo(() => (on ? generate(project, { debug: true }) : null), [project, on])
+}
+
+interface DebugStep {
+  n: number
+  text: string
+}
+
 function Preview() {
-  const code = useGeneratedCode()
+  const [debug, setDebug] = useState(false)
+  const normal = useGeneratedCode()
+  const debugCode = useDebugCode(debug)
+  const code = debugCode ?? normal
+  const frameRef = useRef<HTMLIFrameElement>(null)
   const device = useWorkspace((s) => s.device)
   const name = useEditor((s) => s.project.name)
   const currentPage = useEditor((s) => s.currentPage)
@@ -75,6 +90,9 @@ function Preview() {
           {name}
           {pageName ? ` · ${pageName}` : ''} · {width ? `${width} px` : 'pleine largeur'}
         </span>
+        <IconButton label="Débogueur : suivre les actions une par une" active={debug} onClick={() => setDebug((d) => !d)}>
+          <Bug size={15} />
+        </IconButton>
         <IconButton label="Recommencer (remet les variables à zéro)" onClick={() => setReloadKey((k) => k + 1)}>
           <RotateCcw size={15} />
         </IconButton>
@@ -82,8 +100,9 @@ function Preview() {
           <ExternalLink size={15} />
         </IconButton>
       </div>
-      <div className="pm-preview-stage">
+      <div className={`pm-preview-stage${debug ? ' has-debugger' : ''}`}>
         <iframe
+          ref={frameRef}
           key={reloadKey}
           title="Aperçu interactif du projet"
           className="pm-preview-frame"
@@ -91,9 +110,119 @@ function Preview() {
           sandbox="allow-scripts allow-modals allow-popups allow-forms"
           srcDoc={html}
         />
+        {debug && <DebuggerPanel frameRef={frameRef} resetKey={`${reloadKey}:${html.length}`} />}
       </div>
     </div>
   )
+}
+
+/** Débogueur : la suite des actions lancées, les variables en direct, et le mode pas à pas. */
+function DebuggerPanel({ frameRef, resetKey }: { frameRef: React.RefObject<HTMLIFrameElement | null>; resetKey: string }) {
+  const [steps, setSteps] = useState<DebugStep[]>([])
+  const [state, setState] = useState<Record<string, unknown>>({})
+  const [stepMode, setStepMode] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const counter = useRef(0)
+
+  // Un nouvel aperçu repart de zéro.
+  const [seenKey, setSeenKey] = useState(resetKey)
+  if (seenKey !== resetKey) {
+    setSeenKey(resetKey)
+    setSteps([])
+    setPaused(false)
+  }
+
+  const send = (data: Record<string, unknown>) => frameRef.current?.contentWindow?.postMessage({ ptt: 'debogueur', ...data }, '*')
+
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== frameRef.current?.contentWindow || !e.data || typeof e.data !== 'object') return
+      if (e.data.ptt === 'etat') setState(e.data.etat ?? {})
+      if (e.data.ptt === 'pas') {
+        const text = String(e.data.texte ?? '')
+        setSteps((list) => [...list.slice(-99), { n: ++counter.current, text }])
+        setPaused(!!e.data.pause)
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [frameRef])
+
+  // Le mode pas à pas est renvoyé à chaque chargement de l'aperçu.
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    const sync = () => frame.contentWindow?.postMessage({ ptt: 'debogueur', pasAPas: stepMode }, '*')
+    sync()
+    frame.addEventListener('load', sync)
+    return () => frame.removeEventListener('load', sync)
+  }, [frameRef, stepMode, resetKey])
+
+  const listRef = useRef<HTMLOListElement>(null)
+  useEffect(() => {
+    listRef.current?.lastElementChild?.scrollIntoView({ block: 'nearest' })
+  }, [steps])
+
+  return (
+    <aside className="pm-debugger" aria-label="Débogueur">
+      <div className="pm-debugger-bar">
+        <label className="pm-debugger-mode">
+          <input
+            type="checkbox"
+            checked={stepMode}
+            onChange={(e) => {
+              setStepMode(e.target.checked)
+              if (!e.target.checked) setPaused(false)
+              send({ pasAPas: e.target.checked })
+            }}
+          />
+          Pas à pas
+        </label>
+        <button
+          type="button"
+          className="pm-btn pm-btn-primary pm-btn-sm"
+          disabled={!paused}
+          onClick={() => {
+            setPaused(false)
+            send({ suivant: true })
+          }}
+        >
+          <StepForward size={14} /> Action suivante
+        </button>
+        <IconButton label="Effacer la liste" onClick={() => setSteps([])}>
+          <Trash2 size={14} />
+        </IconButton>
+      </div>
+      <p className="pm-debugger-title">Actions</p>
+      {steps.length ? (
+        <ol className="pm-debugger-steps" ref={listRef}>
+          {steps.map((s, i) => (
+            <li key={s.n} className={paused && i === steps.length - 1 ? 'is-current' : ''}>
+              <span className="pm-debugger-n">{s.n}</span>
+              {s.text}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="pm-muted pm-debugger-empty">Clique, tape ou survole dans l’aperçu : chaque action lancée s’affiche ici.</p>
+      )}
+      <p className="pm-debugger-title">Variables</p>
+      <dl className="pm-debugger-vars">
+        {Object.entries(state).map(([k, v]) => (
+          <div key={k}>
+            <dt>{k}</dt>
+            <dd>{formatDebugValue(v)}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
+  )
+}
+
+function formatDebugValue(v: unknown): string {
+  if (Array.isArray(v)) return `${v.length} élément(s)${v.length ? ` : ${v.slice(0, 3).map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(', ')}${v.length > 3 ? '…' : ''}` : ''}`
+  if (typeof v === 'string') return `« ${v} »`
+  return String(v)
 }
 
 const FILES: Record<CodeTab, { file: string; lang: Lang; mime: string }> = {

@@ -64,4 +64,21 @@ describe('panneau Problèmes', () => {
     expect(problems[0].level).toBe('erreur')
     expect(problems.find((p) => p.message.includes('prenom'))!.nodeId).toBe('texte-1')
   })
+
+  it('signale une fonction inconnue, une fonction qui tourne sans fin et vérifie les actions des fonctions', () => {
+    const project = buildApp(
+      'Fonctions',
+      [{ name: 'Accueil', children: [{ type: 'button', props: { text: 'Go' }, onClick: [{ type: 'call', name: 'absente' }, { type: 'call', name: 'a' }] }] }],
+      [],
+      [
+        { name: 'a', actions: [{ type: 'call', name: 'b' }] },
+        { name: 'b', actions: [{ type: 'call', name: 'a' }, { type: 'add', variable: 'inconnue', amount: 1 }] },
+      ],
+    )
+    const messages = findProblems(project).map((p) => p.message)
+    expect(messages).toContain('Une action lance la fonction « absente », qui n’existe pas.')
+    expect(messages).toContain('La fonction « a » finit par se lancer elle-même : elle tournerait sans fin.')
+    expect(messages).toContain('La fonction « b » finit par se lancer elle-même : elle tournerait sans fin.')
+    expect(messages).toContain('Une action utilise la variable « inconnue », qui n’existe pas.')
+  })
 })

@@ -108,6 +108,25 @@ describe('éditeur', () => {
     expect(a.type === 'if' && a.variable).toBe('points')
     expect(a.type === 'if' && a.then[0].type === 'alert' && a.then[0].message).toBe('Score {{points}}')
   })
+
+  it('fonctions réutilisables : création, renommage partout, variables suivies, annulation', () => {
+    const { addVariable, addBrick, setActions, addFunction, setFunctionActions, renameFunction, updateVariable, undo } = useEditor.getState()
+    addVariable({ name: 'score', kind: 'number', initial: 0 })
+    expect(addFunction('remise')).toBe(true)
+    expect(addFunction('remise')).toBe(false)
+    expect(addFunction('deux mots')).toBe(false)
+    setFunctionActions('remise', [{ type: 'set', variable: 'score', value: '0' }])
+    const b = addBrick('button')
+    setActions(b, [{ type: 'call', name: 'remise' }])
+    expect(renameFunction('remise', 'zero')).toBe(true)
+    updateVariable('score', { name: 'points' })
+    const p = useEditor.getState().project
+    expect(p.nodes[b].onClick).toEqual([{ type: 'call', name: 'zero' }])
+    expect(p.functions).toEqual([{ name: 'zero', actions: [{ type: 'set', variable: 'points', value: '0' }] }])
+    undo()
+    undo()
+    expect(useEditor.getState().project.functions?.[0].name).toBe('remise')
+  })
 })
 
 describe('style par format, composants et projets', () => {

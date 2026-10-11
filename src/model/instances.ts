@@ -1,4 +1,4 @@
-import { mapActions } from './actions'
+import { EVENT_FIELDS, mapNodeActions } from './actions'
 import { collectSubtree, nextId, type Nodes } from './tree'
 import type { Action, BrickNode, Project, SavedComponent } from './types'
 
@@ -34,14 +34,14 @@ export function canonical(nodes: Nodes, rootId: string): string {
     ids.map((id, i) => {
       const n = nodes[id]
       const own = i === 0 ? {} : { name: n.name, place: n.place, hidden: n.hidden, showIf: n.showIf }
+      const events = mapNodeActions(n, target)
       return {
         ...own,
         type: n.type,
         props: n.props,
         style: n.style,
         responsive: n.responsive,
-        onClick: mapActions(n.onClick, target),
-        onLoad: n.onLoad && mapActions(n.onLoad, target),
+        ...Object.fromEntries(EVENT_FIELDS.map((f) => [f, events[f]])),
         children: n.children.map((c) => index.get(c)),
       }
     }),
@@ -87,12 +87,10 @@ export function replaceInstance(nodes: Nodes, sourceId: string, targetId: string
     const n = nodes[id]
     const newId = map.get(id)!
     next[newId] = {
-      ...structuredClone(n),
+      ...mapNodeActions(structuredClone(n), retarget),
       id: newId,
       parent: id === sourceId ? old.parent : map.get(n.parent!)!,
       children: n.children.map((c) => map.get(c)!),
-      onClick: mapActions(n.onClick, retarget),
-      ...(n.onLoad ? { onLoad: mapActions(n.onLoad, retarget) } : {}),
     }
   }
   const root = { ...next[targetId], name: old.name, instanceOf: old.instanceOf, hidden: old.hidden, showIf: old.showIf, place: old.place }
