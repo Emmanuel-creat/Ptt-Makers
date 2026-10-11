@@ -33,6 +33,7 @@ import { ICON_NAMES, iconLabel, resolveIcon } from '../model/icons'
 import { IconSvg } from './CanvasNode'
 import { STYLE_PRESETS, resolveTokens, stylePreset, type FontId, type ShadowKind, type StyleTokens } from '../model/styles'
 import type { BrickNode, BrickStyle, GridPlace, StyleOverride, Variable } from '../model/types'
+import { areaNames } from '../codegen/style'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 import { repeatOf } from '../model/tree'
@@ -336,6 +337,7 @@ function NodeInspector({ node }: { node: BrickNode }) {
                 </Row>
               </div>
               <Row label="Hauteur">{(id) => <LengthInput id={id} value={s.height} onChange={(height) => setStyle({ height })} />}</Row>
+              <ParentPlaceRows node={node} style={s} setStyle={setStyle} />
             </>
           )}
         </Section>
@@ -845,5 +847,62 @@ function IconInput({ id, value, onChange }: { id?: string; value: string; onChan
         {shown.length === 0 && <span className="pm-muted">Aucune icône ne correspond.</span>}
       </div>
     </div>
+  )
+}
+
+/** Place de la brique dans son parent : zone ou colonnes dans une grille, place restante, alignement et ordre ailleurs. */
+function ParentPlaceRows({ node, style: s, setStyle }: { node: BrickNode; style: StyleOverride; setStyle: (patch: Partial<StyleOverride>) => void }) {
+  const parent = useEditor((st) => (node.parent ? st.project.nodes[node.parent] : undefined))
+  if (!parent || isFreeGrid(parent) || parent.type === 'tabs' || parent.type === 'accordion') return null
+  if (parent.type === 'grid') {
+    const areas = areaNames(parent.props.areas)
+    return (
+      <div className="pm-row-pair">
+        {areas.length > 0 && (
+          <Row label="Zone de la grille">
+            {(id) => (
+              <SelectInput
+                id={id}
+                value={s.area}
+                placeholder="Case suivante"
+                options={areas.map((a) => ({ value: a, label: a }))}
+                onChange={(v) => setStyle({ area: v || undefined })}
+              />
+            )}
+          </Row>
+        )}
+        <Row label="Colonnes couvertes">
+          {(id) => <NumberInput id={id} value={s.span} unit="" min={1} max={12} placeholder="1" onChange={(span) => setStyle({ span: span && span > 1 ? span : undefined })} />}
+        </Row>
+      </div>
+    )
+  }
+  return (
+    <>
+      <Row label="Prendre la place restante" help="Dans une rangée, la brique s’étire pour remplir l’espace libre.">
+        {() => <Switch checked={!!s.grow} onChange={(grow) => setStyle({ grow: grow || undefined })} label={s.grow ? 'Oui' : 'Non'} />}
+      </Row>
+      <div className="pm-row-pair">
+        <Row label="Alignement propre">
+          {(id) => (
+            <SelectInput
+              id={id}
+              value={s.alignSelf}
+              placeholder="Comme le parent"
+              onChange={(v) => setStyle({ alignSelf: (v || undefined) as BrickStyle['alignSelf'] })}
+              options={[
+                { value: 'start', label: 'Au début' },
+                { value: 'center', label: 'Au centre' },
+                { value: 'end', label: 'À la fin' },
+                { value: 'stretch', label: 'Étirer' },
+              ]}
+            />
+          )}
+        </Row>
+        <Row label="Ordre" help="Les plus petits d’abord ; utile pour changer l’ordre sur mobile seulement.">
+          {(id) => <NumberInput id={id} value={s.order} unit="" min={-10} max={10} placeholder="0" onChange={(order) => setStyle({ order: order || undefined })} />}
+        </Row>
+      </div>
+    </>
   )
 }

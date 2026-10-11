@@ -799,3 +799,101 @@ describe('débogueur de l’aperçu', () => {
     window.removeEventListener('message', onMessage)
   })
 })
+
+describe('formulaire complet, dates et cadre d’application', () => {
+  it('le formulaire vérifie ses champs, lance ses actions, se vide et affiche son message', () => {
+    const project = buildApp(
+      'Formulaire',
+      [
+        {
+          name: 'Accueil',
+          children: [
+            {
+              type: 'form',
+              props: { submitText: 'Réserver', successText: 'Merci {{nom}} !', resetAfter: true },
+              on: { onSubmit: [{ type: 'listAdd', variable: 'reservations', value: '{{nom}} le {{jour}}' }] },
+              children: [
+                { type: 'input', props: { label: 'Nom', bind: 'nom', required: true } },
+                { type: 'input', props: { label: 'Jour', bind: 'jour', inputType: 'date', min: '2026-10-01', max: '2026-12-31', required: true } },
+              ],
+            },
+            { type: 'text', props: { text: '{{reservations}} réservation(s)' } },
+          ],
+        },
+      ],
+      [
+        { name: 'nom', kind: 'text', initial: '' },
+        { name: 'jour', kind: 'text', initial: '' },
+        { name: 'reservations', kind: 'list', initial: [] },
+      ],
+    )
+    const $ = run(project)
+    const form = $('formulaire-1') as HTMLFormElement
+    const nom = $('champ-1-champ') as HTMLInputElement
+    const jour = $('champ-2-champ') as HTMLInputElement
+    const submit = () => form.dispatchEvent(new Event('submit', { cancelable: true }))
+    submit()
+    expect($('texte-1').textContent).toBe('0 réservation(s)')
+    expect($('champ-1-erreur').textContent).toBe('Ce champ est obligatoire.')
+    nom.value = 'Lina'
+    nom.dispatchEvent(new Event('input'))
+    jour.value = '2027-01-05'
+    jour.dispatchEvent(new Event('input'))
+    submit()
+    expect($('champ-2-erreur').textContent).toBe('Choisis 31/12/2026 ou avant.')
+    jour.value = '2026-11-05'
+    jour.dispatchEvent(new Event('input'))
+    submit()
+    expect($('texte-1').textContent).toBe('1 réservation(s)')
+    expect(nom.value).toBe('')
+    const ok = form.querySelector('.form-success') as HTMLElement
+    expect(ok.hidden).toBe(false)
+    expect(ok.textContent).toBe('Merci Lina !')
+  })
+
+  it('tableau avancé : cases modifiables, sélection et suppression groupée, tri sur la bonne colonne', () => {
+    const project = buildApp(
+      'Tableau',
+      [{ name: 'Accueil', children: [{ type: 'table', props: { source: 'eleves', editable: true, selectable: true, sortable: true } }, { type: 'text', props: { text: '{{eleves}} élève(s)' } }] }],
+      [
+        {
+          name: 'eleves',
+          kind: 'collection',
+          fields: [
+            { name: 'nom', label: 'Nom', type: 'text' },
+            { name: 'note', label: 'Note', type: 'number' },
+          ],
+          initial: [
+            { nom: 'Zoé', note: 12 },
+            { nom: 'Adam', note: 15 },
+            { nom: 'Lina', note: 9 },
+          ],
+        },
+      ],
+    )
+    const $ = run(project)
+    const rows = () => [...$('tableau-1').querySelectorAll('tbody tr')] as HTMLTableRowElement[]
+    const note = rows()[0].querySelector('input[type=number]') as HTMLInputElement
+    expect(note.value).toBe('12')
+    note.value = '18'
+    note.dispatchEvent(new Event('change'))
+    expect((rows()[0].querySelector('input[type=number]') as HTMLInputElement).value).toBe('18')
+    // Le tri lit la valeur des champs, sur la colonne cliquée malgré la colonne de sélection.
+    ;($('tableau-1').querySelectorAll('th button')[1] as HTMLButtonElement).click()
+    expect(rows().map((r) => (r.querySelector('input[type=text]') as HTMLInputElement).value)).toEqual(['Lina', 'Adam', 'Zoé'])
+    const bar = $('tableau-1').querySelector('.table-bar') as HTMLElement
+    expect(bar.hidden).toBe(true)
+    const check = (r: HTMLTableRowElement) => {
+      const c = r.querySelector('.table-select input') as HTMLInputElement
+      c.checked = true
+      c.dispatchEvent(new Event('change'))
+    }
+    check(rows()[0])
+    check(rows()[1])
+    expect(bar.hidden).toBe(false)
+    expect(bar.textContent).toContain('2 ligne(s) sélectionnée(s)')
+    ;(bar.querySelector('button') as HTMLButtonElement).click()
+    expect($('texte-1').textContent).toBe('1 élève(s)')
+    expect(bar.hidden).toBe(true)
+  })
+})

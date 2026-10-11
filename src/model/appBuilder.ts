@@ -15,7 +15,7 @@ export interface Spec {
   /** Les cibles peuvent s'écrire « @ref » pour viser une autre brique du modèle. */
   onClick?: Action[]
   /** Les autres événements : survol, saisie, changement, touche. */
-  on?: Partial<Record<'onHover' | 'onInput' | 'onChange' | 'onKey', Action[]>>
+  on?: Partial<Record<'onHover' | 'onInput' | 'onChange' | 'onKey' | 'onSubmit', Action[]>>
   /** Case sur une page en grille. */
   place?: GridPlace
   children?: Spec[]

@@ -15,6 +15,9 @@ export function brickClass(node: BrickNode): string {
     case 'accordion':
     case 'modal':
     case 'navbar':
+    case 'form':
+    case 'appshell':
+    case 'appheader':
     case 'video':
     case 'icon':
     case 'badge':
@@ -29,7 +32,7 @@ export function brickClass(node: BrickNode): string {
     case 'checkbox':
       return 'check'
     case 'table':
-      return node.props.striped ? 'table is-striped' : 'table'
+      return ['table', node.props.striped && 'is-striped', node.props.resizable && 'is-resizable'].filter(Boolean).join(' ')
     case 'chart':
       return `chart chart-${node.props.kind === 'courbe' || node.props.kind === 'anneau' ? node.props.kind : 'barres'}`
     case 'calendar':
@@ -237,6 +240,58 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 .page .navbar a { color: inherit; font-weight: 500; text-decoration: none; opacity: 0.8; }
 .page .navbar a:hover, .page .navbar a.is-active { opacity: 1; text-decoration: underline; text-underline-offset: 5px; }
 
+/* Formulaire : les champs, le bouton d'envoi, puis le message de réussite */
+.page .form { display: flex; flex-direction: column; min-width: 0; }
+.page .form-submit { align-self: flex-start; }
+.page .form-success {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #16a34a 12%, transparent);
+  color: #15803d;
+  font-weight: 600;
+}
+
+/* Cadre d'application : barre latérale à gauche, zone principale à droite */
+.page .appshell {
+  display: grid;
+  grid-template-columns: var(--largeur-barre, 220px) minmax(0, 1fr);
+  min-height: 100vh;
+  min-width: 0;
+}
+.page .app-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 12px;
+  background: var(--barre, #1b1d29);
+  color: var(--sur-barre, #ffffff);
+}
+.page .app-brand { padding: 4px 10px 16px; font-size: 1.1rem; font-weight: 800; }
+.page .app-sidebar a {
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  opacity: 0.8;
+}
+.page .app-sidebar a:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+.page .app-sidebar a.is-active { opacity: 1; background: var(--couleur, #6c5ce7); color: var(--sur-couleur, #ffffff); }
+.page .app-main { display: flex; flex-direction: column; min-width: 0; }
+
+/* En-tête d'application : titres à gauche, actions à droite */
+.page .appheader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: var(--bordure, 1px solid #e4e6ef);
+}
+.page .appheader-title { margin: 0; font-size: 1.5rem; }
+.page .appheader-subtitle { margin: 2px 0 0; color: var(--texte-doux, #6b7083); }
+.page .appheader-actions { display: flex; flex-wrap: wrap; align-items: center; gap: inherit; }
+
 /* Briques pro : surfaces qui suivent le style du projet */
 .page .table, .page .chart, .page .calendar, .page .chat, .page .stat, .page .kanban-col {
   min-width: 0;
@@ -259,6 +314,34 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 .page .table tbody tr:hover { background: color-mix(in srgb, var(--couleur, #6c5ce7) 7%, transparent); }
 .page .table th button { padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
 .page .table th button::after { content: " ↕"; opacity: 0.45; }
+/* Tableau avancé : colonnes redimensionnables, cases modifiables, sélection */
+.page .table.is-resizable th { resize: horizontal; overflow: hidden; min-width: 60px; }
+.page .table-edit {
+  width: 100%;
+  min-width: 80px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.page .table-edit:hover { border-color: var(--trait, #e4e6ef); }
+.page .table-edit:focus { outline: none; border-color: var(--couleur, #6c5ce7); background: var(--surface, #ffffff); }
+.page .table-edit[type="checkbox"] { width: 18px; min-width: 0; accent-color: var(--couleur, #6c5ce7); }
+.page .table .table-select { width: 1%; }
+.page .table .table-select input { width: 16px; height: 16px; accent-color: var(--couleur, #6c5ce7); }
+.page .table tr.is-selected { background: color-mix(in srgb, var(--couleur, #6c5ce7) 10%, transparent); }
+.page .table-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--couleur, #6c5ce7) 10%, transparent);
+  font-weight: 600;
+}
+.page .table-bar[hidden] { display: none; }
 .page .table th[aria-sort="ascending"] button::after { content: " ↑"; opacity: 1; }
 .page .table th[aria-sort="descending"] button::after { content: " ↓"; opacity: 1; }
 .page .table-img { display: block; width: 40px; height: 40px; object-fit: cover; border-radius: 8px; }
@@ -366,9 +449,13 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 .page .icon { display: inline-block; width: fit-content; line-height: 1; color: var(--icone, inherit); }
 .page .icon svg { display: block; width: 1em; height: 1em; }
 
-/* Sur petit écran, les grilles passent sur une seule colonne. */
+/* Sur petit écran, les grilles passent sur une seule colonne, et la barre latérale passe en haut. */
 @container (max-width: 640px) {
-  .page .grid, .page .repeat { grid-template-columns: 1fr !important; }
+  .page .grid, .page .repeat { grid-template-columns: 1fr !important; grid-template-areas: none !important; }
+  .page .grid > * { grid-area: auto !important; grid-column: auto !important; }
+  .page .appshell { grid-template-columns: 1fr; min-height: 0; }
+  .page .app-sidebar { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 10px 12px; }
+  .page .app-brand { padding: 4px 10px; margin-right: auto; }
 }
 
 /* Page en grille : 12 colonnes et des rangées de 40 px ; chaque brique occupe sa case. */

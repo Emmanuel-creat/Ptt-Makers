@@ -34,6 +34,9 @@ import {
   TrendingUp,
   Gauge,
   Code2,
+  ClipboardList,
+  PanelLeft,
+  PanelTopDashed,
   type LucideIcon,
 } from 'lucide-react'
 import { BRICKS } from '../model/bricks'
@@ -53,6 +56,9 @@ const ICONS: Record<string, LucideIcon> = {
   navbar: Menu,
   video: Video,
   code: Code2,
+  form: ClipboardList,
+  appshell: PanelLeft,
+  appheader: PanelTopDashed,
   smile: Smile,
   heading: Heading,
   text: Pilcrow,

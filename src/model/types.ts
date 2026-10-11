@@ -36,6 +36,9 @@ export type BrickType =
   | 'stat'
   | 'progress'
   | 'code'
+  | 'form'
+  | 'appshell'
+  | 'appheader'
 
 export type Category = 'structure' | 'texte' | 'interaction' | 'medias' | 'pro'
 
@@ -65,6 +68,15 @@ export interface BrickStyle {
   fontSize?: number
   fontWeight?: '400' | '500' | '600' | '700' | '800'
   textAlign?: 'left' | 'center' | 'right'
+  /** Dans une rangée ou une pile : prendre la place restante. */
+  grow?: boolean
+  /** Alignement propre, différent de celui choisi par le parent. */
+  alignSelf?: Align
+  /** Position dans le parent (les plus petits d'abord). */
+  order?: number
+  /** Dans une grille : la zone nommée occupée, ou le nombre de colonnes couvertes. */
+  area?: string
+  span?: number
 }
 
 export type PropValue = string | number | boolean
@@ -132,7 +144,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 
 /** Les listes d'actions d'une brique, une par événement. */
-export type EventField = 'onClick' | 'onLoad' | 'onHover' | 'onInput' | 'onChange' | 'onKey' | 'onTimer'
+export type EventField = 'onClick' | 'onLoad' | 'onHover' | 'onInput' | 'onChange' | 'onKey' | 'onTimer' | 'onSubmit'
 
 /** Case occupée sur une page en grille : colonne et rangée de départ (à partir de 1), largeur en colonnes, hauteur en rangées. */
 export interface GridPlace {
@@ -165,6 +177,8 @@ export interface BrickNode {
   onKey?: Action[]
   /** Pages : actions répétées toutes les props.timerMs millisecondes. */
   onTimer?: Action[]
+  /** Formulaires : actions lancées à l'envoi, une fois tous les champs vérifiés. */
+  onSubmit?: Action[]
   /** Style propre à la tablette (largeur ≤ 900 px) et au mobile (≤ 600 px). */
   responsive?: Partial<Record<ResponsiveScope, StyleOverride>>
   /** Masquée au démarrage (peut être affichée par une action). */

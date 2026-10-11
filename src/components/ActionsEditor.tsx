@@ -118,6 +118,7 @@ export const EVENT_LABELS: Record<EventField, { tab: string; when: string; add: 
   onChange: { tab: 'Changement', when: 'Quand la valeur est validée :', add: 'Ajouter une action au changement' },
   onKey: { tab: 'Touche', when: 'Quand on appuie sur la touche choisie :', add: 'Ajouter une action à la touche' },
   onTimer: { tab: 'Minuterie', when: 'À chaque tour de la minuterie :', add: 'Ajouter une action à la minuterie' },
+  onSubmit: { tab: 'Envoi', when: 'Quand le formulaire est envoyé, champs vérifiés :', add: 'Ajouter une action à l’envoi' },
 }
 
 export const EVENT_KEYS = [

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { TEMPLATES, buildApp, buildProject, parseProject } from '../model/templates'
 import { bundle, generate } from './generate'
 import { highlightLines } from './highlight'
-import { sanitizeColor, sanitizeLength } from './style'
+import { areaNames, gridAreas, gridTemplate, sanitizeColor, sanitizeLength } from './style'
 import { videoSource } from './escape'
 
 describe('génération de code', () => {
@@ -264,5 +264,51 @@ describe('code personnalisé', () => {
     const bloc = document.getElementById('code-1')!
     expect(bloc.querySelector('.hello')?.textContent).toBe('Salut')
     expect(bloc.dataset.pret).toBe('oui')
+  })
+})
+
+describe('formulaires, cadre d’application et grilles avancées', () => {
+  it('grille : colonnes sur mesure et zones nommées, vérifiées contre l’injection de CSS', () => {
+    expect(gridTemplate('240px 1fr minmax(120px, 2fr)')).toBe('240px 1fr minmax(120px, 2fr)')
+    expect(gridTemplate('1fr; } body {')).toBeNull()
+    expect(gridAreas('entete entete\nmenu contenu')).toBe('"entete entete" "menu contenu"')
+    expect(gridAreas('a b\nc')).toBeNull()
+    expect(gridAreas('a "b')).toBeNull()
+    expect(areaNames('entete entete\nmenu .')).toEqual(['entete', 'menu'])
+    const project = buildApp('Grille', [
+      {
+        name: 'Accueil',
+        children: [
+          {
+            type: 'grid',
+            props: { areas: 'entete entete\nmenu contenu' },
+            children: [
+              { type: 'text', props: { text: 'Haut' }, style: { area: 'entete' } },
+              { type: 'text', props: { text: 'Menu' }, style: { area: 'menu', alignSelf: 'center' } },
+              { type: 'row', style: { grow: true, order: 2 } },
+            ],
+          },
+        ],
+      },
+    ])
+    const css = generate(project).css
+    expect(css).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));')
+    expect(css).toContain('grid-template-areas: "entete entete" "menu contenu";')
+    expect(css).toContain('grid-area: entete;')
+    expect(css).toContain('align-self: center;')
+    expect(css).toContain('flex: 1 1 0;')
+    expect(css).toContain('order: 2;')
+  })
+
+  it('cadre d’application : un lien par page dans la barre latérale, et la zone principale', () => {
+    const project = buildApp('Appli', [
+      { name: 'Tableau de bord', children: [{ type: 'appshell', props: { brand: 'Gestion' }, children: [{ type: 'appheader', props: { title: 'Accueil', subtitle: '' } }] }] },
+      { name: 'Clients', children: [] },
+    ])
+    const { html, js } = generate(project)
+    expect(html).toContain('<nav class="app-sidebar" aria-label="Navigation de l’application">')
+    expect(html).toContain('<a href="#page-1">Clients</a>')
+    expect(html).toContain('<h1 class="appheader-title">Accueil</h1>')
+    expect(js).toContain('.app-sidebar a')
   })
 })

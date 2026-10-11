@@ -2,6 +2,19 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.12.0] : 2026-10-11
+
+Des écrans de vrai logiciel : la sixième vague du plan des 200 améliorations.
+
+### Ajouté
+- **Brique Formulaire** (famille Interaction) : elle regroupe ses champs, vérifie chacun avant l'envoi et lance ses actions *à l'envoi* (un nouvel événement, réglé dans *Interactions*). Elle a son bouton d'envoi, un **message de succès** qui peut citer les valeurs (`Merci {{nom}} !`) et peut **se vider après l'envoi**, en remettant les variables reliées à leur valeur de départ. La touche Entrée envoie le formulaire.
+- **Dates et heures** : un champ de saisie peut être une date, une heure, une date avec heure, un téléphone ou une adresse web. Minimum et maximum s'appliquent aussi aux dates (« Choisis 31/12/2026 ou avant. »), et un téléphone ou une adresse web mal écrits sont refusés.
+- **Cadre d'application** et **En-tête d'application** (famille Structure) : une barre latérale avec le nom du logiciel et les liens de toutes les pages (la page ouverte est mise en valeur), une zone principale, et un en-tête avec titre, sous-titre et boutons à droite. Sur mobile, la barre latérale passe en haut.
+- **Tableau avancé** : des **cases modifiables** directement dans le tableau (Entrée ou clic ailleurs pour valider), des **cases à cocher** par ligne avec *Tout sélectionner* et une barre *Supprimer la sélection*, et des **colonnes redimensionnables** à la souris. Le tri marche aussi sur les cases modifiables.
+- **Grilles à zones nommées** : une grille accepte un modèle de colonnes (`1fr 2fr`, `minmax(260px, 1fr) 2fr`) et des **zones** dessinées en texte, une ligne par rangée (`stats stats graphique`). Dans *Mise en page*, chaque brique de la grille choisit sa zone ou le nombre de colonnes qu'elle couvre ; dans une rangée ou une colonne, elle peut **grandir**, s'aligner à part ou changer d'ordre. Sur mobile, tout s'empile.
+- **Modèle Back-office** (famille Pilotage et équipe) : barre latérale, tableau de bord en zones, formulaire vérifié qui ajoute un client, tableau modifiable avec sélection. La galerie compte 30 modèles.
+- L'assistant IA connaît le formulaire, le cadre et l'en-tête d'application, les zones de grille et les options du tableau.
+
 ## [2.11.0] : 2026-10-11
 
 Une logique d'application complète : la cinquième vague du plan des 200 améliorations.

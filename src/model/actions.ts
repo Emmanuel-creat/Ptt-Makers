@@ -1,13 +1,14 @@
 import type { Action, AppFunction, BrickNode, BrickType, EventField } from './types'
 
 /** Tous les événements qui peuvent lancer des actions. */
-export const EVENT_FIELDS: EventField[] = ['onClick', 'onLoad', 'onHover', 'onInput', 'onChange', 'onKey', 'onTimer']
+export const EVENT_FIELDS: EventField[] = ['onClick', 'onLoad', 'onHover', 'onInput', 'onChange', 'onKey', 'onTimer', 'onSubmit']
 
 export const FIELD_TYPES: BrickType[] = ['input', 'textarea', 'select', 'checkbox']
 
 /** Les événements proposés pour une brique, dans l'ordre d'affichage. */
 export function eventsFor(type: BrickType): EventField[] {
   if (type === 'page') return ['onLoad', 'onTimer']
+  if (type === 'form') return ['onSubmit', 'onHover']
   if (FIELD_TYPES.includes(type)) return ['onChange', 'onInput', 'onKey', 'onClick', 'onHover']
   return ['onClick', 'onHover']
 }

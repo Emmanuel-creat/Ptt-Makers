@@ -4,6 +4,7 @@ import { fieldsOf, isCollection, isListLike, normalize, type FilterOp } from '..
 import { compileExpr, compileRecordField, exprHelpers, type CompileEnv } from '../model/expressions'
 import type { Action, BrickNode, CollectionField, Condition, EventField, Project, Variable } from '../model/types'
 import { FIELD_TYPES, linePairs, loopingFunctions } from '../model/actions'
+import { collectSubtree } from '../model/tree'
 import { VAR_NAME_RE, interpolate, parseTemplate, toVariableName } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
 import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
@@ -115,7 +116,9 @@ const lines = (s: unknown) =>
     .map((x) => x.trim())
     .filter(Boolean)
 
-const INPUT_TYPES = ['text', 'email', 'number', 'date', 'password']
+const INPUT_TYPES = ['text', 'email', 'number', 'date', 'time', 'datetime-local', 'tel', 'url', 'password']
+/** Types dont « min » et « max » sont une date ou une heure (comparées comme du texte : 2026-10-11, 14:30). */
+const DATE_TYPES = ['date', 'time', 'datetime-local']
 
 /** Les règles d'un champ de formulaire, en attributs HTML (required, minlength, min, max). */
 function validationAttrs(node: BrickNode): { list: [string, string | true | null][]; checked: boolean } {
@@ -124,15 +127,21 @@ function validationAttrs(node: BrickNode): { list: [string, string | true | null
   const out: [string, string | true | null][] = []
   if (p.required) out.push(['required', true])
   const minLength = Number(p.minLength) || 0
-  if (minLength > 0 && (node.type === 'textarea' || (node.type === 'input' && type !== 'number' && type !== 'date'))) out.push(['minlength', String(minLength)])
+  if (minLength > 0 && (node.type === 'textarea' || (node.type === 'input' && type !== 'number' && !DATE_TYPES.includes(type)))) out.push(['minlength', String(minLength)])
   if (node.type === 'input' && type === 'number') {
     for (const k of ['min', 'max'] as const) {
       const n = Number(String(p[k] ?? '').replace(',', '.'))
       if (String(p[k] ?? '').trim() && Number.isFinite(n)) out.push([k, String(n)])
     }
   }
-  // Une adresse e-mail est toujours vérifiée, même facultative.
-  if (!out.length && !(node.type === 'input' && type === 'email')) return { list: out, checked: false }
+  if (node.type === 'input' && DATE_TYPES.includes(type)) {
+    for (const k of ['min', 'max'] as const) {
+      const v = String(p[k] ?? '').trim()
+      if (/^[\d:T-]+$/.test(v)) out.push([k, v])
+    }
+  }
+  // Une adresse e-mail, web ou un téléphone sont toujours vérifiés, même facultatifs.
+  if (!out.length && !(node.type === 'input' && ['email', 'url', 'tel'].includes(type))) return { list: out, checked: false }
   out.push(['data-erreur', String(p.errorText ?? '').trim() || null])
   return { list: out, checked: true }
 }
@@ -226,6 +235,45 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
       children(inner + '  ')
       out.push(`${inner}</div>`)
       out.push(`${indent}</div>`)
+      break
+    }
+    case 'form': {
+      // novalidate : c'est le script qui vérifie les champs et montre les erreurs en français.
+      out.push(`${indent}<form${attrs([...base, ['novalidate', true]])}>`)
+      children(inner)
+      out.push(`${inner}<button type="submit" class="btn btn-primary form-submit">${text('submitText') || 'Envoyer'}</button>`)
+      if (String(p.successText ?? '').trim()) out.push(`${inner}<p class="form-success" role="status" hidden>${text('successText')}</p>`)
+      out.push(`${indent}</form>`)
+      break
+    }
+    case 'appshell': {
+      const width = Math.max(140, Math.min(400, Number(p.sidebarWidth) || 220))
+      out.push(`${indent}<div${attrs([...base, ['style', `--largeur-barre: ${width}px`]])}>`)
+      out.push(`${inner}<nav class="app-sidebar" aria-label="Navigation de l’application">`)
+      if (String(p.brand ?? '').trim()) out.push(`${inner}  <strong class="app-brand">${text('brand')}</strong>`)
+      for (const id of project.pages) {
+        const pg = project.nodes[id]
+        if (pg) out.push(`${inner}  <a href="#${id}"${id === project.rootId ? ' class="is-active"' : ''}>${escapeHtml(pg.name)}</a>`)
+      }
+      out.push(`${inner}</nav>`)
+      out.push(`${inner}<div class="app-main">`)
+      children(inner + '  ')
+      out.push(`${inner}</div>`)
+      out.push(`${indent}</div>`)
+      break
+    }
+    case 'appheader': {
+      out.push(`${indent}<header${attrs(base)}>`)
+      out.push(`${inner}<div class="appheader-titles">`)
+      out.push(`${inner}  <h1 class="appheader-title">${text('title')}</h1>`)
+      if (String(p.subtitle ?? '').trim()) out.push(`${inner}  <p class="appheader-subtitle">${text('subtitle')}</p>`)
+      out.push(`${inner}</div>`)
+      if (kids.length) {
+        out.push(`${inner}<div class="appheader-actions">`)
+        children(inner + '  ')
+        out.push(`${inner}</div>`)
+      }
+      out.push(`${indent}</header>`)
       break
     }
     case 'navbar': {
@@ -981,6 +1029,14 @@ function dynamicProps(n: BrickNode): [string, string, string?][] {
         ['value', 'querySelector(".stat-value").textContent'],
         ...(String(n.props.delta ?? '').trim() ? [['delta', 'querySelector(".stat-delta").textContent'] as [string, string]] : []),
       ]
+    case 'appheader':
+      return [
+        ['title', 'querySelector(".appheader-title").textContent'],
+        ...(String(n.props.subtitle ?? '').trim() ? [['subtitle', 'querySelector(".appheader-subtitle").textContent'] as [string, string]] : []),
+      ]
+    case 'form':
+      // Le message de réussite est écrit au moment de l'envoi, avant que les champs soient vidés.
+      return []
     case 'progress':
       return [
         ['label', 'querySelector(".progress-head span").textContent'],
@@ -1013,7 +1069,8 @@ function emitJs(g: Gen): string {
   const loads = project.pages.map((id) => project.nodes[id]).filter((p) => p?.onLoad?.length)
   const hasTabs = order.some((n) => n.type === 'tabs')
   const hasModals = order.some((n) => n.type === 'modal')
-  const hasNavbar = order.some((n) => n.type === 'navbar')
+  const hasNavbar = order.some((n) => n.type === 'navbar' || n.type === 'appshell')
+  const forms = outside.filter((n) => n.type === 'form')
   const hasTabbar = order.some((n) => n.type === 'tabbar')
   const hasSortable = order.some((n) => n.type === 'table' && n.props.sortable)
   const hasKanban = order.some((n) => n.type === 'kanban')
@@ -1024,7 +1081,7 @@ function emitJs(g: Gen): string {
 
   out.push('// Code généré par Ptt-Makers. Tu peux le lire, le copier et le modifier librement !')
 
-  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !timers.length && !hasTabs && !hasModals && !hasWidgets && !customCode.length && !functions.length) {
+  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !timers.length && !hasTabs && !hasModals && !hasWidgets && !customCode.length && !functions.length && !forms.length) {
     out.push('// Ce projet ne contient pas encore d’interactions.')
     out.push('// Ajoute une variable ou une action « Au clic » pour voir du JavaScript apparaître ici.')
     return out.toString()
@@ -1116,7 +1173,8 @@ function emitJs(g: Gen): string {
     )
     out.push(`  // ${oneLine(n.name)} : une ligne par fiche de etat.${v.name}`)
     const view = viewJs(n, variables, fields, '  ')
-    out.push(`  rendreTableau(${jsString(n.id)}, etat.${v.name}, [${champs.join(', ')}], ${n.props.rowDelete ? 'true' : 'false'}${view ? `, ${view}` : ''});`)
+    const options = [n.props.rowDelete && 'suppression: true', n.props.editable && 'edition: true', n.props.selectable && 'selection: true'].filter(Boolean)
+    out.push(`  rendreTableau(${jsString(n.id)}, etat.${v.name}, [${champs.join(', ')}], { ${options.join(', ')} }${view ? `, ${view}` : ''});`.replace('{  }', '{}'))
     setRange(g.map, n.id, 'js', [start, out.line])
   }
   if (persisted.length) out.push('  sauvegarder();')
@@ -1125,18 +1183,38 @@ function emitJs(g: Gen): string {
   if (boundTables.length) {
     out.push('')
     out.push('// Remplit un tableau avec les fiches d’une collection')
-    out.push('function rendreTableau(id, liste, champs, suppression, reglages) {')
+    out.push('// options : suppression (un bouton par ligne), edition (cases modifiables), selection (cases à cocher)')
+    out.push('function rendreTableau(id, liste, champs, options, reglages) {')
     out.push('  const conteneur = document.getElementById(id);')
     out.push('  const lignes = reglages ? vue(liste, reglages) : liste;')
+    out.push('  const choisies = options.selection ? (selections[id] ??= new Set()) : null;')
+    out.push('  // Une fiche retirée de la collection quitte aussi la sélection.')
+    out.push('  if (choisies) for (const ligne of [...choisies]) if (!liste.includes(ligne)) choisies.delete(ligne);')
     out.push('  conteneur.querySelector("tbody").replaceChildren(')
     out.push('    ...lignes.map((ligne) => {')
     out.push('      const tr = document.createElement("tr");')
+    out.push('      if (choisies) {')
+    out.push('        const td = document.createElement("td");')
+    out.push('        td.className = "table-select";')
+    out.push('        const coche = document.createElement("input");')
+    out.push('        coche.type = "checkbox";')
+    out.push('        coche.ariaLabel = "Sélectionner cette ligne";')
+    out.push('        coche.checked = choisies.has(ligne);')
+    out.push('        coche.addEventListener("change", () => {')
+    out.push('          if (coche.checked) choisies.add(ligne);')
+    out.push('          else choisies.delete(ligne);')
+    out.push('          afficher();')
+    out.push('        });')
+    out.push('        td.append(coche);')
+    out.push('        tr.append(td);')
+    out.push('        tr.classList.toggle("is-selected", coche.checked);')
+    out.push('      }')
     out.push('      for (const [nom, type, calcul] of champs) {')
     out.push('        const td = document.createElement("td");')
-    out.push('        td.append(cellule(calcul ? calcul(ligne) : ligne[nom], type));')
+    out.push('        td.append(options.edition && !calcul && type !== "image" ? caseModifiable(ligne, nom, type) : cellule(calcul ? calcul(ligne) : ligne[nom], type));')
     out.push('        tr.append(td);')
     out.push('      }')
-    out.push('      if (suppression) {')
+    out.push('      if (options.suppression) {')
     out.push('        const td = document.createElement("td");')
     out.push('        const bouton = document.createElement("button");')
     out.push('        bouton.type = "button";')
@@ -1153,6 +1231,48 @@ function emitJs(g: Gen): string {
     out.push('    }),')
     out.push('  );')
     out.push('  conteneur.querySelector(".table-empty").hidden = lignes.length > 0;')
+    out.push('  if (choisies) {')
+    out.push('    const tout = conteneur.querySelector("th.table-select input");')
+    out.push('    tout.checked = lignes.length > 0 && lignes.every((ligne) => choisies.has(ligne));')
+    out.push('    tout.indeterminate = !tout.checked && lignes.some((ligne) => choisies.has(ligne));')
+    out.push('    tout.onchange = () => {')
+    out.push('      for (const ligne of lignes) tout.checked ? choisies.add(ligne) : choisies.delete(ligne);')
+    out.push('      afficher();')
+    out.push('    };')
+    out.push('    const barre = conteneur.querySelector(".table-bar");')
+    out.push('    barre.hidden = choisies.size === 0;')
+    out.push('    barre.querySelector(".table-count").textContent = `${choisies.size} ligne(s) sélectionnée(s)`;')
+    out.push('    barre.querySelector("button").onclick = () => {')
+    out.push('      for (const ligne of choisies) liste.splice(liste.indexOf(ligne), 1);')
+    out.push('      choisies.clear();')
+    out.push('      afficher();')
+    out.push('    };')
+    out.push('  }')
+    out.push('}')
+    out.push('')
+    out.push('// Les lignes cochées de chaque tableau')
+    out.push('const selections = {};')
+    out.push('')
+    out.push('// Une case modifiable : la fiche change quand on valide (Entrée ou clic ailleurs)')
+    out.push('function caseModifiable(ligne, nom, type) {')
+    out.push('  const champ = document.createElement("input");')
+    out.push('  champ.className = "table-edit";')
+    out.push('  champ.ariaLabel = nom;')
+    out.push('  if (type === "boolean") {')
+    out.push('    champ.type = "checkbox";')
+    out.push('    champ.checked = Boolean(ligne[nom]);')
+    out.push('  } else {')
+    out.push('    champ.type = type === "number" ? "number" : type === "date" ? "date" : "text";')
+    out.push('    champ.value = ligne[nom] ?? "";')
+    out.push('  }')
+    out.push('  champ.addEventListener("change", () => {')
+    out.push('    ligne[nom] = type === "boolean" ? champ.checked : type === "number" ? Number(champ.value) || 0 : champ.value;')
+    out.push('    afficher();')
+    out.push('  });')
+    out.push('  champ.addEventListener("keydown", (evenement) => {')
+    out.push('    if (evenement.key === "Enter") champ.blur();')
+    out.push('  });')
+    out.push('  return champ;')
     out.push('}')
     out.push('')
     out.push('// Contenu d’une case : une image, un lien ou un texte mis en forme')
@@ -1255,6 +1375,41 @@ function emitJs(g: Gen): string {
     }
   }
 
+  if (forms.length) {
+    title('Formulaires : à l’envoi, les champs sont vérifiés, puis les actions se lancent')
+    for (const f of forms) {
+      const start = out.line + 1
+      const fields = collectSubtree(project.nodes, f.id).map((id) => project.nodes[id]).filter((n) => FIELD_TYPES.includes(n.type) && variables.some((v) => v.name === n.props.bind))
+      const bound = [...new Set(fields.map((n) => String(n.props.bind)))].map((name) => variables.find((v) => v.name === name)!)
+      out.push(`// ${commentName(f)}${f.onSubmit?.length ? ` : ${f.onSubmit.map((a) => describeAction(a, g.project)).join(', ')}` : ''}`)
+      out.push(`document.getElementById(${jsString(f.id)}).addEventListener("submit", async (evenement) => {`)
+      out.push('  evenement.preventDefault();')
+      out.push('  const formulaire = evenement.currentTarget;')
+      out.push('  if (!verifier(formulaire)) return;')
+      if (f.onSubmit?.length) emitActionsBlock(out, g, f.onSubmit, g.debug ? { repeat: null, source: `${commentName(f)}, à l’envoi` } : { repeat: null }, '  ')
+      const success = String(f.props.successText ?? '').trim()
+      if (success && needsTemplate(success, variables, false)) {
+        out.push(`  formulaire.querySelector(".form-success").textContent = ${jsTemplate(success, variables)};`)
+      }
+      if (f.props.resetAfter) {
+        if (bound.length) {
+          for (const v of bound) out.push(`  etat.${v.name} = ${jsValue(v.initial)};`)
+          out.push('  afficher();')
+        }
+        out.push('  formulaire.reset();')
+      }
+      if (success) out.push('  formulaire.querySelector(".form-success").hidden = false;')
+      out.push('});')
+      if (String(f.props.successText ?? '').trim()) {
+        out.push('// Le message de réussite disparaît dès qu’on écrit de nouveau.')
+        out.push(`document.getElementById(${jsString(f.id)}).addEventListener("input", (evenement) => {`)
+        out.push('  evenement.currentTarget.querySelector(".form-success").hidden = true;')
+        out.push('});')
+      }
+      setRange(g.map, f.id, 'js', [start, out.line])
+    }
+  }
+
   if (multi) {
     title('Navigation entre les pages (l’adresse se termine par #nom-de-la-page)')
     out.push(`const PAGES = [${project.pages.map(jsString).join(', ')}];`)
@@ -1305,7 +1460,7 @@ function emitJs(g: Gen): string {
     out.push('  for (const id of PAGES) document.getElementById(id).hidden = id !== page;')
     out.push('  window.scrollTo(0, 0);')
     if (hasNavbar || hasTabbar) {
-      out.push('  for (const lien of document.querySelectorAll(".navbar a, .tabbar a")) {')
+      out.push('  for (const lien of document.querySelectorAll(".navbar a, .tabbar a, .app-sidebar a")) {')
       out.push('    lien.classList.toggle("is-active", lien.getAttribute("href") === "#" + page);')
       out.push('  }')
     }
@@ -1385,22 +1540,25 @@ function emitJs(g: Gen): string {
     title('Tableaux : un clic sur un titre de colonne trie les lignes')
     out.push('for (const tableau of document.querySelectorAll(".table")) {')
     out.push('  const titres = [...tableau.querySelectorAll("th button")];')
-    out.push('  titres.forEach((bouton, colonne) => {')
+    out.push('  // Le texte d’une case, ou la valeur de son champ quand elle est modifiable.')
+    out.push('  const texte = (td) => td?.querySelector("input:not([type=checkbox])")?.value ?? td?.textContent ?? "";')
+    out.push('  for (const bouton of titres) {')
     out.push('    bouton.addEventListener("click", () => {')
     out.push('      const th = bouton.parentElement;')
+    out.push('      const colonne = th.cellIndex;')
     out.push('      const croissant = th.getAttribute("aria-sort") !== "ascending";')
     out.push('      for (const autre of tableau.querySelectorAll("th")) autre.removeAttribute("aria-sort");')
     out.push('      th.setAttribute("aria-sort", croissant ? "ascending" : "descending");')
     out.push('      const corps = tableau.querySelector("tbody");')
     out.push('      const lignes = [...corps.rows].sort((a, b) => {')
-    out.push('        const x = a.cells[colonne]?.textContent ?? "";')
-    out.push('        const y = b.cells[colonne]?.textContent ?? "";')
+    out.push('        const x = texte(a.cells[colonne]);')
+    out.push('        const y = texte(b.cells[colonne]);')
     out.push('        const ordre = x.localeCompare(y, "fr", { numeric: true });')
     out.push('        return croissant ? ordre : -ordre;')
     out.push('      });')
     out.push('      corps.append(...lignes);')
     out.push('    });')
-    out.push('  });')
+    out.push('  }')
     out.push('}')
   }
 
@@ -1535,6 +1693,14 @@ function emitJs(g: Gen): string {
     out.push('  if (!valeur) return champ.required ? perso || "Ce champ est obligatoire." : "";')
     out.push('  if (champ.minLength > 0 && valeur.length < champ.minLength) return perso || `Écris au moins ${champ.minLength} caractères.`;')
     out.push('  if (champ.type === "email" && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(valeur)) return perso || "Cette adresse e-mail n’est pas valide.";')
+    out.push('  if (champ.type === "url" && !/^https?:\\/\\/[^\\s.]+\\.[^\\s]+$/.test(valeur)) return perso || "Écris une adresse web complète (https://…).";')
+    out.push('  if (champ.type === "tel" && !/^\\+?[\\d\\s.()-]{6,}$/.test(valeur)) return perso || "Ce numéro de téléphone n’est pas valide.";')
+    out.push('  if (["date", "time", "datetime-local"].includes(champ.type)) {')
+    out.push('    // Les dates et heures s’écrivent 2026-10-11 et 14:30 : l’ordre du texte est celui du temps.')
+    out.push('    const lisible = (v) => (champ.type === "time" ? v : new Date(v).toLocaleDateString("fr-FR"));')
+    out.push('    if (champ.min && valeur < champ.min) return perso || `Choisis ${lisible(champ.min)} ou après.`;')
+    out.push('    if (champ.max && valeur > champ.max) return perso || `Choisis ${lisible(champ.max)} ou avant.`;')
+    out.push('  }')
     out.push('  if (champ.type === "number") {')
     out.push('    const nombre = Number(valeur.replace(",", "."));')
     out.push('    if (Number.isNaN(nombre)) return perso || "Écris un nombre.";')
