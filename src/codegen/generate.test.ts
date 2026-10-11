@@ -3,6 +3,7 @@ import { TEMPLATES, buildApp, buildProject, parseProject } from '../model/templa
 import { bundle, generate } from './generate'
 import { highlightLines } from './highlight'
 import { sanitizeColor, sanitizeLength } from './style'
+import { videoSource } from './escape'
 
 describe('génération de code', () => {
   it('produit une page HTML complète et lisible', () => {
@@ -168,5 +169,68 @@ describe('pages, listes, conditions et API', () => {
     const p = parseProject(old)!
     expect(p.pages).toEqual(['page'])
     expect(parseProject({ version: 2 })).toBeNull()
+  })
+})
+
+describe('briques avancées, thème et réglages par écran', () => {
+  const app = () =>
+    buildApp('X', [
+      {
+        name: 'Accueil',
+        children: [
+          { type: 'navbar', props: { brand: 'Moi' } },
+          {
+            type: 'tabs',
+            children: [
+              { type: 'stack', name: 'Infos', children: [{ type: 'text', props: { text: 'A' } }] },
+              { type: 'stack', name: 'Prix', children: [{ type: 'text', props: { text: 'B' } }] },
+            ],
+          },
+          { type: 'accordion', props: { firstOpen: true }, children: [{ type: 'stack', name: 'Question', children: [] }] },
+          { type: 'modal', ref: 'fen', props: { label: 'Bravo' }, style: { padding: 20 }, children: [{ type: 'text', props: { text: 'Coucou' } }] },
+          { type: 'button', props: { text: 'Ouvrir' }, onClick: [{ type: 'show', target: '@fen' }] },
+          { type: 'video', props: { src: 'https://youtu.be/dQw4w9WgXcQ', title: 'Clip' } },
+          { type: 'icon', props: { symbol: '🚀', label: 'Fusée' } },
+        ],
+      },
+      { name: 'Contact', children: [] },
+    ])
+
+  it('écrit des onglets, un accordéon, une fenêtre, un menu, une vidéo et une icône', () => {
+    const { html, css, js } = generate(app())
+    expect(html).toContain('<button type="button" role="tab" aria-selected="true">Infos</button>')
+    expect(html).toMatch(/<div id="colonne-2" class="stack" hidden>/)
+    expect(html).toContain('<details class="accordion-item" open>')
+    expect(html).toContain('<summary>Question</summary>')
+    expect(html).toContain('<div id="fenetre-1" class="modal" hidden>')
+    expect(html).toContain('<button type="button" class="modal-close" aria-label="Fermer">×</button>')
+    expect(css).toContain('#fenetre-1 > .modal-box {')
+    expect(html).toContain('<a href="#page" class="is-active">Accueil</a>')
+    expect(html).toContain('<a href="#page-1">Contact</a>')
+    expect(html).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"')
+    expect(html).toContain('<span id="icone-1" class="icon" role="img" aria-label="Fusée">🚀</span>')
+    expect(js).toContain('Onglets : un clic sur un titre affiche son panneau')
+    expect(js).toContain('Fenêtres : la croix ou un clic à côté les referme')
+    expect(js).toContain('lien.classList.toggle("is-active"')
+    expect(() => new Function(js)).not.toThrow()
+  })
+
+  it('applique le thème et les réglages propres à la tablette et au mobile', () => {
+    const p = buildProject('X', {}, [{ type: 'text', props: { text: 'a' }, style: { fontSize: 20 } }])
+    p.theme = { primary: '#e11d48', radius: 4, font: 'serif' }
+    p.nodes['texte-1'].responsive = { tablet: { fontSize: 18 }, mobile: { fontSize: 14, hide: true } }
+    const { css } = generate(p)
+    expect(css).toContain(':root {\n  --couleur: #e11d48;\n  --arrondi: 4px;\n  --police: Georgia')
+    expect(css).toContain('@media (max-width: 900px) {\n  /* Paragraphe 1 */\n  #texte-1 {\n    font-size: 18px;\n  }\n}')
+    expect(css).toContain('@media (max-width: 600px) {\n  /* Paragraphe 1 */\n  #texte-1 {\n    font-size: 14px;\n    display: none !important;\n  }\n}')
+    p.theme = { primary: 'red;} body{display:none' }
+    expect(generate(p).css).not.toContain(':root {')
+  })
+
+  it('reconnaît les adresses de vidéo', () => {
+    expect(videoSource('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=3')).toMatchObject({ kind: 'youtube', id: 'dQw4w9WgXcQ' })
+    expect(videoSource('https://youtube.com/shorts/dQw4w9WgXcQ')).toMatchObject({ kind: 'youtube' })
+    expect(videoSource('https://exemple.fr/film.mp4')).toEqual({ kind: 'file', src: 'https://exemple.fr/film.mp4' })
+    expect(videoSource('javascript:alert(1)')).toBeNull()
   })
 })

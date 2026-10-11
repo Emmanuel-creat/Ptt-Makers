@@ -8,7 +8,12 @@ import {
   FileText,
   LayoutPanelLeft,
   MousePointerClick,
+  Monitor,
+  Package,
   Palette as PaletteIcon,
+  Smartphone,
+  Sparkles,
+  Tablet,
   Rocket,
   Trash2,
   Type,
@@ -16,7 +21,7 @@ import {
 } from 'lucide-react'
 import { useContext } from 'react'
 import { BRICKS, CATEGORIES, type FieldDef } from '../model/bricks'
-import type { BrickNode, BrickStyle } from '../model/types'
+import type { BrickNode, BrickStyle, ProjectTheme, StyleOverride } from '../model/types'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 import { repeatOf } from '../model/tree'
@@ -63,9 +68,11 @@ function NoSelection() {
 function NodeInspector({ node }: { node: BrickNode }) {
   const def = BRICKS[node.type]
   const beginner = useWorkspace((s) => s.beginner)
-  const { updateNode, updateProps, updateStyle, duplicate, remove, notify } = useEditor.getState()
-  const s = node.style
-  const setStyle = (patch: Partial<BrickStyle>) => updateStyle(node.id, patch)
+  const { updateNode, updateProps, updateStyle, duplicate, remove, notify, saveComponent } = useEditor.getState()
+  const scope = useWorkspace((s) => s.styleScope)
+  // Sur un format plus petit, on lit et on écrit seulement ce qui change pour ce format.
+  const s: StyleOverride = scope === 'all' ? node.style : (node.responsive?.[scope] ?? {})
+  const setStyle = (patch: Partial<StyleOverride>) => updateStyle(node.id, patch, scope)
   const isRoot = !node.parent
   const category = CATEGORIES.find((c) => c.id === def.category)!
 
@@ -99,6 +106,9 @@ function NodeInspector({ node }: { node: BrickNode }) {
         </div>
         {!isRoot && (
           <div className="pm-inspector-actions">
+            <IconButton label="Enregistrer dans Mes composants" onClick={() => saveComponent(node.id)}>
+              <Package size={15} />
+            </IconButton>
             <IconButton label="Dupliquer" shortcut="Ctrl+D" onClick={() => duplicate(node.id)}>
               <Copy size={15} />
             </IconButton>
@@ -122,6 +132,8 @@ function NodeInspector({ node }: { node: BrickNode }) {
             ))}
           </Section>
         )}
+
+        <ScopeBar node={node} />
 
         <Section title="Mise en page" icon={<LayoutPanelLeft size={15} />}>
           {def.container && node.type !== 'grid' && (
@@ -295,6 +307,8 @@ function NodeInspector({ node }: { node: BrickNode }) {
           </Section>
         )}
 
+        {isRoot && <ThemeSection />}
+
         {isRoot && (
           <Section
             title="Au chargement de la page"
@@ -363,6 +377,8 @@ function ContentField({ field: f, node, onChange }: { field: FieldDef; node: Bri
             return <NumberInput id={id} value={Number(value) || undefined} unit="" min={1} max={12} onChange={(v) => onChange(v ?? 1)} />
           case 'variable':
             return <VariableSelect id={id} value={String(value ?? '') || undefined} onChange={onChange} kinds={f.kinds} />
+          case 'emoji':
+            return <EmojiInput id={id} value={String(value ?? '')} onChange={onChange} />
           case 'page':
             return <PageSelect id={id} value={String(value ?? '')} onChange={onChange} placeholder="Aucune (utiliser l’adresse)" />
           case 'textarea':
@@ -386,5 +402,99 @@ function LengthInput({ id, value, onChange }: { id?: string; value: string | und
       list="pm-length-suggestions"
       onChange={(e) => onChange(e.target.value.trim() || undefined)}
     />
+  )
+}
+
+const SCOPE_INFO = {
+  tablet: 'Ces réglages ne s’appliquent qu’en dessous de 900 px de large (tablette et mobile).',
+  mobile: 'Ces réglages ne s’appliquent qu’en dessous de 600 px de large (mobile).',
+}
+
+/** Choix du format dont on règle le style : tous les écrans, tablette ou mobile. */
+function ScopeBar({ node }: { node: BrickNode }) {
+  const scope = useWorkspace((s) => s.styleScope)
+  const set = useWorkspace((s) => s.set)
+  const updateStyle = useEditor((s) => s.updateStyle)
+  const count = (k: 'tablet' | 'mobile') => Object.keys(node.responsive?.[k] ?? {}).length
+  return (
+    <div className="pm-scope">
+      <p className="pm-scope-label">
+        Style pour : <strong>{scope === 'all' ? 'tous les écrans' : scope === 'tablet' ? 'tablette et mobile' : 'mobile'}</strong>
+      </p>
+      <Segmented
+        label="Format réglé"
+        size="sm"
+        value={scope}
+        onChange={(styleScope) => set({ styleScope, device: styleScope === 'all' ? 'desktop' : styleScope })}
+        options={[
+          { value: 'all', label: 'Tous les écrans', icon: <Monitor size={14} /> },
+          { value: 'tablet', label: `Tablette${count('tablet') ? ` · ${count('tablet')}` : ''}`, icon: <Tablet size={14} /> },
+          { value: 'mobile', label: `Mobile${count('mobile') ? ` · ${count('mobile')}` : ''}`, icon: <Smartphone size={14} /> },
+        ]}
+      />
+      {scope !== 'all' && (
+        <div className="pm-scope-info">
+          <p>{SCOPE_INFO[scope]}</p>
+          {node.parent && (
+            <Switch
+              checked={!!node.responsive?.[scope]?.hide}
+              onChange={(hide) => updateStyle(node.id, { hide: hide || undefined }, scope)}
+              label="Masquer sur ce format"
+            />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const FONTS: { value: NonNullable<ProjectTheme['font']>; label: string }[] = [
+  { value: 'inter', label: 'Inter (par défaut)' },
+  { value: 'system', label: 'Police du système' },
+  { value: 'arrondie', label: 'Arrondie' },
+  { value: 'serif', label: 'Avec empattements (classique)' },
+  { value: 'mono', label: 'Machine à écrire' },
+]
+
+/** Thème du projet : réglé depuis n'importe quelle page, appliqué à toutes. */
+function ThemeSection() {
+  const theme = useEditor((s) => s.project.theme)
+  const updateTheme = useEditor((s) => s.updateTheme)
+  return (
+    <Section title="Thème du projet" icon={<Sparkles size={15} />} defaultOpen={false}>
+      <p className="pm-row-help">Appliqué à toutes les pages : boutons, liens, champs, onglets…</p>
+      <Row label="Couleur principale">{(id) => <ColorInput id={id} value={theme?.primary} onChange={(primary) => updateTheme({ primary })} />}</Row>
+      <Row label="Arrondi des boutons et champs">
+        {(id) => <NumberInput id={id} value={theme?.radius} placeholder="10" max={40} onChange={(radius) => updateTheme({ radius })} />}
+      </Row>
+      <Row label="Police">
+        {(id) => (
+          <SelectInput
+            id={id}
+            value={theme?.font ?? 'inter'}
+            options={FONTS}
+            onChange={(font) => updateTheme({ font: font === 'inter' ? undefined : (font as ProjectTheme['font']) })}
+          />
+        )}
+      </Row>
+    </Section>
+  )
+}
+
+const EMOJIS = '⭐ ❤️ 🔥 ✅ ⚡ 🎉 🚀 💡 📌 📅 ⏰ 📍 📞 ✉️ 💬 🔒 🛒 💳 🎁 🏆 🎨 🎵 📷 🎮 📚 ✏️ 🧪 🌱 🌍 ☀️ 🌙 🍕 ☕ 🏠 🚲 👋 👍 😀 🤖 🧩'.split(' ')
+
+/** Choix d'une icône : une grille d'emojis et un champ libre. */
+function EmojiInput({ id, value, onChange }: { id?: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="pm-emoji">
+      <input id={id} className="pm-input" value={value} maxLength={8} onChange={(e) => onChange(e.target.value)} aria-label="Icône (emoji)" />
+      <div className="pm-emoji-grid" role="listbox" aria-label="Icônes proposées">
+        {EMOJIS.map((e) => (
+          <button key={e} type="button" role="option" aria-selected={e === value} className="pm-emoji-btn" onClick={() => onChange(e)}>
+            {e}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }

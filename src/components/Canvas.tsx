@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronRight, Copy, CornerLeftUp, LayoutTemplate, MousePointerClick, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { themeEntries } from '../codegen/style'
 import { BRICKS, isContainer } from '../model/bricks'
 import { canDrop, getPath } from '../model/tree'
 import type { DropPosition, DropTarget } from '../model/types'
@@ -21,6 +22,8 @@ export function Canvas() {
   const isEmpty = useEditor((s) => (s.project.nodes[s.currentPage]?.children.length ?? 0) === 0)
   const device = useWorkspace((s) => s.device)
   const beginner = useWorkspace((s) => s.beginner)
+  const theme = useEditor((s) => s.project.theme)
+  const themeStyle = useMemo(() => Object.fromEntries(themeEntries(theme)) as React.CSSProperties, [theme])
   const wrapRef = useRef<HTMLDivElement>(null)
   const [, force] = useState(0)
 
@@ -42,6 +45,13 @@ export function Canvas() {
   }, [selectedId])
 
   const onClick = (e: React.MouseEvent) => {
+    // Titre d'onglet ou de volet : sélectionne le panneau correspondant.
+    const pick = e.target instanceof Element ? (e.target.closest('[data-ptt-select]') as HTMLElement | null) : null
+    if (pick) {
+      e.preventDefault()
+      useEditor.getState().select(pick.dataset.pttSelect!)
+      return
+    }
     const el = closestNode(e.target)
     if (!el) return
     if (useEditor.getState().editingId === el.dataset.pttId) return
@@ -119,6 +129,7 @@ export function Canvas() {
         <div className={`pm-frame-wrap device-${device}`} ref={wrapRef} style={{ width: width ? width : undefined }}>
           <div
             className="pm-frame"
+            style={themeStyle}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
             onMouseOver={onMouseOver}

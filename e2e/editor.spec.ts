@@ -183,3 +183,40 @@ test.describe('applications : listes, conditions, pages et API', () => {
     await expect(p.locator('#texte-1')).toContainText('1 personnes trouvées')
   })
 })
+
+test.describe('composants, formats et projets', () => {
+  test('enregistrer un bloc dans Mes composants et le réutiliser', async ({ page }) => {
+    await openBlank(page)
+    await page.locator('.pm-tile', { hasText: 'Carte' }).click()
+    await page.getByRole('button', { name: 'Enregistrer dans Mes composants' }).click()
+    const tile = page.getByRole('button', { name: /Ajouter le composant/ })
+    await expect(tile).toBeVisible()
+    await page.locator('.pm-frame .page').click({ position: { x: 5, y: 5 } })
+    await tile.click()
+    await expect(page.locator('.pm-frame .page > .card')).toHaveCount(2)
+  })
+
+  test('masquer une brique sur mobile seulement', async ({ page }) => {
+    await openBlank(page)
+    await page.locator('.pm-tile', { hasText: 'Titre' }).click()
+    const scope = page.getByRole('radiogroup', { name: 'Format réglé' })
+    await scope.getByRole('radio', { name: 'Mobile' }).click()
+    await page.getByText('Masquer sur ce format').click()
+    await expect(scope.getByRole('radio', { name: 'Mobile · 1' })).toBeVisible()
+    await page.getByRole('tab', { name: 'Code' }).click()
+    await page.getByRole('tab', { name: 'CSS' }).click()
+    await expect(page.locator('.pm-code')).toContainText('@media (max-width: 600px)')
+  })
+
+  test('Mes projets : un modèle ouvre un nouveau projet, l’ancien reste', async ({ page }) => {
+    await openBlank(page)
+    await page.getByLabel('Nom du projet').fill('Mon site')
+    await page.getByRole('button', { name: 'Modèles' }).click()
+    await page.getByRole('button', { name: /Compteur/ }).click()
+    await expect(page.getByLabel('Nom du projet')).toHaveValue('Compteur')
+    await page.getByRole('button', { name: 'Mes projets' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Mes projets' })
+    await dialog.getByRole('button', { name: /Mon site/ }).first().click()
+    await expect(page.getByLabel('Nom du projet')).toHaveValue('Mon site')
+  })
+})

@@ -1,17 +1,31 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { TEMPLATES } from '../model/templates'
+import { buildApp, TEMPLATES } from '../model/templates'
+import type { Project } from '../model/types'
 import { generate } from './generate'
 
 /** Charge le code généré dans le DOM de test et exécute son script, comme le ferait un navigateur. */
-function run(templateId: string) {
-  const code = generate(TEMPLATES.find((t) => t.id === templateId)!.create())
+function run(source: string | Project) {
+  const code = generate(typeof source === 'string' ? TEMPLATES.find((t) => t.id === source)!.create() : source)
   const body = code.html.slice(code.html.indexOf('<body>') + 6, code.html.indexOf('<script'))
   document.body.innerHTML = body
-  new Function(code.js)()
+  // Les écouteurs posés sur window par le script sont retirés après chaque test.
+  const add = window.addEventListener
+  window.addEventListener = ((type: string, fn: EventListener) => {
+    listeners.push([type, fn])
+    add.call(window, type, fn)
+  }) as typeof window.addEventListener
+  try {
+    new Function(code.js)()
+  } finally {
+    window.addEventListener = add
+  }
   return (id: string) => document.getElementById(id)!
 }
 
+const listeners: [string, EventListener][] = []
+
 afterEach(() => {
+  for (const [type, fn] of listeners.splice(0)) window.removeEventListener(type, fn)
   document.body.innerHTML = ''
 })
 
@@ -111,5 +125,52 @@ describe('listes, conditions, pages et API', () => {
     location.hash = ''
     await new Promise((r) => setTimeout(r, 0))
     expect(visible()).toEqual(['page'])
+  })
+})
+
+describe('briques avancées', () => {
+  it('onglets, fenêtre et menu des pages', async () => {
+    const $ = run(
+      buildApp('X', [
+        {
+          name: 'Accueil',
+          children: [
+            { type: 'navbar', props: { brand: 'Moi' } },
+            {
+              type: 'tabs',
+              children: [
+                { type: 'stack', name: 'Infos', children: [] },
+                { type: 'stack', name: 'Prix', children: [] },
+              ],
+            },
+            { type: 'modal', ref: 'fen', children: [{ type: 'text', props: { text: 'Coucou' } }] },
+            { type: 'button', props: { text: 'Ouvrir' }, onClick: [{ type: 'show', target: '@fen' }] },
+          ],
+        },
+        { name: 'Contact', children: [] },
+      ]),
+    )
+    // Onglets : un clic sur « Prix » affiche le second panneau.
+    const titres = [...document.querySelectorAll<HTMLButtonElement>('.tabs-bar > button')]
+    expect($('colonne-2').hidden).toBe(true)
+    titres[1].click()
+    expect($('colonne-1').hidden).toBe(true)
+    expect($('colonne-2').hidden).toBe(false)
+    expect(titres[1].getAttribute('aria-selected')).toBe('true')
+
+    // Fenêtre : le bouton l'ouvre, la croix la referme.
+    expect($('fenetre-1').hidden).toBe(true)
+    $('bouton-1').click()
+    expect($('fenetre-1').hidden).toBe(false)
+    document.querySelector<HTMLButtonElement>('#fenetre-1 .modal-close')!.click()
+    expect($('fenetre-1').hidden).toBe(true)
+
+    // Menu : le lien de la page affichée est mis en avant.
+    window.scrollTo = () => {}
+    document.querySelector<HTMLAnchorElement>('.navbar a[href="#page-1"]')!.click()
+    await new Promise((r) => setTimeout(r, 0))
+    expect($('page-1').hidden).toBe(false)
+    expect(document.querySelector('.navbar a[href="#page-1"]')!.classList.contains('is-active')).toBe(true)
+    expect(document.querySelector('.navbar a[href="#page"]')!.classList.contains('is-active')).toBe(false)
   })
 })

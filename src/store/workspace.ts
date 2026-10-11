@@ -8,6 +8,8 @@ export type LeftTab = 'bricks' | 'layers' | 'variables'
 export type DockTab = 'preview' | 'code'
 export type CodeTab = 'html' | 'css' | 'js'
 export type MobileView = 'tools' | 'create' | 'props' | 'preview'
+/** Format dont on modifie le style dans les propriétés. */
+export type StyleScope = 'all' | 'tablet' | 'mobile'
 
 export const DEVICE_WIDTH: Record<Device, number | null> = { mobile: 390, tablet: 820, desktop: null }
 
@@ -40,7 +42,8 @@ interface WorkspaceState extends Layout {
   dockTab: DockTab
   codeTab: CodeTab
   mobileView: MobileView
-  dialog: null | 'templates' | 'shortcuts' | 'export'
+  styleScope: StyleScope
+  dialog: null | 'templates' | 'shortcuts' | 'export' | 'projects'
   set: (patch: Partial<Omit<WorkspaceState, 'set' | 'resetLayout'>>) => void
   resetLayout: () => void
 }
@@ -57,6 +60,7 @@ export const useWorkspace = create<WorkspaceState>()(
       dockTab: 'preview',
       codeTab: 'html',
       mobileView: 'create',
+      styleScope: 'all',
       dialog: null,
       set: (patch) => set(patch),
       resetLayout: () => set(DEFAULT_LAYOUT),

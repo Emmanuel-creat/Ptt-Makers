@@ -21,3 +21,17 @@ export function safeImageSrc(url: string): string | null {
   if (/^https?:\/\//i.test(t) || /^data:image\/(png|jpe?g|gif|webp|svg\+xml)[;,]/i.test(t)) return t
   return null
 }
+
+export type VideoSource = { kind: 'youtube'; id: string; embed: string; thumbnail: string } | { kind: 'file'; src: string }
+
+/** Reconnaît une vidéo YouTube (watch, youtu.be, shorts, embed) ou un fichier vidéo en http(s). */
+export function videoSource(url: string): VideoSource | null {
+  const t = String(url ?? '').trim()
+  const yt = t.match(/^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/i)
+  if (yt) {
+    const id = yt[1]
+    return { kind: 'youtube', id, embed: `https://www.youtube-nocookie.com/embed/${id}`, thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` }
+  }
+  if (/^https?:\/\/\S+\.(mp4|webm|ogg|mov)(\?\S*)?$/i.test(t)) return { kind: 'file', src: t }
+  return null
+}

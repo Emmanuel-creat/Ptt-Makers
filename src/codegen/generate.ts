@@ -2,8 +2,8 @@ import { BRICKS } from '../model/bricks'
 import type { Action, BrickNode, Project, Variable } from '../model/types'
 import { interpolate, parseTemplate } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
-import { escapeHtml, escapeTemplate, safeHref, safeImageSrc } from './escape'
-import { styleEntries } from './style'
+import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
+import { BREAKPOINTS, overrideEntries, styleEntries, themeEntries } from './style'
 
 export type LineRange = [start: number, end: number]
 
@@ -75,6 +75,8 @@ function documentOrder(project: Project): BrickNode[] {
 
 /** Sélecteur CSS d'une brique : un id, ou une classe pour les briques répétées (il y en a plusieurs copies). */
 const selectorOf = (g: Gen, id: string) => (g.repeatOf.has(id) ? `.${id}` : `#${id}`)
+/** Sélecteur qui reçoit le style réglé : pour une fenêtre, c'est la boîte et non le fond sombre. */
+const styleSelector = (g: Gen, node: BrickNode) => selectorOf(g, node.id) + (node.type === 'modal' ? ' > .modal-box' : '')
 
 /* ---------------------------------- HTML --------------------------------- */
 
@@ -108,7 +110,10 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
   const repeated = g.repeatOf.has(node.id)
   const cls = [brickClass(node), repeated ? node.id : ''].filter(Boolean).join(' ')
   const isOtherPage = node.type === 'page' && project.pages.length > 1 && node.id !== project.rootId
-  const hidden = isInitiallyHidden(node, variables) || isOtherPage ? true : null
+  const parent = node.parent ? project.nodes[node.parent] : null
+  // Dans des onglets, seul le premier panneau est visible au départ.
+  const otherTab = parent?.type === 'tabs' && parent.children.indexOf(node.id) > 0
+  const hidden = isInitiallyHidden(node, variables) || isOtherPage || otherTab || node.type === 'modal' ? true : null
   const base: [string, string | true | null][] = [
     ['id', repeated ? null : node.id],
     ['class', cls],
@@ -119,6 +124,7 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
   const children = (ind: string) => {
     for (const c of node.children) if (project.nodes[c]) emitNode(out, g, project.nodes[c], ind)
   }
+  const kids = node.children.map((c) => project.nodes[c]).filter(Boolean)
 
   switch (node.type) {
     case 'page':
@@ -149,6 +155,70 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
         children(inner)
         out.push(`${indent}</${tag}>`)
       }
+      break
+    }
+    case 'tabs': {
+      out.push(`${indent}<!-- ${escapeHtml(node.name)} : un panneau par onglet -->`)
+      out.push(`${indent}<div${attrs(base)}>`)
+      out.push(`${inner}<div class="tabs-bar" role="tablist">`)
+      kids.forEach((k, i) => out.push(`${inner}  <button type="button" role="tab" aria-selected="${i === 0}">${escapeHtml(k.name)}</button>`))
+      out.push(`${inner}</div>`)
+      children(inner)
+      out.push(`${indent}</div>`)
+      break
+    }
+    case 'accordion': {
+      out.push(`${indent}<!-- ${escapeHtml(node.name)} : un volet par brique -->`)
+      out.push(`${indent}<div${attrs(base)}>`)
+      kids.forEach((k, i) => {
+        out.push(`${inner}<details class="accordion-item"${i === 0 && p.firstOpen ? ' open' : ''}>`)
+        out.push(`${inner}  <summary>${escapeHtml(k.name)}</summary>`)
+        emitNode(out, g, k, inner + '  ')
+        out.push(`${inner}</details>`)
+      })
+      out.push(`${indent}</div>`)
+      break
+    }
+    case 'modal': {
+      out.push(`${indent}<!-- ${escapeHtml(node.name)} : cachée au départ, s'ouvre avec « Afficher » -->`)
+      out.push(`${indent}<div${attrs(base)}>`)
+      out.push(`${inner}<div class="modal-box" role="dialog" aria-modal="true" aria-label="${escapeHtml(String(p.label || node.name))}">`)
+      out.push(`${inner}  <button type="button" class="modal-close" aria-label="Fermer">×</button>`)
+      children(inner + '  ')
+      out.push(`${inner}</div>`)
+      out.push(`${indent}</div>`)
+      break
+    }
+    case 'navbar': {
+      out.push(`${indent}<nav${attrs([...base, ['aria-label', 'Navigation principale']])}>`)
+      if (String(p.brand ?? '').trim()) out.push(`${inner}<strong class="navbar-brand">${text('brand')}</strong>`)
+      out.push(`${inner}<div class="navbar-links">`)
+      for (const id of project.pages) {
+        const pg = project.nodes[id]
+        if (pg) out.push(`${inner}  <a href="#${id}"${id === project.rootId ? ' class="is-active"' : ''}>${escapeHtml(pg.name)}</a>`)
+      }
+      out.push(`${inner}</div>`)
+      out.push(`${indent}</nav>`)
+      break
+    }
+    case 'video': {
+      const v = videoSource(String(p.src))
+      const title = String(p.title || 'Vidéo')
+      if (v?.kind === 'youtube') {
+        out.push(
+          `${indent}<iframe${attrs([...base, ['src', v.embed], ['title', title], ['loading', 'lazy'], ['allow', 'accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen'], ['allowfullscreen', true]])}></iframe>`,
+        )
+      } else if (v?.kind === 'file') {
+        out.push(`${indent}<video${attrs([...base, ['src', v.src], ['title', title], ['controls', true], ['preload', 'metadata']])}></video>`)
+      } else {
+        out.push(`${indent}<!-- ${escapeHtml(node.name)} : ajoute l'adresse d'une vidéo YouTube ou d'un fichier .mp4 -->`)
+        out.push(`${indent}<div${attrs([...base, ['role', 'img'], ['aria-label', title]])}></div>`)
+      }
+      break
+    }
+    case 'icon': {
+      const label = String(p.label ?? '').trim()
+      out.push(`${indent}<span${attrs([...base, ...(label ? ([['role', 'img'], ['aria-label', label]] as [string, string][]) : ([['aria-hidden', 'true']] as [string, string][]))])}>${escapeHtml(String(p.symbol ?? ''))}</span>`)
       break
     }
     case 'heading': {
@@ -245,16 +315,41 @@ function emitCss(g: Gen): string {
   out.push('body { margin: 0; }')
   for (const l of BASE_CSS.trimEnd().split('\n')) out.push(l)
   out.push('')
+  const theme = themeEntries(g.project.theme)
+  if (theme.length) {
+    out.push('/* Thème du projet : couleur principale, arrondis et police */')
+    out.push(':root {')
+    for (const [k, v] of theme) out.push(`  ${k}: ${v};`)
+    out.push('}')
+    out.push('')
+  }
   out.push('/* Styles de tes briques */')
-  for (const node of documentOrder(g.project)) {
+  const order = documentOrder(g.project)
+  const cleanName = (n: BrickNode) => n.name.replace(/[*/<>]/g, '')
+  for (const node of order) {
     const entries = styleEntries(node)
     if (!entries.length) continue
     const start = out.line + 1
-    out.push(`/* ${node.name.replace(/[*/<>]/g, '')} */`)
-    out.push(`${selectorOf(g, node.id)} {`)
+    out.push(`/* ${cleanName(node)} */`)
+    out.push(`${styleSelector(g, node)} {`)
     for (const [k, v] of entries) out.push(`  ${k}: ${v};`)
     out.push('}')
     setRange(g.map, node.id, 'css', [start, out.line])
+  }
+  // Réglages propres aux petits écrans, du plus grand au plus petit.
+  for (const bp of BREAKPOINTS) {
+    const rules = order.map((n) => [n, overrideEntries(n, n.responsive?.[bp.scope])] as const).filter(([, e]) => e.length)
+    if (!rules.length) continue
+    out.push('')
+    out.push(`/* ${bp.label} (largeur jusqu'à ${bp.maxWidth} px) */`)
+    out.push(`@media (max-width: ${bp.maxWidth}px) {`)
+    for (const [n, entries] of rules) {
+      out.push(`  /* ${cleanName(n)} */`)
+      out.push(`  ${styleSelector(g, n)} {`)
+      for (const [k, v] of entries) out.push(`    ${k}: ${v};`)
+      out.push('  }')
+    }
+    out.push('}')
   }
   return out.toString()
 }
@@ -559,10 +654,13 @@ function emitJs(g: Gen): string {
   const clickable = outside.filter((n) => n.onClick.length > 0)
   const repeats = order.filter((n) => g.repeats.has(n.id))
   const loads = project.pages.map((id) => project.nodes[id]).filter((p) => p?.onLoad?.length)
+  const hasTabs = order.some((n) => n.type === 'tabs')
+  const hasModals = order.some((n) => n.type === 'modal')
+  const hasNavbar = order.some((n) => n.type === 'navbar')
 
   out.push('// Code généré par Ptt-Makers. Tu peux le lire, le copier et le modifier librement !')
 
-  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length) {
+  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !hasTabs && !hasModals) {
     out.push('// Ce projet ne contient pas encore d’interactions.')
     out.push('// Ajoute une variable ou une action « Au clic » pour voir du JavaScript apparaître ici.')
     return out.toString()
@@ -694,6 +792,11 @@ function emitJs(g: Gen): string {
     out.push('  const page = PAGES.includes(demandee) ? demandee : PAGE_DEPART;')
     out.push('  for (const id of PAGES) document.getElementById(id).hidden = id !== page;')
     out.push('  window.scrollTo(0, 0);')
+    if (hasNavbar) {
+      out.push('  for (const lien of document.querySelectorAll(".navbar a")) {')
+      out.push('    lien.classList.toggle("is-active", lien.getAttribute("href") === "#" + page);')
+      out.push('  }')
+    }
     if (loads.length) out.push('  auChargement[page]?.();')
     out.push('}')
     out.push('window.addEventListener("hashchange", afficherPage);')
@@ -721,6 +824,29 @@ function emitJs(g: Gen): string {
       }
       out.push('};')
     }
+  }
+
+  if (hasTabs) {
+    title('Onglets : un clic sur un titre affiche son panneau')
+    out.push('for (const onglets of document.querySelectorAll(".tabs")) {')
+    out.push('  const titres = [...onglets.querySelectorAll(":scope > .tabs-bar > button")];')
+    out.push('  const panneaux = [...onglets.children].slice(1);')
+    out.push('  titres.forEach((titre, i) => {')
+    out.push('    titre.addEventListener("click", () => {')
+    out.push('      titres.forEach((t, j) => t.setAttribute("aria-selected", String(i === j)));')
+    out.push('      panneaux.forEach((panneau, j) => (panneau.hidden = i !== j));')
+    out.push('    });')
+    out.push('  });')
+    out.push('}')
+  }
+
+  if (hasModals) {
+    title('Fenêtres : la croix ou un clic à côté les referme')
+    out.push('for (const fenetre of document.querySelectorAll(".modal")) {')
+    out.push('  fenetre.addEventListener("click", (evenement) => {')
+    out.push('    if (evenement.target === fenetre || evenement.target.closest(".modal-close")) fenetre.hidden = true;')
+    out.push('  });')
+    out.push('}')
   }
 
   out.push('')
