@@ -16,16 +16,16 @@
 | Propriétés | à droite | Tout ce qu'on peut régler sur la brique sélectionnée. |
 | Aperçu / Code | en bas (ou à droite) | L'application qui fonctionne vraiment, et son code HTML, CSS et JavaScript. |
 
-Les bords entre zones se **redimensionnent** (glisser, ou flèches du clavier ; double-clic pour revenir à la taille par défaut). Le bouton ⚙ de la barre du haut permet de **masquer** une zone ou de placer l'aperçu **à droite** ou **en bas**.
+Les bords entre zones se **redimensionnent** (glisser, ou flèches du clavier ; double-clic pour revenir à la taille par défaut). Le bouton Disposition <img src="icones/reglages.svg" width="16" height="16" alt=""> de la barre du haut permet de **masquer** une zone ou de placer l'aperçu **à droite** ou **en bas**.
 
 ## Les briques
 
 | Famille | Briques |
 |---|---|
-| 🟪 Structure | Section, Ligne (côte à côte), Colonne (empilé), Grille, Carte, Répétition, Onglets, Accordéon, Fenêtre, Barre de menu |
-| 🟦 Texte | Titre, Paragraphe, Lien, Étiquette, Liste |
-| 🟩 Interaction | Bouton, Champ texte, Zone de texte, Case à cocher, Menu déroulant |
-| 🟧 Médias | Image, Vidéo, Icône, Séparateur, Espace |
+| <img src="icones/famille-structure.svg" width="14" height="14" alt=""> Structure | Section, Ligne (côte à côte), Colonne (empilé), Grille, Carte, Répétition, Onglets, Accordéon, Fenêtre, Barre de menu |
+| <img src="icones/famille-texte.svg" width="14" height="14" alt=""> Texte | Titre, Paragraphe, Lien, Étiquette, Liste |
+| <img src="icones/famille-interaction.svg" width="14" height="14" alt=""> Interaction | Bouton, Champ texte, Zone de texte, Case à cocher, Menu déroulant |
+| <img src="icones/famille-medias.svg" width="14" height="14" alt=""> Médias | Image, Vidéo, Icône, Séparateur, Espace |
 
 - **Ajouter** : glisse une brique vers la zone de création (une ligne violette montre où elle ira), ou **clique** dessus pour l'ajouter dans la brique sélectionnée.
 - **Déplacer** : glisse-la dans la zone de création ou dans les **calques** ; ou utilise les flèches de la barre flottante.
@@ -56,11 +56,11 @@ Par défaut, les briques d'une page s'empilent les unes sous les autres. Pour le
 - **Fenêtre** : elle est cachée au départ. Ajoute à un bouton l'action « Afficher une brique » pour l'ouvrir ; la croix ou un clic à côté la referme.
 - **Barre de menu** : elle affiche un lien vers chaque page du projet et met en avant la page affichée.
 - **Vidéo** : colle l'adresse d'une vidéo YouTube ou d'un fichier `.mp4` / `.webm`.
-- **Icône** : choisis un emoji dans la grille ou tape le tien.
+- **Icône** : choisis une des 52 icônes dessinées (étoile, cœur, téléphone, e-mail, maison…) dans la grille, ou cherche-la par son nom. Elle prend la taille du texte (« Taille du texte ») et sa couleur (« Couleur du texte »).
 
 ### Mes composants
 
-Sélectionne un bloc (une carte, un menu…) et clique sur l'icône 📦 en haut des propriétés : il rejoint la famille **Mes composants** de la bibliothèque. Glisse-le ou clique dessus pour en placer une copie. Le × de la tuile le retire de la bibliothèque, sans toucher aux copies déjà placées.
+Sélectionne un bloc (une carte, un menu…) et clique sur l'icône Paquet <img src="icones/paquet.svg" width="16" height="16" alt=""> en haut des propriétés : il rejoint la famille **Mes composants** de la bibliothèque. Glisse-le ou clique dessus pour en placer une copie. Le × de la tuile le retire de la bibliothèque, sans toucher aux copies déjà placées.
 
 ## Thème et formats
 
@@ -102,7 +102,7 @@ L'action **Si… alors… sinon…** teste une variable (vraie, fausse, égale �
 
 ## Plusieurs pages
 
-Les **onglets au-dessus de la zone de création** listent les pages. Le bouton **+ Page** en ajoute une ; le bouton **⋯** permet de la renommer, la dupliquer, la déplacer, en faire la page d'accueil (🏠) ou la supprimer. Double-clique un onglet pour le renommer.
+Les **onglets au-dessus de la zone de création** listent les pages. Le bouton **+ Page** en ajoute une ; le bouton **⋯** permet de la renommer, la dupliquer, la déplacer, en faire la page d'accueil (icône Maison <img src="icones/accueil.svg" width="16" height="16" alt="">) ou la supprimer. Double-clique un onglet pour le renommer.
 
 Pour passer d'une page à l'autre : l'action **Aller sur une page**, ou un **Lien** dont le champ *Vers une page du projet* est rempli. L'aperçu s'ouvre sur la page en cours d'édition. Dans le code exporté, toutes les pages sont dans `index.html` et l'adresse se termine par `#nom-de-la-page`.
 

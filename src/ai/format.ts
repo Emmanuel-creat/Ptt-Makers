@@ -1,5 +1,6 @@
 import { BRICKS, type FieldDef } from '../model/bricks'
 import { clampPlace, isFreeGrid } from '../model/freeGrid'
+import { ICON_NAMES } from '../model/icons'
 import { buildApp, type PageSpec, type Spec } from '../model/templates'
 import type { Action, BrickNode, BrickStyle, BrickType, ConditionOp, Project, PropValue, Variable, VariableKind } from '../model/types'
 
@@ -175,7 +176,12 @@ export const PROJECT_SCHEMA = obj({
 /* ------------------------- Description pour l'IA ------------------------- */
 
 const fieldDoc = (f: FieldDef) => {
-  const extra = f.kind === 'select' && f.options ? ` (${f.options.map((o) => o.value).join(' | ')})` : ''
+  const extra =
+    f.kind === 'select' && f.options
+      ? ` (${f.options.map((o) => o.value).join(' | ')})`
+      : f.kind === 'icon'
+        ? ` (un nom parmi : ${ICON_NAMES.join(', ')})`
+        : ''
   return `${f.key}: ${f.kind}${extra}`
 }
 

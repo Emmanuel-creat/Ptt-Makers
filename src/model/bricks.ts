@@ -1,6 +1,6 @@
 import type { BrickStyle, BrickType, Category, PropValue, VariableKind } from './types'
 
-export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url' | 'page' | 'emoji'
+export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url' | 'page' | 'icon'
 
 export interface FieldDef {
   key: string
@@ -425,14 +425,14 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     label: 'Icône',
     category: 'medias',
     icon: 'smile',
-    description: 'Un pictogramme (emoji) à la taille de ton choix.',
+    description: 'Un pictogramme dessiné (étoile, cœur, téléphone…) à la taille et à la couleur de ton choix.',
     container: false,
     idPrefix: 'icone',
     fields: [
-      { key: 'symbol', label: 'Icône', kind: 'emoji' },
+      { key: 'symbol', label: 'Icône', kind: 'icon' },
       { key: 'label', label: 'Signification (accessibilité)', kind: 'text', help: 'Laisse vide si l’icône est décorative.' },
     ],
-    defaultProps: { symbol: '⭐', label: '' },
+    defaultProps: { symbol: 'etoile', label: '' },
     defaultStyle: { fontSize: 40 },
   },
   divider: {

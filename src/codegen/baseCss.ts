@@ -195,6 +195,7 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 /* Médias */
 .page .video { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; background: #11131c; object-fit: cover; }
 .page .icon { display: inline-block; width: fit-content; line-height: 1; }
+.page .icon svg { display: block; width: 1em; height: 1em; }
 
 /* Sur petit écran, les grilles passent sur une seule colonne. */
 @container (max-width: 640px) {

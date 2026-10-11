@@ -2824,30 +2824,34 @@ select.pm-input {
 }
 
 /* Icônes */
-.pm-emoji {
+.pm-icon-pick {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.pm-emoji-grid {
+.pm-icon-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 2px;
+  max-height: 188px;
+  overflow-y: auto;
 }
-.pm-emoji-btn {
+.pm-icon-opt {
   display: grid;
   place-items: center;
   aspect-ratio: 1;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  font-size: 17px;
+  color: var(--pm-text);
+  font-size: 18px;
 }
-.pm-emoji-btn:hover {
+.pm-icon-opt:hover {
   background: var(--pm-hover);
 }
-.pm-emoji-btn[aria-selected='true'] {
+.pm-icon-opt[aria-selected='true'] {
   background: var(--pm-brand-soft);
+  color: var(--pm-brand);
   box-shadow: inset 0 0 0 1.5px var(--pm-brand);
 }
 

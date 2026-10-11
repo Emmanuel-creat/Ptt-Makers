@@ -69,6 +69,14 @@ describe('export React et Vue', () => {
     loadReact(toReact(project(id)).jsx)
   })
 
+  it('React : les icônes dessinées gardent leurs attributs SVG', async () => {
+    expect(htmlToJsx('<svg stroke-width="2" aria-hidden="true"><path d="M1 1"/></svg>')).toBe('<svg strokeWidth="2" aria-hidden="true"><path d="M1 1" /></svg>')
+    await mountReact('accueil')
+    const svg = document.querySelector('#icone-1 svg')!
+    expect(svg.getAttribute('stroke-width')).toBe('2')
+    expect(svg.querySelectorAll('path').length).toBeGreaterThan(0)
+  })
+
   it('React : le compteur fonctionne', async () => {
     const $ = await mountReact('compteur')
     await act(async () => {

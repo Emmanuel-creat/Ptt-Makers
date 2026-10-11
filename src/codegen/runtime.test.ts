@@ -63,7 +63,7 @@ describe('listes, conditions, pages et API', () => {
   it('liste de tâches : ajouter, retirer, vider', () => {
     const $ = run('taches')
     const items = () => [...document.querySelectorAll('#repetition-1 .repeat-item')].map((el) => el.textContent?.replace(/\s+/g, ' ').trim())
-    expect(items()).toEqual(['1. Découvrir Ptt-Makers Fait ✓', '2. Créer ma première appli Fait ✓'])
+    expect(items()).toEqual(['1. Découvrir Ptt-Makers Fait', '2. Créer ma première appli Fait'])
     expect($('texte-1').textContent).toBe('2 tâche(s) à faire')
 
     // Condition : rien n'est ajouté si le champ est vide.
@@ -106,7 +106,7 @@ describe('listes, conditions, pages et API', () => {
     const cards = document.querySelectorAll('#repetition-1 .carte-1')
     expect(cards).toHaveLength(2)
     expect(cards[1].textContent).toContain('Sam')
-    expect(cards[1].textContent).toContain('🏙️ Nantes')
+    expect(cards[1].textContent).toContain('Nantes')
     expect($('texte-1').textContent).toContain('2 personnes trouvées')
   })
 

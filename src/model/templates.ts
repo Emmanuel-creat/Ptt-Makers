@@ -128,7 +128,7 @@ export const TEMPLATES: Template[] = [
           name: 'Bandeau',
           style: { padding: 56, gap: 18, align: 'center', textAlign: 'center', background: '#f3f1ff', borderRadius: 0 },
           children: [
-            { type: 'badge', props: { text: '✨ Nouveau' }, style: { margin: 0 } },
+            { type: 'badge', props: { text: 'Nouveau' }, style: { margin: 0 } },
             H('Donne vie à tes idées', '1', { maxWidth: '720px' }),
             P('Une phrase courte qui explique ce que ton projet apporte et pourquoi il est utile.', {
               maxWidth: '560px',
@@ -161,13 +161,17 @@ export const TEMPLATES: Template[] = [
               type: 'grid',
               props: { columns: 3 },
               children: [
-                ['⚡ Rapide', 'Tout se met en place en quelques minutes.'],
-                ['🎨 Personnalisable', 'Couleurs, textes et mise en page à ton image.'],
-                ['🤝 Accessible', 'Pensé pour être simple à utiliser par tout le monde.'],
+                ['eclair', 'Rapide', 'Tout se met en place en quelques minutes.'],
+                ['palette', 'Personnalisable', 'Couleurs, textes et mise en page à ton image.'],
+                ['poignee', 'Accessible', 'Pensé pour être simple à utiliser par tout le monde.'],
               ].map(
-                ([t, d]): Spec => ({
+                ([icon, t, d]): Spec => ({
                   type: 'card',
-                  children: [H(t, '3'), P(d, { color: '#5b6075' })],
+                  children: [
+                    { type: 'icon', props: { symbol: icon, label: '' }, style: { fontSize: 30, color: '#5b4ff5' } },
+                    H(t, '3'),
+                    P(d, { color: '#5b6075' }),
+                  ],
                 }),
               ),
             },
@@ -255,8 +259,11 @@ export const TEMPLATES: Template[] = [
                 type: 'card',
                 name: 'Confirmation',
                 showIf: 'envoye',
-                style: { padding: 14, background: '#ecfdf5', borderColor: '#a7f3d0', shadow: 'none', color: '#065f46' },
-                children: [P('✅ Merci {{nom}}, ton message a bien été envoyé !')],
+                style: { direction: 'row', align: 'center', gap: 10, padding: 14, background: '#ecfdf5', borderColor: '#a7f3d0', shadow: 'none', color: '#065f46' },
+                children: [
+                  { type: 'icon', props: { symbol: 'valide', label: '' }, style: { fontSize: 22 } },
+                  P('Merci {{nom}}, ton message a bien été envoyé !'),
+                ],
               },
             ],
           },
@@ -359,7 +366,7 @@ export const TEMPLATES: Template[] = [
               {
                 type: 'repeat',
                 name: 'Tâches',
-                props: { source: 'taches', columns: 1, empty: 'Bravo, plus rien à faire ! 🎉' },
+                props: { source: 'taches', columns: 1, empty: 'Bravo, plus rien à faire !' },
                 style: { gap: 8 },
                 children: [
                   {
@@ -370,7 +377,7 @@ export const TEMPLATES: Template[] = [
                       { type: 'text', name: 'Texte de la tâche', props: { text: '{{position}}. {{element}}' } },
                       {
                         type: 'button',
-                        props: { text: 'Fait ✓', variant: 'secondary' },
+                        props: { text: 'Fait', variant: 'secondary' },
                         onClick: [{ type: 'listRemove', variable: 'taches', which: 'current' }],
                       },
                     ],
@@ -418,8 +425,22 @@ export const TEMPLATES: Template[] = [
                 style: { gap: 6 },
                 children: [
                   H('{{element.name}}', '3'),
-                  P('✉️ {{element.email}}', { fontSize: 14, color: '#4b5068' }),
-                  P('🏙️ {{element.address.city}}', { fontSize: 14, color: '#4b5068' }),
+                  ...(
+                    [
+                      ['email', 'E-mail', '{{element.email}}'],
+                      ['ville', 'Ville', '{{element.address.city}}'],
+                    ] as const
+                  ).map(
+                    ([icon, label, text]): Spec => ({
+                      type: 'row',
+                      name: label,
+                      style: { gap: 6, align: 'center', color: '#4b5068' },
+                      children: [
+                        { type: 'icon', props: { symbol: icon, label }, style: { fontSize: 16 } },
+                        P(text, { fontSize: 14 }),
+                      ],
+                    }),
+                  ),
                   { type: 'button', props: { text: 'Saluer', variant: 'secondary' }, onClick: [{ type: 'alert', message: 'Bonjour {{element.name}} !' }] },
                 ],
               },

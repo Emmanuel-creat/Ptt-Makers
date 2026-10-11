@@ -2,6 +2,17 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.2.0] : 2026-10-11
+
+Plus aucun emoji : des icônes dessinées à la place.
+
+### Modifié
+- La brique **Icône** propose 52 icônes dessinées en SVG (étoile, cœur, téléphone, e-mail, maison, fusée…), avec une recherche par nom. Elles suivent la taille et la couleur du texte, et s'affichent pareil sur tous les appareils.
+- Les projets créés avant gardent leur icône : chaque ancien emoji est remplacé par l'icône dessinée équivalente.
+- Le code exporté (HTML, React, Vue) contient le SVG de l'icône, sans emoji.
+- Les modèles de départ, les messages de l'éditeur, le README et le guide n'utilisent plus d'emoji ; la documentation utilise des icônes dans `docs/icones/`.
+- L'assistant IA n'écrit plus d'emoji : il ajoute une brique Icône quand il veut illustrer.
+
 ## [2.1.0] : 2026-10-11
 
 Placer une brique où on veut : la page peut devenir une grille aimantée.

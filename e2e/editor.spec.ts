@@ -405,3 +405,17 @@ test.describe('page en grille', () => {
       .toBe(true)
   })
 })
+
+test.describe('icônes dessinées', () => {
+  test('choisit une icône dessinée, sans emoji dans la page', async ({ page }) => {
+    await openBlank(page)
+    await page.locator('.pm-tile', { hasText: 'Icône' }).click()
+    await page.getByLabel('Chercher une icône').fill('fus')
+    await page.getByRole('listbox', { name: 'Icônes proposées' }).getByRole('option', { name: 'Fusée' }).click()
+    await expect(page.getByRole('option', { name: 'Fusée' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.locator('.pm-frame [data-ptt-id="icone-1"] svg')).toBeVisible()
+    await expect(preview(page).locator('#icone-1 svg path').first()).toBeAttached()
+    const text = await preview(page).locator('body').innerText()
+    expect(text).not.toMatch(/\p{Extended_Pictographic}/u)
+  })
+})

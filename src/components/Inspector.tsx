@@ -21,9 +21,11 @@ import {
   Type,
   Zap,
 } from 'lucide-react'
-import { useContext } from 'react'
+import { useContext, useState } from 'react'
 import { BRICKS, CATEGORIES, type FieldDef } from '../model/bricks'
 import { GRID_COLUMNS, GRID_ROW, isFreeGrid } from '../model/freeGrid'
+import { ICON_NAMES, iconLabel, resolveIcon } from '../model/icons'
+import { IconSvg } from './CanvasNode'
 import type { BrickNode, BrickStyle, GridPlace, ProjectTheme, StyleOverride } from '../model/types'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
@@ -453,8 +455,8 @@ function ContentField({ field: f, node, onChange }: { field: FieldDef; node: Bri
             return <NumberInput id={id} value={Number(value) || undefined} unit="" min={1} max={12} onChange={(v) => onChange(v ?? 1)} />
           case 'variable':
             return <VariableSelect id={id} value={String(value ?? '') || undefined} onChange={onChange} kinds={f.kinds} />
-          case 'emoji':
-            return <EmojiInput id={id} value={String(value ?? '')} onChange={onChange} />
+          case 'icon':
+            return <IconInput id={id} value={String(value ?? '')} onChange={onChange} />
           case 'page':
             return <PageSelect id={id} value={String(value ?? '')} onChange={onChange} placeholder="Aucune (utiliser l’adresse)" />
           case 'textarea':
@@ -557,19 +559,38 @@ function ThemeSection() {
   )
 }
 
-const EMOJIS = '⭐ ❤️ 🔥 ✅ ⚡ 🎉 🚀 💡 📌 📅 ⏰ 📍 📞 ✉️ 💬 🔒 🛒 💳 🎁 🏆 🎨 🎵 📷 🎮 📚 ✏️ 🧪 🌱 🌍 ☀️ 🌙 🍕 ☕ 🏠 🚲 👋 👍 😀 🤖 🧩'.split(' ')
-
-/** Choix d'une icône : une grille d'emojis et un champ libre. */
-function EmojiInput({ id, value, onChange }: { id?: string; value: string; onChange: (v: string) => void }) {
+/** Choix d'une icône dessinée, avec une recherche par nom. */
+function IconInput({ id, value, onChange }: { id?: string; value: string; onChange: (v: string) => void }) {
+  const [query, setQuery] = useState('')
+  const current = resolveIcon(value)
+  const q = query.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const shown = ICON_NAMES.filter((n) => !q || n.includes(q) || iconLabel(n).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q))
   return (
-    <div className="pm-emoji">
-      <input id={id} className="pm-input" value={value} maxLength={8} onChange={(e) => onChange(e.target.value)} aria-label="Icône (emoji)" />
-      <div className="pm-emoji-grid" role="listbox" aria-label="Icônes proposées">
-        {EMOJIS.map((e) => (
-          <button key={e} type="button" role="option" aria-selected={e === value} className="pm-emoji-btn" onClick={() => onChange(e)}>
-            {e}
+    <div className="pm-icon-pick">
+      <input
+        id={id}
+        className="pm-input"
+        value={query}
+        placeholder={`Chercher (actuelle : ${iconLabel(current)})`}
+        onChange={(e) => setQuery(e.target.value)}
+        aria-label="Chercher une icône"
+      />
+      <div className="pm-icon-grid" role="listbox" aria-label="Icônes proposées">
+        {shown.map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="option"
+            aria-selected={n === current}
+            aria-label={iconLabel(n)}
+            data-tip={iconLabel(n)}
+            className="pm-icon-opt"
+            onClick={() => onChange(n)}
+          >
+            <IconSvg name={n} />
           </button>
         ))}
+        {shown.length === 0 && <span className="pm-muted">Aucune icône ne correspond.</span>}
       </div>
     </div>
   )

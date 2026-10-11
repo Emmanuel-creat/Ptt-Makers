@@ -1,4 +1,5 @@
 import { BRICKS } from '../model/bricks'
+import { iconSvg } from '../model/icons'
 import type { Action, BrickNode, Project, Variable } from '../model/types'
 import { interpolate, parseTemplate } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
@@ -218,7 +219,7 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
     }
     case 'icon': {
       const label = String(p.label ?? '').trim()
-      out.push(`${indent}<span${attrs([...base, ...(label ? ([['role', 'img'], ['aria-label', label]] as [string, string][]) : ([['aria-hidden', 'true']] as [string, string][]))])}>${escapeHtml(String(p.symbol ?? ''))}</span>`)
+      out.push(`${indent}<span${attrs([...base, ...(label ? ([['role', 'img'], ['aria-label', label]] as [string, string][]) : ([['aria-hidden', 'true']] as [string, string][]))])}>${iconSvg(String(p.symbol ?? ''))}</span>`)
       break
     }
     case 'heading': {
