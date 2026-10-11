@@ -62,9 +62,17 @@ Par défaut, les briques d'une page s'empilent les unes sous les autres. Pour le
 
 Sélectionne un bloc (une carte, un menu…) et clique sur l'icône Paquet <img src="icones/paquet.svg" width="16" height="16" alt=""> en haut des propriétés : il rejoint la famille **Mes composants** de la bibliothèque. Glisse-le ou clique dessus pour en placer une copie. Le × de la tuile le retire de la bibliothèque, sans toucher aux copies déjà placées.
 
-## Thème et formats
+## Style et formats
 
-- **Thème du projet** : sélectionne la page, puis ouvre « Thème du projet » dans les propriétés. La couleur principale, l'arrondi et la police s'appliquent aux boutons, liens, onglets et champs de tout le projet.
+- **Style du projet** : sélectionne la page, puis ouvre « Style du projet » dans les propriétés. Clique sur un des 24 styles : toutes les pages changent d'un coup (fond, cartes, boutons, champs, barre de menu, polices). Ensuite, chaque réglage se change à la main :
+  - **Couleurs** : couleur principale, texte posé dessus, fond des pages (une couleur ou un dégradé comme `linear-gradient(160deg, #ff6a3d, #7a2cff)`), surfaces, texte, texte secondaire, barre de menu, bordures, ambiance claire ou sombre.
+  - **Formes** : épaisseur des bordures, arrondi des cartes, arrondi des boutons et champs (999 pour des pilules).
+  - **Relief et verre** : plat, doux, porté, néomorphisme, décalé ou verre, avec trois intensités, et le flou derrière les surfaces pour l'effet verre.
+  - **Polices** : une pour le texte, une pour les titres.
+  - « Revenir aux réglages du style » efface tes changements ; « Sans style » revient au thème simple.
+![Le Studio de style dans les propriétés de la page](captures/studio-style.png)
+
+- **Adapter toutes les briques au style** : une couleur, une bordure, une ombre ou un arrondi donné à la main à une brique passe avant le style. Ce bouton les retire pour que tout le projet suive le style (Ctrl+Z pour annuler).
 - **Style pour un format** : en haut des propriétés, « Style pour » choisit tous les écrans, la tablette (moins de 900 px) ou le mobile (moins de 600 px). Les réglages faits sur tablette ou mobile ne changent que ce format ; le chiffre à côté de l'icône compte ces réglages. « Masquer sur ce format » cache la brique sur ce format seulement (elle reste visible en transparence dans la zone de création).
 
 ## Rendre la page interactive

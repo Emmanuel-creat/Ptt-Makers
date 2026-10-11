@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronRight, Copy, CornerLeftUp, LayoutTemplate, MousePointerClick, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { themeEntries } from '../codegen/style'
+import { themeEntries, themeFontsUrl } from '../codegen/style'
 import { BRICKS, isContainer } from '../model/bricks'
 import { clampPlace, defaultSize, isFreeGrid } from '../model/freeGrid'
 import { canDrop, getPath, isDescendant } from '../model/tree'
@@ -75,7 +75,20 @@ export function Canvas() {
   const device = useWorkspace((s) => s.device)
   const beginner = useWorkspace((s) => s.beginner)
   const theme = useEditor((s) => s.project.theme)
-  const themeStyle = useMemo(() => Object.fromEntries(themeEntries(theme)) as React.CSSProperties, [theme])
+  const themeStyle = useMemo(
+    () => Object.fromEntries(themeEntries(theme).map(([k, v]) => [k.startsWith('--') ? k : k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()), v])) as React.CSSProperties,
+    [theme],
+  )
+  const fontsUrl = themeFontsUrl(theme)
+  // Polices du style chargées dans l'éditeur aussi.
+  useEffect(() => {
+    if (!fontsUrl || document.querySelector(`link[data-pm-fonts="${CSS.escape(fontsUrl)}"]`)) return
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = fontsUrl
+    link.dataset.pmFonts = fontsUrl
+    document.head.append(link)
+  }, [fontsUrl])
   const wrapRef = useRef<HTMLDivElement>(null)
   const [, force] = useState(0)
 

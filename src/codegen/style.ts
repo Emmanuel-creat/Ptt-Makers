@@ -1,4 +1,5 @@
 import { placeEntries } from '../model/freeGrid'
+import { resolveTokens, type FontId, type ShadowKind } from '../model/styles'
 import type { BrickNode, BrickStyle, ProjectTheme, StyleOverride } from '../model/types'
 
 const ALIGN: Record<string, string> = { start: 'flex-start', center: 'center', end: 'flex-end', stretch: 'stretch' }
@@ -109,22 +110,135 @@ export function effectiveStyle(node: BrickNode, device: 'desktop' | 'tablet' | '
   return { style, hidden }
 }
 
-export const FONT_STACKS: Record<NonNullable<ProjectTheme['font']>, string> = {
+export const FONT_STACKS: Record<FontId, string> = {
   inter: '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   system: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   arrondie: 'ui-rounded, "Nunito", "Quicksand", "Segoe UI", system-ui, sans-serif',
   serif: 'Georgia, "Times New Roman", serif',
   mono: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace',
+  grotesque: '"Bricolage Grotesque", "Inter", system-ui, sans-serif',
+  editoriale: '"Fraunces", Georgia, "Times New Roman", serif',
+  manuscrite: '"Caveat", "Comic Sans MS", cursive',
+  geometrique: '"Outfit", "Inter", system-ui, sans-serif',
 }
 
-/** Variables CSS du thème (couleur principale, arrondi, police). */
+/** Polices chargées depuis Google Fonts (les autres sont déjà sur l'appareil). */
+const GOOGLE_FONTS: Partial<Record<FontId, string>> = {
+  grotesque: 'Bricolage+Grotesque:opsz,wght@12..96,400..800',
+  editoriale: 'Fraunces:opsz,wght@9..144,400..800',
+  manuscrite: 'Caveat:wght@400..700',
+  geometrique: 'Outfit:wght@400..800',
+}
+
+/** Adresse de la feuille Google Fonts du thème, ou null si le thème n'utilise que des polices de l'appareil. */
+export function themeFontsUrl(theme: ProjectTheme | undefined): string | null {
+  const t = resolveTokens(theme)
+  const families = [...new Set([t.font, t.headingFont])].map((f) => (f ? GOOGLE_FONTS[f] : undefined)).filter(Boolean)
+  return families.length ? `https://fonts.googleapis.com/css2?${families.map((f) => `family=${f}`).join('&')}&display=swap` : null
+}
+
+/** Couleur ou dégradé pour un fond (pas d'image ni de code CSS). */
+export function sanitizeBackground(v: string | undefined): string | null {
+  if (!v) return null
+  const t = v.trim()
+  if (sanitizeColor(t)) return t
+  if (t.length > 400 || !/^(repeating-)?(linear|radial|conic)-gradient\(/.test(t)) return null
+  if (!/^[\w\s#.,%()-]+$/.test(t) || /url|expression|var\(/i.test(t)) return null
+  // Parenthèses équilibrées.
+  let depth = 0
+  for (const c of t) {
+    depth += c === '(' ? 1 : c === ')' ? -1 : 0
+    if (depth < 0) return null
+  }
+  return depth === 0 ? t : null
+}
+
+const num = (v: unknown, min: number, max: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(min, Math.min(max, v)) : null)
+
+/** Ombres calculées à partir du type de relief et de son intensité. */
+function shadows(kind: ShadowKind | undefined, depth: number, dark: boolean): { card: string; button: string; field: string } | null {
+  const d = Math.round(depth)
+  switch (kind) {
+    case 'aucune':
+      return { card: 'none', button: 'none', field: 'none' }
+    case 'douce':
+      return { card: `0 ${d * 2}px ${d * 6}px rgba(16, 24, 40, ${(0.05 + 0.03 * d).toFixed(2)})`, button: 'none', field: 'none' }
+    case 'portee': {
+      const a = (dark ? 0.3 : 0.1) + 0.05 * d
+      return { card: `0 ${d * 6}px ${d * 14}px rgba(0, 0, 0, ${a.toFixed(2)})`, button: `0 ${d * 3}px ${d * 6}px rgba(0, 0, 0, ${(a * 0.7).toFixed(2)})`, field: 'none' }
+    }
+    case 'relief': {
+      const low = `color-mix(in srgb, var(--surface) ${dark ? 55 : 72}%, #000)`
+      const high = `color-mix(in srgb, var(--surface) ${dark ? 88 : 15}%, #fff)`
+      const o = d * 3
+      const b = d * 2
+      return {
+        card: `${o}px ${o}px ${o * 2}px ${low}, -${o}px -${o}px ${o * 2}px ${high}`,
+        button: `${b}px ${b}px ${b * 2}px ${low}, -${b}px -${b}px ${b * 2}px ${high}`,
+        field: `inset ${b}px ${b}px ${b * 2}px ${low}, inset -${b}px -${b}px ${b * 2}px ${high}`,
+      }
+    }
+    case 'decalee': {
+      const o = d * 2 + 1
+      return { card: `${o}px ${o}px 0 var(--texte)`, button: `${o}px ${o}px 0 var(--texte)`, field: 'none' }
+    }
+    case 'verre':
+      return {
+        card: `inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 ${d * 4}px ${d * 10}px rgba(0, 0, 0, ${(dark ? 0.25 : 0.12).toFixed(2)})`,
+        button: 'inset 0 1px 0 rgba(255, 255, 255, 0.45)',
+        field: 'none',
+      }
+    default:
+      return null
+  }
+}
+
+/** Variables CSS du thème : couleurs, surfaces, relief, flou, arrondis et polices. */
 export function themeEntries(theme: ProjectTheme | undefined): [string, string][] {
   if (!theme) return []
+  const t = resolveTokens(theme)
   const out: [string, string][] = []
-  const color = sanitizeColor(theme.primary)
-  if (color) out.push(['--couleur', color])
-  if (typeof theme.radius === 'number' && Number.isFinite(theme.radius)) out.push(['--arrondi', `${Math.max(0, Math.min(40, theme.radius))}px`])
-  if (theme.font && theme.font !== 'inter' && FONT_STACKS[theme.font]) out.push(['--police', FONT_STACKS[theme.font]])
+  const add = (k: string, v: string | null | undefined) => {
+    if (v) out.push([k, v])
+  }
+  const accent = sanitizeColor(t.accent)
+  add('--couleur', accent)
+  const radius = num(t.radius, 0, 999)
+  if (radius !== null) add('--arrondi', `${radius}px`)
+  if (t.font && t.font !== 'inter' && FONT_STACKS[t.font]) add('--police', FONT_STACKS[t.font])
+  // Le reste n'existe que pour un style ou des réglages du Studio.
+  if (!theme.style && !theme.tokens) return out
+  if (t.headingFont && FONT_STACKS[t.headingFont]) add('--police-titre', FONT_STACKS[t.headingFont])
+  add('--sur-couleur', sanitizeColor(t.onAccent))
+  add('--fond', sanitizeBackground(t.background))
+  add('--surface', sanitizeColor(t.surface))
+  add('--texte', sanitizeColor(t.text))
+  add('--texte-doux', sanitizeColor(t.muted))
+  add('--barre', sanitizeBackground(t.bar))
+  add('--sur-barre', sanitizeColor(t.onBar))
+  const border = sanitizeColor(t.border)
+  const bw = num(t.borderWidth, 0, 8)
+  if (border || bw !== null) {
+    add('--bordure', bw === 0 ? 'none' : `${bw ?? 1}px solid ${border ?? '#e4e6ef'}`)
+    add('--trait', border ?? '#e4e6ef')
+  }
+  const cardRadius = num(t.cardRadius, 0, 60)
+  if (cardRadius !== null) add('--arrondi-carte', `${cardRadius}px`)
+  const sh = shadows(t.shadow, num(t.depth, 1, 3) ?? 1, !!t.dark)
+  if (sh) {
+    add('--ombre', sh.card)
+    add('--ombre-bouton', sh.button)
+    add('--ombre-champ', sh.field)
+    if (t.shadow === 'decalee' && bw) add('--bordure-bouton', `${bw}px solid ${border ?? '#111111'}`)
+  }
+  const blur = num(t.blur, 0, 40)
+  if (blur !== null) add('--flou', `${blur}px`)
+  if (accent) {
+    add('--badge', `color-mix(in srgb, ${accent} 18%, transparent)`)
+    add('--sur-badge', t.dark ? sanitizeColor(t.text) ?? accent : accent)
+    add('--icone', accent)
+  }
+  if (t.dark !== undefined) add('color-scheme', t.dark ? 'dark' : 'light')
   return out
 }
 

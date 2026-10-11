@@ -19,7 +19,8 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 - <img src="docs/icones/pages.svg" width="18" height="18" alt=""> **Plusieurs pages** avec navigation, dans un seul fichier exporté.
 - <img src="docs/icones/listes.svg" width="18" height="18" alt=""> **Listes dynamiques** : une brique Répétition affiche une copie par élément (tâches, fiches, produits…).
 - <img src="docs/icones/logique.svg" width="18" height="18" alt=""> **Logique** : actions « Si… alors… sinon… » et **données d'API** chargées à l'ouverture d'une page.
-- <img src="docs/icones/theme.svg" width="18" height="18" alt=""> **Thème du projet** (couleur, arrondi, police) et **Mes composants** : enregistre un bloc pour le réutiliser partout.
+- <img src="docs/icones/theme.svg" width="18" height="18" alt=""> **Studio de style** : 24 styles prêts à l'emploi (néomorphisme, verre givré, néobrutalisme, bento, terminal…) qui habillent tout le projet d'un clic, et chaque réglage modifiable (couleurs, relief, flou, arrondis, polices).
+- <img src="docs/icones/paquet.svg" width="18" height="18" alt=""> **Mes composants** : enregistre un bloc pour le réutiliser partout.
 - <img src="docs/icones/formats.svg" width="18" height="18" alt=""> **Réglages par format** : un style différent, ou une brique masquée, sur tablette ou sur mobile.
 - <img src="docs/icones/projets.svg" width="18" height="18" alt=""> **Mes projets** : plusieurs projets enregistrés dans le navigateur, et un **lien de partage** qui contient tout le projet.
 - <img src="docs/icones/defis.svg" width="18" height="18" alt=""> **Défis guidés** : des objectifs en quelques étapes qui se cochent toutes seules.
@@ -34,6 +35,8 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 ![Une page en grille : le bouton de menu est posé en haut à gauche, l'image en haut à droite](docs/captures/grille.png)
 
 ![L'assistant IA de la version Pro](docs/captures/assistant-ia.png)
+
+![Le Studio de style : le style « Verre de nuit à halos » appliqué à tout le projet](docs/captures/studio-style.png)
 
 ![Ptt-Makers en thème sombre, format mobile, avec les calques et l'aperçu à droite](docs/captures/editeur-sombre.png)
 

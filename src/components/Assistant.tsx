@@ -50,7 +50,9 @@ export function AssistantDialog({ onClose }: { onClose: () => void }) {
         const ai = await modifyProject(settings, ed.project, text, setProgress)
         const next = aiToProject(ai)
         const current = useEditor.getState().project
-        ed.loadProject({ ...next, name: current.name, components: current.components })
+        // Les réglages faits dans le Studio de style restent si l'assistant garde le même style.
+        const theme = next.theme && current.theme?.tokens && next.theme.style === current.theme.style ? { ...next.theme, tokens: current.theme.tokens } : next.theme
+        ed.loadProject({ ...next, theme, name: current.name, components: current.components })
         ed.notify('Projet modifié par l’assistant (Ctrl+Z pour annuler)')
         setAnswer(ai.summary || 'C’est fait.')
         setPrompt('')

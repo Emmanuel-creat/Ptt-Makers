@@ -1,8 +1,9 @@
 import { BRICKS, type FieldDef } from '../model/bricks'
 import { clampPlace, isFreeGrid } from '../model/freeGrid'
 import { ICON_NAMES } from '../model/icons'
+import { FONT_IDS, STYLE_IDS, stylePreset, type FontId } from '../model/styles'
 import { buildApp, type PageSpec, type Spec } from '../model/templates'
-import type { Action, BrickNode, BrickStyle, BrickType, ConditionOp, Project, PropValue, Variable, VariableKind } from '../model/types'
+import type { Action, BrickNode, BrickStyle, BrickType, ConditionOp, Project, ProjectTheme, PropValue, Variable, VariableKind } from '../model/types'
 
 /**
  * Format d'échange entre Ptt-Makers et l'IA.
@@ -67,7 +68,7 @@ export interface AiVariable {
 export interface AiProject {
   name: string
   summary: string
-  theme: { primary: string; radius: number; font: 'inter' | 'system' | 'arrondie' | 'serif' | 'mono' | '' }
+  theme: { style: string; primary: string; radius: number; font: FontId | '' }
   variables: AiVariable[]
   pages: AiPage[]
   bricks: AiBrick[]
@@ -150,7 +151,12 @@ const action = obj({
 export const PROJECT_SCHEMA = obj({
   name: str,
   summary: str,
-  theme: obj({ primary: str, radius: { type: 'number' }, font: { type: 'string', enum: ['inter', 'system', 'arrondie', 'serif', 'mono', ''] } }),
+  theme: obj({
+    style: { type: 'string', enum: [...STYLE_IDS, ''] },
+    primary: str,
+    radius: { type: 'number' },
+    font: { type: 'string', enum: [...FONT_IDS, ''] },
+  }),
   variables: { type: 'array', items: obj({ name: str, kind: { type: 'string', enum: ['text', 'number', 'boolean', 'list'] }, initial: str }) },
   pages: {
     type: 'array',
@@ -337,12 +343,15 @@ export function aiToProject(ai: AiProject): Project {
   const variables = ai.variables.map(toVariable).filter((v): v is Variable => !!v)
   const project = buildApp(ai.name || 'Projet IA', pages, variables)
   const theme = ai.theme
-  if (theme && (theme.primary || theme.font || theme.radius)) {
-    project.theme = {
+  if (theme && (theme.style || theme.primary || theme.font || theme.radius)) {
+    const t: ProjectTheme = {
+      style: stylePreset(theme.style) ? theme.style : undefined,
       primary: /^#[0-9a-f]{6}$/i.test(theme.primary) ? theme.primary : undefined,
       radius: theme.radius > 0 ? theme.radius : undefined,
-      font: theme.font || undefined,
+      font: (FONT_IDS as readonly string[]).includes(theme.font) ? (theme.font as FontId) : undefined,
     }
+    for (const k of Object.keys(t) as (keyof ProjectTheme)[]) if (t[k] === undefined) delete t[k]
+    if (Object.keys(t).length) project.theme = t
   }
   return project
 }
@@ -415,7 +424,7 @@ export function projectToAi(p: Project): AiProject {
   return {
     name: p.name,
     summary: '',
-    theme: { primary: p.theme?.primary ?? '', radius: p.theme?.radius ?? 0, font: p.theme?.font ?? '' },
+    theme: { style: p.theme?.style ?? '', primary: p.theme?.primary ?? '', radius: p.theme?.radius ?? 0, font: p.theme?.font ?? '' },
     variables: p.variables.map((v) => ({ name: v.name, kind: v.kind, initial: Array.isArray(v.initial) ? v.initial.join('\n') : String(v.initial) })),
     pages,
     bricks,

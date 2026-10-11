@@ -1,3 +1,5 @@
+import type { FontId, StyleTokens } from './styles'
+
 export type BrickType =
   | 'page'
   | 'section'
@@ -134,11 +136,16 @@ export interface Variable {
   initial: VariableValue
 }
 
-/** Thème du projet : couleur principale, arrondis et police, partagés par toutes les pages. */
+/** Thème du projet, partagé par toutes les pages : un style prêt à l'emploi et les réglages changés à la main. */
 export interface ProjectTheme {
+  /** Style choisi (voir model/styles). */
+  style?: string
+  /** Réglages changés dans le Studio de style. */
+  tokens?: Partial<StyleTokens>
+  /** Anciens réglages (avant le moteur de styles), toujours pris en compte. */
   primary?: string
   radius?: number
-  font?: 'inter' | 'system' | 'arrondie' | 'serif' | 'mono'
+  font?: FontId
 }
 
 /** Bloc réutilisable enregistré par l'utilisateur (une copie est insérée à chaque utilisation). */

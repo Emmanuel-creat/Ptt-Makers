@@ -205,3 +205,32 @@ describe('page en grille', () => {
     expect(nodes()[card].place).toBeUndefined()
   })
 })
+
+describe('studio de style', () => {
+  beforeEach(reset)
+
+  it('choisit un style, le règle, puis revient en arrière', () => {
+    const ed = () => useEditor.getState()
+    ed().updateTheme({ primary: '#ff0000' })
+    ed().chooseStyle('neo-sombre')
+    expect(ed().project.theme).toEqual({ style: 'neo-sombre' })
+    ed().updateTokens({ accent: '#00ff00', blur: 6 })
+    expect(ed().project.theme).toEqual({ style: 'neo-sombre', tokens: { accent: '#00ff00', blur: 6 } })
+    ed().updateTokens({ accent: undefined, blur: undefined })
+    expect(ed().project.theme).toEqual({ style: 'neo-sombre' })
+    ed().chooseStyle(null)
+    expect(ed().project.theme).toBeUndefined()
+    ed().undo()
+    expect(ed().project.theme).toEqual({ style: 'neo-sombre' })
+  })
+
+  it('adapte toutes les briques au style, et s’annule', () => {
+    const ed = () => useEditor.getState()
+    const id = ed().addBrick('card')
+    ed().updateStyle(id, { background: '#ff0000' })
+    ed().adoptStyle()
+    expect(ed().project.nodes[id].style.background).toBeUndefined()
+    ed().undo()
+    expect(ed().project.nodes[id].style.background).toBe('#ff0000')
+  })
+})

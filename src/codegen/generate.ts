@@ -4,7 +4,7 @@ import type { Action, BrickNode, Project, Variable } from '../model/types'
 import { interpolate, parseTemplate } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
 import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
-import { BREAKPOINTS, overrideEntries, styleEntries, themeEntries } from './style'
+import { BREAKPOINTS, overrideEntries, styleEntries, themeEntries, themeFontsUrl } from './style'
 
 export type LineRange = [start: number, end: number]
 
@@ -318,7 +318,7 @@ function emitCss(g: Gen): string {
   out.push('')
   const theme = themeEntries(g.project.theme)
   if (theme.length) {
-    out.push('/* Thème du projet : couleur principale, arrondis et police */')
+    out.push('/* Style du projet : couleurs, surfaces, relief, arrondis et polices */')
     out.push(':root {')
     for (const [k, v] of theme) out.push(`  ${k}: ${v};`)
     out.push('}')
@@ -909,6 +909,8 @@ export function generate(project: Project): GeneratedCode {
   html.push('  <meta charset="UTF-8">')
   html.push('  <meta name="viewport" content="width=device-width, initial-scale=1.0">')
   html.push(`  <title>${escapeHtml(String(root.props.title || project.name))}</title>`)
+  const fonts = themeFontsUrl(project.theme)
+  if (fonts) html.push(`  <link rel="stylesheet" href="${fonts.replace(/&/g, '&amp;')}">`)
   html.push('  <link rel="stylesheet" href="style.css">')
   html.push('</head>')
   html.push('<body>')
