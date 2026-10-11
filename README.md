@@ -23,11 +23,14 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 - 📱 **Réglages par format** : un style différent, ou une brique masquée, sur tablette ou sur mobile.
 - 🗂️ **Mes projets** : plusieurs projets enregistrés dans le navigateur, et un **lien de partage** qui contient tout le projet.
 - 🏆 **Défis guidés** : des objectifs en quelques étapes qui se cochent toutes seules.
+- ✨ **Version Pro, assistant IA** : décris une application, il la construit avec les briques ; il modifie ton projet sur demande et explique le code. Avec ta clé Anthropic ou un [serveur relais](serveur-ia/README.md).
 - 👀 **Aperçu interactif** en temps réel, isolé dans une iframe.
 - 💻 **Code en direct** (HTML / CSS / JS) commenté en français, coloré, avec **surlignage de la brique sélectionnée**.
 - 🧭 **Espace de travail personnalisable** : panneaux redimensionnables et repliables, aperçu à droite ou en bas, thème clair / sombre / système.
 - 🎓 **Mode débutant** : visite guidée, explications et astuces partout.
 - ↩️ Annuler / rétablir, raccourcis clavier, sauvegarde automatique, 8 modèles de départ (dont une liste de tâches, un annuaire relié à une API et un site de plusieurs pages), export HTML, **composant React ou Vue**, ou projet `.json`.
+
+![L'assistant IA de la version Pro](docs/captures/assistant-ia.png)
 
 ![Ptt-Makers en thème sombre, format mobile, avec les calques et l'aperçu à droite](docs/captures/editeur-sombre.png)
 

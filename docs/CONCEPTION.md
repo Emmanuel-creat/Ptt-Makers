@@ -1,6 +1,6 @@
 # Ptt-Makers : dossier de conception
 
-> Version 1.3 · 11 octobre 2026 · complète le [cahier des charges](CAHIER_DES_CHARGES.md)
+> Version 2.0 · 11 octobre 2026 · complète le [cahier des charges](CAHIER_DES_CHARGES.md)
 
 ## 1. Choix techniques
 
@@ -130,6 +130,13 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
 - Le **lien de partage** contient le projet en JSON compressé (`CompressionStream('deflate-raw')`) puis encodé en base64 pour une adresse (`#projet=…`). À l'ouverture, `parseProject` vérifie le contenu, le projet est ajouté à Mes projets et l'adresse est nettoyée.
 - **React et Vue** (`src/codegen/frameworks.ts`) partent du code généré : le HTML devient du JSX (`class` → `className`, valeurs de départ en `defaultValue`, commentaires en `{/* */}`) ou un gabarit Vue avec `v-pre` (les `{{…}}` restent pour le script), et le script est lancé dans `useEffect` (une seule fois, même en mode strict) ou `onMounted`. Le modèle d'une répétition reste un `<template>` HTML.
 
+### Assistant IA (version Pro)
+
+- **Format d'échange** (`src/ai/format.ts`) : les schémas JSON des sorties structurées ne peuvent pas être récursifs. Le projet est donc décrit à plat, comme le modèle interne : une liste de pages et une liste de briques qui nomment leur parent par une `ref`. Propriétés et styles sont des listes clé / valeur, et une action « Si » contient des actions simples. Le schéma est construit à partir du catalogue des briques, et la liste des briques avec leurs propriétés est écrite dans les consignes de l'IA à partir du même catalogue : une nouvelle brique est connue de l'assistant sans autre changement.
+- **Vérification** : `aiToProject` reconstruit le projet avec `buildApp` (le même code que les modèles). Briques, propriétés, styles et noms de variables inconnus sont ignorés ; une brique au parent inconnu va sur la première page. `projectToAi` fait le chemin inverse pour le mode « Modifier » ; l'aller-retour de chaque modèle redonne exactement le même code.
+- **Appel** (`src/ai/assistant.ts`) : SDK officiel `@anthropic-ai/sdk`, chargé seulement à la première utilisation. Modèle `claude-opus-5-5`, réponse en flux (on affiche le nombre de caractères reçus), `output_config.format` avec le schéma, et le repli automatique du serveur en cas de refus. Les erreurs de l'API sont traduites en messages clairs.
+- **Clé** : en mode clé personnelle, le navigateur appelle l'API directement (option `dangerouslyAllowBrowser` du SDK) ; la clé reste dans le stockage local de ce navigateur. Le **relais** (`serveur-ia/worker.js`) n'accepte que `POST /v1/messages` depuis les origines autorisées, impose le modèle, limite la taille des réponses et ajoute la clé côté serveur.
+
 ## 4. Identité visuelle
 
 - **Nom et logo** : trois briques empilées aux couleurs des familles, la brique du haut en violet de marque.
@@ -163,7 +170,8 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
 
 | Niveau | Fichiers | Ce qui est vérifié |
 |---|---|---|
+| Unitaires | `src/ai/format.test.ts`, `serveur-ia/worker.test.js` | Aller-retour de chaque modèle par le format de l'IA (code identique), réponse avec des éléments invalides, schéma non récursif et fermé, relais (clé ajoutée, modèle imposé, origines refusées). |
 | Unitaires | `src/model/*.test.ts` | Défis (validés par les modèles correspondants), identifiants, déplacements, interdiction de déposer un conteneur en lui-même, duplication, variables, renommage. |
 | Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, conditions, répétitions, pages, adresses d'API refusées, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil, tâches, annuaire avec API simulée, site de plusieurs pages, onglets, fenêtre et menu). Thème et `@media` par format. Export React compilé et affiché avec React, export Vue monté avec Vue, lien de partage aller-retour. |
 | Unitaires | `src/store/editor.test.ts` | Ajout dans la sélection, regroupement des frappes dans l'historique, copier-coller, renommage de variable (jusque dans les conditions), pages (ajout, accueil, suppression, annulation), style par format, Mes composants, Mes projets. |
-| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée), Mes composants, masquer sur mobile, Mes projets, défi guidé, lien de partage, export React. |
+| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée), Mes composants, masquer sur mobile, Mes projets, défi guidé, lien de partage, export React, assistant IA (création, explication en flux, modification annulable) avec une API simulée. |

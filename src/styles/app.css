@@ -3099,3 +3099,108 @@ select.pm-input {
 .pm-challenge.is-small .pm-challenge-bar {
   margin-bottom: 0;
 }
+
+/* ------------------------------ Assistant IA ----------------------------- */
+.pm-btn-ai {
+  background: linear-gradient(135deg, #6c5ce7, #db2777);
+  color: #fff;
+  border-color: transparent;
+}
+.pm-btn-ai:hover {
+  filter: brightness(1.08);
+}
+.pm-pro {
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pm-ai,
+.pm-ai-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pm-ai-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pm-ai-label,
+.pm-ai-settings label {
+  font-weight: 600;
+  font-size: 13px;
+}
+.pm-ai-settings small {
+  margin-top: -4px;
+  color: var(--pm-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pm-ai-settings a {
+  color: var(--pm-brand-text);
+}
+.pm-ai-prompt {
+  min-height: 96px;
+  resize: vertical;
+}
+.pm-ai-ideas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--pm-muted);
+}
+.pm-ai-idea {
+  padding: 5px 10px;
+  border: 1px solid var(--pm-border);
+  border-radius: 99px;
+  background: var(--pm-surface-2);
+  color: var(--pm-text-2);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.pm-ai-idea:hover {
+  border-color: var(--pm-brand);
+  color: var(--pm-brand-text);
+}
+.pm-ai-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.pm-ai-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-danger-soft);
+  color: var(--pm-danger);
+  font-size: 13px;
+}
+.pm-ai-answer {
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-surface-2);
+  border: 1px solid var(--pm-border);
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.pm-spin {
+  animation: pm-spin 0.9s linear infinite;
+}
+@keyframes pm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

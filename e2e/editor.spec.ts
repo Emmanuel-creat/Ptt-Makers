@@ -263,3 +263,102 @@ test.describe('défis, partage et frameworks', () => {
     expect((await download).suggestedFilename()).toBe('App.jsx')
   })
 })
+
+test.describe('assistant IA (Pro)', () => {
+  /** Réponse de l'API simulée en flux (SSE), comme l'enverrait Claude. */
+  const sse = (text: string) => {
+    const ev = (type: string, data: object) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`
+    const half = Math.floor(text.length / 2)
+    return [
+      ev('message_start', {
+        message: { id: 'msg_test', type: 'message', role: 'assistant', model: 'claude-opus-5-5', content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 10, output_tokens: 1 } },
+      }),
+      ev('content_block_start', { index: 0, content_block: { type: 'text', text: '' } }),
+      ev('content_block_delta', { index: 0, delta: { type: 'text_delta', text: text.slice(0, half) } }),
+      ev('content_block_delta', { index: 0, delta: { type: 'text_delta', text: text.slice(half) } }),
+      ev('content_block_stop', { index: 0 }),
+      ev('message_delta', { delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 100 } }),
+      ev('message_stop', {}),
+    ].join('')
+  }
+
+  test('crée une application à partir d’une description', async ({ page }) => {
+    const sent: { headers: Record<string, string>; body: { model: string; output_config: { format: { type: string } } } }[] = []
+    const answer = {
+      name: 'Compteur de verres d’eau',
+      summary: 'Un bouton ajoute un verre et le total s’affiche.',
+      theme: { primary: '#0ea5e9', radius: 12, font: 'arrondie' },
+      variables: [{ name: 'verres', kind: 'number', initial: '0' }],
+      pages: [{ ref: 'accueil', name: 'Accueil', title: 'Eau', style: [], onLoad: [] }],
+      bricks: [
+        { ref: 'total', parent: 'accueil', type: 'heading', name: 'Total', props: [{ key: 'text', value: '{{verres}} verres' }], style: [], hidden: false, showIf: '', onClick: [] },
+        {
+          ref: 'plus',
+          parent: 'accueil',
+          type: 'button',
+          name: 'Ajouter',
+          props: [{ key: 'text', value: '+1 verre' }],
+          style: [],
+          hidden: false,
+          showIf: '',
+          onClick: [{ type: 'add', variable: 'verres', value: '', amount: 1, target: '', message: '', url: '', page: '', which: '', path: '', op: '', then: [], else: [] }],
+        },
+      ],
+    }
+    await page.route('https://api.anthropic.com/**', async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST' } })
+      sent.push({ headers: route.request().headers(), body: route.request().postDataJSON() })
+      await route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream', 'access-control-allow-origin': '*' }, body: sse(JSON.stringify(answer)) })
+    })
+    await openBlank(page)
+    await page.getByRole('button', { name: /Assistant IA/ }).click()
+    await page.getByLabel('Ta clé API Anthropic').fill('sk-ant-test')
+    await page.getByRole('button', { name: 'Enregistrer' }).click()
+    await page.getByLabel('Décris ton application').fill('Un compteur de verres d’eau')
+    await page.getByRole('button', { name: 'Créer l’application' }).click()
+    await expect(page.getByText('Un bouton ajoute un verre et le total s’affiche.')).toBeVisible()
+
+    expect(sent[0].headers['x-api-key']).toBe('sk-ant-test')
+    expect(sent[0].headers['anthropic-dangerous-direct-browser-access']).toBe('true')
+    expect(sent[0].body.model).toBe('claude-opus-5-5')
+    expect(sent[0].body.output_config.format.type).toBe('json_schema')
+
+    await page.getByRole('button', { name: 'Fermer' }).click()
+    await expect(page.getByLabel('Nom du projet')).toHaveValue('Compteur de verres d’eau')
+    await preview(page).getByRole('button', { name: '+1 verre' }).click()
+    await expect(preview(page).locator('h2')).toHaveText('1 verres')
+  })
+
+  test('explique le code en direct et modifie le projet (annulable)', async ({ page }) => {
+    let call = 0
+    const modified = {
+      name: 'x',
+      summary: 'J’ai ajouté un titre.',
+      theme: { primary: '', radius: 0, font: '' },
+      variables: [],
+      pages: [{ ref: 'page', name: 'Page', title: 'Nouveau projet', style: [], onLoad: [] }],
+      bricks: [{ ref: 'titre', parent: 'page', type: 'heading', name: '', props: [{ key: 'text', value: 'Titre ajouté par l’IA' }], style: [], hidden: false, showIf: '', onClick: [] }],
+    }
+    await page.route('https://api.anthropic.com/**', async (route) => {
+      call++
+      const text = call === 1 ? 'La fonction afficher() met la page à jour.' : JSON.stringify(modified)
+      await route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream', 'access-control-allow-origin': '*' }, body: sse(text) })
+    })
+    await openBlank(page)
+    await page.evaluate(() => localStorage.setItem('ptt-makers:ia', JSON.stringify({ apiKey: 'sk-ant-test', proxyUrl: '' })))
+    await page.getByRole('button', { name: /Assistant IA/ }).click()
+    await page.getByRole('radio', { name: 'Expliquer le code' }).click()
+    await page.getByLabel('Ta question sur le code').fill('À quoi sert afficher() ?')
+    await page.getByRole('button', { name: 'Demander' }).click()
+    await expect(page.locator('.pm-ai-answer')).toHaveText('La fonction afficher() met la page à jour.')
+
+    await page.getByRole('radio', { name: 'Modifier ce projet' }).click()
+    await page.getByLabel('Que faut-il changer ?').fill('Ajoute un titre')
+    await page.getByRole('button', { name: 'Modifier le projet' }).click()
+    await expect(page.locator('.pm-ai-answer')).toHaveText('J’ai ajouté un titre.')
+    await page.getByRole('button', { name: 'Fermer' }).click()
+    await expect(page.locator('.pm-frame h2')).toHaveText('Titre ajouté par l’IA')
+    await page.keyboard.press('Control+z')
+    await expect(page.getByText('Titre ajouté par l’IA')).toHaveCount(0)
+  })
+})

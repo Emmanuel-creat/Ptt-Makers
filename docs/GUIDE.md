@@ -100,6 +100,23 @@ Sélectionne une page (*Réglages de la page*) puis la section **Au chargement d
 
 Dans une répétition, `{{element.name}}` ou `{{element.address.city}}` affiche un champ de chaque élément. Le modèle **Annuaire (API)** montre tout cela avec une API de démonstration.
 
+## L'assistant IA (version Pro)
+
+Le bouton **Assistant IA · Pro** ouvre l'assistant. La première fois, il demande comment se connecter :
+
+- **Ta clé API Anthropic** (créée sur console.anthropic.com) : elle reste dans ton navigateur et n'est envoyée qu'à l'API d'Anthropic. Évite cette option sur un ordinateur partagé.
+- **Ou l'adresse d'un serveur relais** : la clé est gardée sur un serveur (voir `serveur-ia/README.md`). Pratique pour une classe.
+
+Ensuite, trois modes :
+
+| Mode | Ce que tu écris | Ce qui se passe |
+|---|---|---|
+| Créer une appli | Une description (« un quiz de 3 questions avec un score ») | Un nouveau projet s'ouvre, construit avec les briques. Ton projet actuel reste dans Mes projets. |
+| Modifier ce projet | Une consigne (« ajoute une page contact ») | Le projet ouvert est mis à jour. `Ctrl/⌘ + Z` annule tout le changement. |
+| Expliquer le code | Une question (« à quoi sert afficher() ? ») | La réponse s'écrit en direct, en français simple. |
+
+Tout ce que l'assistant crée se modifie ensuite à la main, comme n'importe quel projet.
+
 ## Les défis guidés
 
 Le bouton **Défis** propose des objectifs à réaliser pas à pas (Facile, Moyen, Avancé). Un défi s'ouvre dans un nouveau projet ; une carte en bas à gauche de la zone de création montre les étapes. Elles se cochent toutes seules dès que ton projet les remplit, et la prochaine étape affiche un indice. La flèche réduit la carte, la croix la ferme.

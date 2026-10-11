@@ -1,6 +1,7 @@
 import { Atom, Check, Copy, FileCode, FileJson, Files, FolderOpen, Link2, Plus, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toReact, toVue } from '../codegen/frameworks'
+import { AssistantDialog } from './Assistant'
 import { bundle, generate } from '../codegen/generate'
 import { CHALLENGES } from '../model/challenges'
 import { TEMPLATES, buildProject, parseProject } from '../model/templates'
@@ -19,10 +20,11 @@ export function Dialogs() {
   if (dialog === 'export') return <ExportDialog onClose={close} />
   if (dialog === 'projects') return <ProjectsDialog onClose={close} />
   if (dialog === 'challenges') return <ChallengesDialog onClose={close} />
+  if (dialog === 'assistant') return <AssistantDialog onClose={close} />
   return null
 }
 
-function Modal({ title, subtitle, onClose, children, wide }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Modal({ title, subtitle, onClose, children, wide }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
