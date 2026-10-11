@@ -28,6 +28,17 @@ interface Scope {
   repeat: Variable | null | undefined
 }
 
+/** Vérifie qu'un script est bien écrit, sans le lancer. */
+function scriptError(js: string): string | null {
+  if (!js.trim()) return null
+  try {
+    new Function('bloc', 'etat', js)
+    return null
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e)
+  }
+}
+
 const short = (s: string) => (s.length > 40 ? `${s.slice(0, 39)}…` : s)
 
 /** Les noms inconnus d'un texte : variables qui n'existent pas, formules mal écrites. */
@@ -84,6 +95,9 @@ function actionTexts(a: Action): string[] {
       return a.value ? [a.value] : []
     case 'addRecord':
       return Object.values(a.values ?? {})
+    case 'signup':
+    case 'login':
+      return [a.email, a.password]
     default:
       return []
   }
@@ -111,6 +125,9 @@ export function findProblems(project: Project): Problem[] {
         else if (a.type === 'listAdd' && v.kind !== 'list') add({ level: 'erreur', message: `« ${v.name} » n’est pas une liste : l’action « Ajouter un élément » ne fera rien.`, nodeId: node.id })
         else if (a.type === 'addRecord' && !isCollection(v)) add({ level: 'erreur', message: `« ${v.name} » n’est pas une collection : l’action « Ajouter une fiche » ne fera rien.`, nodeId: node.id })
         else if ((a.type === 'listRemove' || a.type === 'listClear') && !isListLike(v)) add({ level: 'erreur', message: `« ${v.name} » n’est pas une liste.`, nodeId: node.id })
+        else if ((a.type === 'signup' || a.type === 'login' || a.type === 'logout') && v.kind !== 'text') {
+          add({ level: 'erreur', message: `La personne connectée se range dans une variable texte, pas dans « ${v.name} ».`, nodeId: node.id })
+        }
       }
       if ('target' in a && !nodes[a.target]) add({ level: 'erreur', message: 'Une action vise une brique qui n’existe plus.', nodeId: node.id })
       if (a.type === 'navigate') {
@@ -123,6 +140,9 @@ export function findProblems(project: Project): Problem[] {
       if (a.type === 'listRemove' && a.which === 'current' && scope.repeat === undefined) {
         add({ level: 'erreur', message: '« Retirer l’élément de cette copie » ne marche que dans une répétition.', nodeId: node.id })
       }
+      if ((a.type === 'signup' || a.type === 'login') && (!a.email.trim() || !a.password.trim())) {
+        add({ level: 'erreur', message: `L’action « ${a.type === 'signup' ? 'Créer un compte' : 'Se connecter'} » n’a pas d’e-mail ou de mot de passe.`, nodeId: node.id })
+      }
       for (const text of actionTexts(a)) for (const issue of templateIssues(text, scope)) add({ ...issue, nodeId: node.id })
     })
   }
@@ -131,6 +151,9 @@ export function findProblems(project: Project): Problem[] {
     const page = nodes[pageId]
     if (!page) continue
     if (!page.children.length) add({ level: 'attention', message: `La page « ${page.name} » est vide.`, nodeId: pageId })
+    if (String(page.props.loginVar ?? '') && !project.pages.includes(String(page.props.loginPage ?? ''))) {
+      add({ level: 'erreur', message: `La page « ${page.name} » est réservée aux personnes connectées : choisis la page de connexion.`, nodeId: pageId })
+    }
     walk(nodes, pageId, (node) => {
       const r = repeatOf(nodes, node.id)
       const scope: Scope = { variables, repeat: r ? (variable(String(nodes[r].props.source ?? '')) ?? null) : undefined }
@@ -158,6 +181,12 @@ export function findProblems(project: Project): Problem[] {
       if (node.type === 'button' && !String(node.props.text ?? '').trim()) add({ level: 'attention', message: 'Un bouton n’a pas de texte.', nodeId: node.id })
       if (node.type === 'link' && !String(node.props.page ?? '') && !/^(https?:|mailto:)/i.test(String(node.props.href ?? '').trim())) {
         add({ level: 'attention', message: 'Le lien ne mène nulle part : choisis une page ou une adresse.', nodeId: node.id })
+      }
+
+      if (node.type === 'code') {
+        if (scope.repeat !== undefined) add({ level: 'erreur', message: 'Le code personnalisé ne marche pas dans une répétition.', nodeId: node.id })
+        const error = scriptError(String(node.props.js ?? ''))
+        if (error) add({ level: 'erreur', message: `Le JavaScript du code personnalisé a une erreur : ${error}`, nodeId: node.id })
       }
 
       checkActions(node.onClick, node, scope)

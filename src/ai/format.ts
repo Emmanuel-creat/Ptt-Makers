@@ -58,12 +58,19 @@ export interface AiPage {
   style: AiKeyValue[]
   onLoad: AiAction[]
   layout: 'pile' | 'grille'
+  /** Variable qui reçoit la valeur envoyée à la page (vide : aucune). */
+  paramVar?: string
+  /** Page réservée : variable de la personne connectée et ref de la page de connexion (vides : page ouverte à tous). */
+  loginVar?: string
+  loginPage?: string
 }
 
 export interface AiVariable {
   name: string
   kind: VariableKind
   initial: string
+  /** Gardée dans le navigateur après un rechargement. */
+  persist?: boolean
 }
 
 export interface AiProject {
@@ -96,6 +103,9 @@ const ACTION_TYPES: Action['type'][] = [
   'fetch',
   'validate',
   'wait',
+  'signup',
+  'login',
+  'logout',
 ]
 const BRICK_TYPES = (Object.keys(BRICKS) as BrickType[]).filter((t) => t !== 'page')
 const STYLE_KEYS: (keyof BrickStyle)[] = [
@@ -161,10 +171,10 @@ export const PROJECT_SCHEMA = obj({
     radius: { type: 'number' },
     font: { type: 'string', enum: [...FONT_IDS, ''] },
   }),
-  variables: { type: 'array', items: obj({ name: str, kind: { type: 'string', enum: ['text', 'number', 'boolean', 'list', 'collection'] }, initial: str }) },
+  variables: { type: 'array', items: obj({ name: str, kind: { type: 'string', enum: ['text', 'number', 'boolean', 'list', 'collection'] }, initial: str, persist: { type: 'boolean' } }) },
   pages: {
     type: 'array',
-    items: obj({ ref: str, name: str, title: str, style: keyValues(STYLE_KEYS), onLoad: { type: 'array', items: action }, layout: { type: 'string', enum: ['pile', 'grille'] } }),
+    items: obj({ ref: str, name: str, title: str, style: keyValues(STYLE_KEYS), onLoad: { type: 'array', items: action }, layout: { type: 'string', enum: ['pile', 'grille'] }, paramVar: str, loginVar: str, loginPage: str }),
   },
   bricks: {
     type: 'array',
@@ -266,6 +276,12 @@ function toAction(a: AiBaseAction | AiAction): Action | null {
       return { type: 'listRemove', variable: a.variable, which: a.which || 'current' }
     case 'fetch':
       return { type: 'fetch', url: a.url, variable: a.variable, path: a.path }
+    // Comptes : value = l'e-mail, message = le mot de passe (avec des {{variables}})
+    case 'signup':
+    case 'login':
+      return { type: a.type, variable: a.variable, email: a.value, password: a.message }
+    case 'logout':
+      return { type: 'logout', variable: a.variable }
     case 'addRecord': {
       // value : les valeurs de la fiche en JSON, ex. {"nom": "{{nom_saisi}}", "prix": "{{prix_saisi}}"}
       let values: Record<string, string> = {}
@@ -296,6 +312,11 @@ function toAction(a: AiBaseAction | AiAction): Action | null {
 const toActions = (list: (AiBaseAction | AiAction)[] | undefined) => (list ?? []).map(toAction).filter((a): a is Action => !!a)
 
 function toVariable(v: AiVariable): Variable | null {
+  const made = toVariableValue(v)
+  return made && v.persist && !made.persist ? { ...made, persist: true } : made
+}
+
+function toVariableValue(v: AiVariable): Variable | null {
   const name = String(v.name ?? '').trim()
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return null
   const raw = String(v.initial ?? '')
@@ -375,13 +396,15 @@ export function aiToProject(ai: AiProject): Project {
     }
   }
 
-  const pages: PageSpec[] = (ai.pages.length ? ai.pages : [{ ref: firstPage, name: 'Accueil', title: ai.name, style: [], onLoad: [], layout: 'pile' as const }]).map((p) => ({
+  const pages: PageSpec[] = (ai.pages.length ? ai.pages : [{ ref: firstPage, name: 'Accueil', title: ai.name, style: [], onLoad: [], layout: 'pile' as const, paramVar: '', loginVar: '', loginPage: '' }]).map((p) => ({
     ref: p.ref,
     name: p.name || 'Page',
     title: p.title || undefined,
     style: toStyle(p.style),
     onLoad: toActions(p.onLoad),
     grid: p.layout === 'grille' || undefined,
+    paramVar: p.paramVar || undefined,
+    login: p.loginVar && p.loginPage ? { variable: p.loginVar, page: at(p.loginPage) } : undefined,
     children: children.get(p.ref) ?? [],
   }))
   const variables = ai.variables.map(toVariable).filter((v): v is Variable => !!v)
@@ -407,6 +430,12 @@ const kv = (o: Record<string, unknown>): AiKeyValue[] =>
     .filter(([, v]) => v !== undefined && v !== '')
     .map(([key, value]) => ({ key, value: String(value) }))
 
+/** Comme kv, mais un texte vidé exprès reste vide : sinon la valeur par défaut de la brique reviendrait. */
+const propsKv = (type: BrickType, o: Record<string, unknown>): AiKeyValue[] =>
+  Object.entries(o)
+    .filter(([key, v]) => v !== undefined && (v !== '' || !!BRICKS[type].defaultProps[key]))
+    .map(([key, value]) => ({ key, value: String(value) }))
+
 function fromAction(a: Action): AiAction {
   const base: AiAction = {
     type: a.type,
@@ -427,6 +456,13 @@ function fromAction(a: Action): AiAction {
   if (a.type === 'addRecord') {
     delete (full as Partial<AiAction> & { values?: unknown }).values
     full.value = JSON.stringify(a.values ?? {})
+  }
+  if (a.type === 'signup' || a.type === 'login') {
+    const extra = full as Partial<AiAction> & { email?: unknown; password?: unknown }
+    delete extra.email
+    delete extra.password
+    full.value = a.email
+    full.message = a.password
   }
   if (a.type === 'wait') {
     delete (full as Partial<AiAction> & { ms?: unknown }).ms
@@ -451,7 +487,7 @@ export function projectToAi(p: Project): AiProject {
         parent: node.id,
         type: c.type as AiBrick['type'],
         name: c.name,
-        props: kv(c.props),
+        props: propsKv(c.type, c.props),
         style: kv(c.style as Record<string, unknown>),
         hidden: !!c.hidden,
         showIf: c.showIf ?? '',
@@ -471,6 +507,9 @@ export function projectToAi(p: Project): AiProject {
       style: kv(page.style as Record<string, unknown>),
       onLoad: (page.onLoad ?? []).map(fromAction),
       layout: isFreeGrid(page) ? ('grille' as const) : ('pile' as const),
+      paramVar: String(page.props.paramVar ?? ''),
+      loginVar: String(page.props.loginVar ?? ''),
+      loginPage: String(page.props.loginPage ?? ''),
     }
   })
   return {
@@ -486,6 +525,7 @@ export function projectToAi(p: Project): AiProject {
           : Array.isArray(v.initial)
             ? v.initial.join('\n')
             : String(v.initial),
+      persist: !!v.persist,
     })),
     pages,
     bricks,

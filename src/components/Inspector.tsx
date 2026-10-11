@@ -577,6 +577,17 @@ function ContentField({ field: f, node, onChange }: { field: FieldDef; node: Bri
             return <IconInput id={id} value={String(value ?? '')} onChange={onChange} />
           case 'page':
             return <PageSelect id={id} value={String(value ?? '')} onChange={onChange} placeholder="Aucune (utiliser l’adresse)" />
+          case 'code':
+            return (
+              <textarea
+                id={id}
+                className="pm-input pm-mono pm-code-input"
+                spellCheck={false}
+                rows={6}
+                value={String(value ?? '')}
+                onChange={(e) => onChange(e.target.value)}
+              />
+            )
           case 'textarea':
             return <TextInput id={id} value={String(value ?? '')} onChange={onChange} multiline dynamic={f.dynamic} placeholder={f.placeholder} />
           default:

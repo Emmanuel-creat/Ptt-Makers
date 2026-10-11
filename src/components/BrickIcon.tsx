@@ -33,6 +33,7 @@ import {
   PanelBottom,
   TrendingUp,
   Gauge,
+  Code2,
   type LucideIcon,
 } from 'lucide-react'
 import { BRICKS } from '../model/bricks'
@@ -51,6 +52,7 @@ const ICONS: Record<string, LucideIcon> = {
   modal: AppWindow,
   navbar: Menu,
   video: Video,
+  code: Code2,
   smile: Smile,
   heading: Heading,
   text: Pilcrow,

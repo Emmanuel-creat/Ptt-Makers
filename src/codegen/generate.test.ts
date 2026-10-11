@@ -240,3 +240,29 @@ describe('briques avancées, thème et réglages par écran', () => {
     expect(videoSource('javascript:alert(1)')).toBeNull()
   })
 })
+
+describe('code personnalisé', () => {
+  const project = () =>
+    buildProject('Code', {}, [
+      { type: 'code', props: { html: '<p class="hello">Salut</p>', css: '.hello { color: red; }', js: 'bloc.dataset.pret = "oui";\n// </script> ne casse rien' } },
+    ])
+
+  it('pose le HTML, ajoute le CSS et lance le script avec « bloc »', () => {
+    const code = generate(project())
+    expect(code.html).toContain('<div id="code-1" class="code-perso"></div>')
+    expect(code.css).toContain('.hello { color: red; }')
+    expect(code.js).toContain('bloc.innerHTML = "<p class=\\"hello\\">Salut</p>";')
+    expect(code.js).toContain('})(document.getElementById("code-1"));')
+    expect(code.js).not.toMatch(/<\/script/i)
+  })
+
+  it('fonctionne dans la page exportée', () => {
+    document.body.innerHTML = bundle(generate(project()))
+      .replace(/^[\s\S]*<body>/, '')
+      .replace(/<script>[\s\S]*<\/script>[\s\S]*$/, '')
+    new Function(generate(project()).js)()
+    const bloc = document.getElementById('code-1')!
+    expect(bloc.querySelector('.hello')?.textContent).toBe('Salut')
+    expect(bloc.dataset.pret).toBe('oui')
+  })
+})

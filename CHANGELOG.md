@@ -2,6 +2,21 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.10.0] : 2026-10-11
+
+Des logiciels prêts à livrer : la quatrième vague du plan des 200 améliorations.
+
+### Ajouté
+- **Galerie de modèles** : 29 modèles rangés en cinq familles (pour démarrer, sites et pages, applications, gestion et métiers, pilotage et équipe), avec une recherche qui ne tient compte ni des accents ni des majuscules.
+- **17 nouveaux modèles**, dont les **modèles métiers** : CRM clients (pipeline en kanban), facturation (totaux HT, TVA et TTC calculés), réservations (calendrier), ressources humaines, puis suivi des dépenses, bibliothèque, notes des élèves, support client, recrutement, flotte de véhicules, salle de sport, carnet de recettes, inventaire du matériel, suivi des heures, inscriptions à un événement, dons d'une association et espace membres. Chacun a sa collection gardée dans le navigateur, ses chiffres clés calculés, son formulaire et son tableau avec recherche.
+- **Brique Code personnalisé** (famille Pro) : du HTML, du CSS et du JavaScript écrits à la main. Le script reçoit `bloc` (la brique) et `etat` (les variables de l'application). Dans l'éditeur, le code tourne dans un cadre isolé, sans accès à l'éditeur ni à tes projets ; une erreur de JavaScript s'affiche dans le panneau Problèmes.
+- **Application installable (PWA)** dans *Exporter* : un .zip avec la page, un manifeste (nom, couleurs, icônes dessinées aux couleurs du projet), un service worker qui la garde pour l'ouvrir sans internet, et de quoi l'emballer pour **Android et iOS avec Capacitor** (`npm run android`, `npm run ios`). Un fichier LISEZ-MOI explique chaque étape.
+- **Comptes dans l'application** : les actions *Créer un compte*, *Se connecter* et *Se déconnecter*, et le réglage de page *Réservée aux personnes connectées*, qui renvoie sur la page de connexion. Le mot de passe n'est jamais gardé en clair (empreinte SHA-256). Les comptes restent dans le navigateur de chaque personne : pour des comptes partagés entre appareils, il faudra un serveur.
+- L'assistant IA connaît les actions de comptes, les pages réservées, les pages qui reçoivent une valeur et les variables gardées après un rechargement.
+
+### Corrigé
+- Un texte vidé exprès (l'évolution d'un chiffre clé, par exemple) ne reprend plus sa valeur par défaut quand l'assistant IA modifie le projet.
+
 ## [2.9.0] : 2026-10-11
 
 Un éditeur de logiciel pro : la troisième vague du plan des 200 améliorations.

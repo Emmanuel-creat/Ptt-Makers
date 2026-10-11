@@ -1,15 +1,17 @@
-import { Atom, Check, Copy, FileCode, FileJson, Files, FolderOpen, History, Link2, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { Atom, Check, Copy, FileCode, FileJson, Files, FolderOpen, History, Link2, Plus, RotateCcw, Search, Smartphone, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toReact, toVue } from '../codegen/frameworks'
 import { AssistantDialog } from './Assistant'
 import { bundle, generate } from '../codegen/generate'
 import { CHALLENGES } from '../model/challenges'
-import { TEMPLATES, buildProject, parseProject } from '../model/templates'
+import { TEMPLATES, TEMPLATE_FAMILIES, buildProject, parseProject, type TemplateFamily } from '../model/templates'
 import { useEditor } from '../store/editor'
 import { listProjects } from '../store/library'
 import { listVersions, removeVersion, saveVersion } from '../store/versions'
 import { useWorkspace } from '../store/workspace'
-import { downloadFile, slugify } from '../utils/download'
+import { downloadBytes, downloadFile, slugify, svgToPng } from '../utils/download'
+import { zip } from '../utils/zip'
+import { appIconSvg, pwaFiles } from '../codegen/pwa'
 import { shareUrl } from '../utils/share'
 import { Kbd, MOD } from './ui'
 
@@ -72,37 +74,69 @@ export function Modal({ title, subtitle, onClose, children, wide }: { title: str
   )
 }
 
+/** Pour chercher sans tenir compte des accents ni des majuscules. */
+const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
 function TemplatesDialog({ onClose }: { onClose: () => void }) {
   const { createProject, notify } = useEditor.getState()
+  const [query, setQuery] = useState('')
+  const [family, setFamily] = useState<TemplateFamily | 'toutes'>('toutes')
+  const words = fold(query).split(/\s+/).filter(Boolean)
+  const shown = TEMPLATES.filter(
+    (t) => (family === 'toutes' || t.family === family) && words.every((w) => fold(`${t.name} ${t.description}`).includes(w)),
+  )
+  const groups = TEMPLATE_FAMILIES.map((f) => ({ ...f, list: shown.filter((t) => t.family === f.id) })).filter((g) => g.list.length)
+
   return (
-    <Modal title="Choisir un modèle" subtitle="Le modèle s'ouvre dans un nouveau projet. Ton projet actuel reste dans « Mes projets »." onClose={onClose} wide>
-      <div className="pm-templates">
-        {TEMPLATES.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className="pm-template"
-            style={{ '--accent': t.accent } as React.CSSProperties}
-            onClick={() => {
-              createProject(t.create())
-              notify(`Nouveau projet « ${t.name} » créé`)
-              onClose()
-            }}
-          >
-            <TemplateThumb id={t.id} />
-            <span className="pm-template-name">{t.name}</span>
-            <span className="pm-template-desc">{t.description}</span>
-          </button>
-        ))}
+    <Modal title="Galerie de modèles" subtitle={`${TEMPLATES.length} modèles. Le modèle s'ouvre dans un nouveau projet ; ton projet actuel reste dans « Mes projets ».`} onClose={onClose} wide>
+      <div className="pm-gallery-bar">
+        <label className="pm-gallery-search">
+          <Search size={15} aria-hidden="true" />
+          <input type="search" className="pm-input" aria-label="Chercher un modèle" placeholder="Chercher : facture, réservation, équipe…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </label>
+        <div className="pm-gallery-families" role="radiogroup" aria-label="Familles de modèles">
+          {[{ id: 'toutes' as const, label: 'Toutes' }, ...TEMPLATE_FAMILIES].map((f) => (
+            <button key={f.id} type="button" role="radio" aria-checked={family === f.id} className={`pm-chip-btn ${family === f.id ? 'is-on' : ''}`} onClick={() => setFamily(f.id)}>
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
+      {groups.length === 0 && <p className="pm-muted pm-gallery-empty">Aucun modèle ne correspond à « {query} ».</p>}
+      {groups.map((g) => (
+        <section key={g.id} className="pm-gallery-group" aria-label={g.label}>
+          <h3 className="pm-gallery-title">
+            {g.label} <span className="pm-muted">{g.list.length}</span>
+          </h3>
+          <div className="pm-templates">
+            {g.list.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="pm-template"
+                style={{ '--accent': t.accent } as React.CSSProperties}
+                onClick={() => {
+                  createProject(t.create())
+                  notify(`Nouveau projet « ${t.name} » créé`)
+                  onClose()
+                }}
+              >
+                <TemplateThumb id={t.id} family={t.family} />
+                <span className="pm-template-name">{t.name}</span>
+                <span className="pm-template-desc">{t.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
     </Modal>
   )
 }
 
 /** Vignette abstraite de chaque modèle. */
-function TemplateThumb({ id }: { id: string }) {
+function TemplateThumb({ id, family }: { id: string; family: TemplateFamily }) {
   return (
-    <span className={`pm-thumb pm-thumb-${id}`} aria-hidden="true">
+    <span className={`pm-thumb pm-thumb-${id} pm-thumb-fam-${family}`} aria-hidden="true">
       <span className="a" />
       <span className="b" />
       <span className="c" />
@@ -127,6 +161,12 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     downloadFile('style.css', code.css, 'text/css')
     downloadFile('script.js', code.js, 'text/javascript')
     notify('Fichiers index.html, style.css et script.js téléchargés')
+  }
+  const exportPwa = async () => {
+    const svg = appIconSvg(project)
+    const [p192, p512] = await Promise.all([svgToPng(svg, 192), svgToPng(svg, 512)])
+    downloadBytes(`${base}-application.zip`, zip(pwaFiles(project, { 192: p192 ?? undefined, 512: p512 ?? undefined })), 'application/zip')
+    notify('Application installable téléchargée : lis LISEZ-MOI.txt pour l’installer')
   }
   const exportReact = () => {
     const { jsx, css } = toReact(project)
@@ -178,6 +218,13 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
           <span>
             <strong>Fichiers séparés</strong>
             <small>index.html, style.css et script.js, pour continuer dans un éditeur de code.</small>
+          </span>
+        </button>
+        <button type="button" className="pm-export" onClick={exportPwa}>
+          <Smartphone size={22} />
+          <span>
+            <strong>Application installable (PWA)</strong>
+            <small>Un .zip qui s’installe sur téléphone et ordinateur, marche sans internet, et se prépare pour Android et iOS.</small>
           </span>
         </button>
         <button type="button" className="pm-export" onClick={copyLink}>

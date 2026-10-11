@@ -4,6 +4,7 @@ import { SVG_ATTRS, iconNode } from '../model/icons'
 import { PLACEHOLDER_IMAGE, brickClass } from '../codegen/baseCss'
 import { safeImageSrc, videoSource } from '../codegen/escape'
 import { proHtml, tabbarIcons } from '../codegen/proBricks'
+import { codeDocument } from '../codegen/customCode'
 import { applyView, isListLike, viewOptions } from '../model/collections'
 import { effectiveStyle, reactStyle } from '../codegen/style'
 import type { BrickNode, Variable } from '../model/types'
@@ -15,6 +16,10 @@ import { useWorkspace, type Device } from '../store/workspace'
 interface RepeatFrame extends RepeatScope {
   copy: boolean
 }
+
+/** Les variables vues par le code personnalisé dans la zone de création (valeurs de départ). */
+const codeState = (variables: Variable[]) => Object.fromEntries(variables.map((v) => [v.name, v.initial]))
+
 const RepeatContext = createContext<RepeatFrame | null>(null)
 
 /** Nombre maximal de copies dessinées dans la zone de création. */
@@ -291,6 +296,14 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
         </div>
       )
     }
+    case 'code':
+      return (
+        <div {...common}>
+          <iframe className="pm-code-frame" title={node.name} sandbox="allow-scripts" srcDoc={codeDocument(p, codeState(variables))} />
+          {/* Le cadre avalerait les clics : ce voile permet de sélectionner et de déplacer la brique. */}
+          <span className="pm-code-shield" aria-hidden="true" />
+        </div>
+      )
     case 'icon':
       return (
         <span {...common} aria-hidden="true">

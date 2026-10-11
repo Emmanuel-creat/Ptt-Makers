@@ -6,6 +6,7 @@ import type { Action, BrickNode, CollectionField, Project, Variable } from '../m
 import { interpolate, parseTemplate, toVariableName } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
 import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
+import { closeSafe } from './customCode'
 import { proHtml, shownField, tableSource, tabbarIcons } from './proBricks'
 import { BREAKPOINTS, overrideEntries, styleEntries, themeEntries, themeFontsUrl } from './style'
 
@@ -246,6 +247,11 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
       }
       break
     }
+    case 'code':
+      // Le HTML écrit à la main est posé par le script (partie « Ton code personnalisé »).
+      out.push(`${indent}<!-- ${escapeHtml(node.name)} : code personnalisé -->`)
+      out.push(`${indent}<div${attrs(base)}></div>`)
+      break
     case 'icon': {
       const label = String(p.label ?? '').trim()
       out.push(`${indent}<span${attrs([...base, ...(label ? ([['role', 'img'], ['aria-label', label]] as [string, string][]) : ([['aria-hidden', 'true']] as [string, string][]))])}>${iconSvg(String(p.symbol ?? ''))}</span>`)
@@ -409,6 +415,11 @@ function emitCss(g: Gen): string {
     for (const [k, v] of entries) out.push(`  ${k}: ${v};`)
     out.push('}')
     setRange(g.map, node.id, 'css', [start, out.line])
+  }
+  for (const node of order.filter((n) => n.type === 'code' && String(n.props.css ?? '').trim())) {
+    out.push('')
+    out.push(`/* Code personnalisé : ${cleanName(node)} */`)
+    for (const l of closeSafe(String(node.props.css), 'style').trimEnd().split('\n')) out.push(l)
   }
   // Réglages propres aux petits écrans, du plus grand au plus petit.
   for (const bp of BREAKPOINTS) {
@@ -632,6 +643,12 @@ export function describeAction(a: Action, project: Project): string {
       return `charger ${a.variable}`
     case 'addRecord':
       return `ajouter une fiche à ${a.variable}`
+    case 'signup':
+      return 'créer un compte'
+    case 'login':
+      return 'se connecter'
+    case 'logout':
+      return 'se déconnecter'
   }
 }
 
@@ -643,12 +660,16 @@ function formatDelay(ms: number): string {
 
 /** Les actions doivent-elles attendre (chargement, pause) ? Leur fonction devient alors « async ». */
 export function needsAsync(actions: Action[]): boolean {
-  return actions.some((a) => a.type === 'fetch' || a.type === 'wait' || (a.type === 'if' && (needsAsync(a.then) || needsAsync(a.else))))
+  return actions.some(
+    (a) => a.type === 'fetch' || a.type === 'wait' || a.type === 'signup' || a.type === 'login' || (a.type === 'if' && (needsAsync(a.then) || needsAsync(a.else))),
+  )
 }
 
 /** Une vérification de formulaire arrête les actions avec « return » : il faut être dans une fonction. */
 function needsFunction(actions: Action[]): boolean {
-  return actions.some((a) => a.type === 'validate' || (a.type === 'if' && (needsFunction(a.then) || needsFunction(a.else))))
+  return actions.some(
+    (a) => a.type === 'validate' || a.type === 'signup' || a.type === 'login' || (a.type === 'if' && (needsFunction(a.then) || needsFunction(a.else))),
+  )
 }
 
 /** Où se trouve l'action : dans une copie de répétition ou non. */
@@ -855,6 +876,31 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
       lines.push('});')
       return { lines, changesState: true }
     }
+    case 'signup':
+    case 'login': {
+      const v = find(a.variable)
+      if (!v || v.kind !== 'text') return missingVar(a.variable)
+      const fn = a.type === 'signup' ? 'creerCompte' : 'connecter'
+      return {
+        lines: [
+          '{',
+          `  const email = String(${tpl(a.email)}).trim().toLowerCase();`,
+          `  const erreur = await ${fn}(email, String(${tpl(a.password)}));`,
+          '  if (erreur) {',
+          '    alert(erreur);',
+          '    return;',
+          '  }',
+          `  etat.${v.name} = email;`,
+          '}',
+        ],
+        changesState: true,
+      }
+    }
+    case 'logout': {
+      const v = find(a.variable)
+      if (!v || v.kind !== 'text') return missingVar(a.variable)
+      return { lines: [`etat.${v.name} = "";`], changesState: true }
+    }
   }
 }
 
@@ -931,10 +977,11 @@ function emitJs(g: Gen): string {
   const hasKanban = order.some((n) => n.type === 'kanban')
   const hasChat = order.some((n) => n.type === 'chat' && n.props.composer)
   const hasWidgets = hasSortable || hasKanban || hasChat
+  const customCode = outside.filter((n) => n.type === 'code')
 
   out.push('// Code généré par Ptt-Makers. Tu peux le lire, le copier et le modifier librement !')
 
-  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !hasTabs && !hasModals && !hasWidgets) {
+  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !hasTabs && !hasModals && !hasWidgets && !customCode.length) {
     out.push('// Ce projet ne contient pas encore d’interactions.')
     out.push('// Ajoute une variable ou une action « Au clic » pour voir du JavaScript apparaître ici.')
     return out.toString()
@@ -1183,9 +1230,23 @@ function emitJs(g: Gen): string {
     out.push('  else location.hash = adresse;')
     out.push('}')
     out.push('')
+    const guarded = project.pages
+      .map((id) => project.nodes[id])
+      .filter((p) => p && variables.some((v) => v.name === p.props.loginVar && v.kind === 'text') && project.pages.includes(String(p.props.loginPage)) && p.props.loginPage !== p.id)
+    if (guarded.length) {
+      out.push('// Pages réservées aux personnes connectées : sinon, on les envoie sur la page de connexion')
+      out.push('const PAGES_RESERVEES = {')
+      for (const p of guarded) out.push(`  ${jsString(p.id)}: () => (etat.${String(p.props.loginVar)} ? null : ${jsString(String(p.props.loginPage))}),`)
+      out.push('};')
+      out.push('')
+    }
     out.push('function afficherPage() {')
     out.push('  const [demandee, ...reste] = location.hash.slice(1).split("/");')
     out.push('  const page = PAGES.includes(demandee) ? demandee : PAGE_DEPART;')
+    if (guarded.length) {
+      out.push('  const connexion = PAGES_RESERVEES[page]?.();')
+      out.push('  if (connexion) return allerA(connexion);')
+    }
     if (receivers.length) {
       out.push('  if (reste.length && VALEURS_RECUES[page]) {')
       out.push('    VALEURS_RECUES[page](decodeURIComponent(reste.join("/")));')
@@ -1437,6 +1498,20 @@ function emitJs(g: Gen): string {
     out.push('  return String(a ?? "").localeCompare(String(b ?? ""), "fr", { numeric: true });')
     out.push('}')
   }
+  if (customCode.length) {
+    title('Ton code personnalisé : chaque bloc reçoit « bloc » (la brique) et peut lire ou changer « etat »')
+    for (const n of customCode) {
+      out.push(`// ${commentName(n)}`)
+      out.push(`(function (bloc) {`)
+      out.push(`  bloc.innerHTML = ${closeSafe(jsString(String(n.props.html ?? '')), 'script')};`)
+      for (const l of closeSafe(String(n.props.js ?? ''), 'script').split('\n')) out.push(l ? `  ${l}` : '')
+      out.push(`})(document.getElementById(${jsString(n.id)}));`)
+    }
+  }
+  if (/\bawait (creerCompte|connecter)\(/.test(out.toString())) {
+    title('Comptes de l’application')
+    for (const l of ACCOUNT_HELPERS(slugName(project.name))) out.push(l)
+  }
   const helpers = exprHelpers(out.toString())
   if (helpers.length) {
     title('Outils de calcul pour les formules')
@@ -1479,6 +1554,58 @@ function emitRepeat(out: Emitter, g: Gen, r: BrickNode, order: BrickNode[], show
   out.push(`  }${empty ? `, ${jsString(empty)}` : ''});`)
   setRange(g.map, r.id, 'js', [start, out.line])
 }
+
+const slugName = (name: string) =>
+  name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'application'
+
+/** Créer un compte et se connecter, sans serveur : les comptes restent dans le navigateur de chaque personne. */
+const ACCOUNT_HELPERS = (key: string): string[] => [
+  '// Les comptes sont gardés dans ce navigateur, et le mot de passe n’y est jamais écrit en clair :',
+  '// seule son empreinte (SHA-256) est gardée. Chaque appareil a ses propres comptes : pour des comptes',
+  '// partagés entre appareils, il faudra un serveur.',
+  `const CLE_COMPTES = ${jsString(`${key}:comptes`)};`,
+  'let comptesSansStockage = {};',
+  'function lireComptes() {',
+  '  try {',
+  '    return JSON.parse(localStorage.getItem(CLE_COMPTES)) || {};',
+  '  } catch {',
+  '    return comptesSansStockage;',
+  '  }',
+  '}',
+  'function ecrireComptes(comptes) {',
+  '  comptesSansStockage = comptes;',
+  '  try {',
+  '    localStorage.setItem(CLE_COMPTES, JSON.stringify(comptes));',
+  '  } catch {',
+  '    // Stockage bloqué (aperçu, navigation privée) : les comptes durent le temps de la visite.',
+  '  }',
+  '}',
+  'async function empreinte(email, motDePasse) {',
+  '  const octets = new TextEncoder().encode(email + ":" + motDePasse);',
+  '  const resultat = await crypto.subtle.digest("SHA-256", octets);',
+  '  return [...new Uint8Array(resultat)].map((o) => o.toString(16).padStart(2, "0")).join("");',
+  '}',
+  '// Renvoie un message d’erreur, ou "" si tout va bien',
+  'async function creerCompte(email, motDePasse) {',
+  '  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return "Écris une adresse e-mail valide.";',
+  '  if (motDePasse.length < 6) return "Le mot de passe doit avoir au moins 6 caractères.";',
+  '  const comptes = lireComptes();',
+  '  if (comptes[email]) return "Un compte existe déjà avec cette adresse.";',
+  '  comptes[email] = await empreinte(email, motDePasse);',
+  '  ecrireComptes(comptes);',
+  '  return "";',
+  '}',
+  'async function connecter(email, motDePasse) {',
+  '  const comptes = lireComptes();',
+  '  if (!comptes[email] || comptes[email] !== (await empreinte(email, motDePasse))) return "E-mail ou mot de passe incorrect.";',
+  '  return "";',
+  '}',
+]
 
 /* -------------------------------- Ensemble ------------------------------- */
 

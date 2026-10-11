@@ -35,6 +35,7 @@ export type BrickType =
   | 'tabbar'
   | 'stat'
   | 'progress'
+  | 'code'
 
 export type Category = 'structure' | 'texte' | 'interaction' | 'medias' | 'pro'
 
@@ -104,6 +105,10 @@ export type Action =
   | { type: 'fetch'; url: string; variable: string; path: string }
   /** Ajouter une fiche à une collection : une valeur (qui peut contenir des {{variables}}) par champ. */
   | { type: 'addRecord'; variable: string; values: Record<string, string> }
+  /** Comptes de l'application : créer un compte, se connecter (la variable reçoit l'e-mail), se déconnecter (elle est vidée). */
+  | { type: 'signup'; variable: string; email: string; password: string }
+  | { type: 'login'; variable: string; email: string; password: string }
+  | { type: 'logout'; variable: string }
 
 export type ActionType = Action['type']
 

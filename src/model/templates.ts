@@ -1,109 +1,11 @@
 import { BRICKS } from './bricks'
-import { mapActions } from './actions'
-import { fixPlacements } from './freeGrid'
+import { BUSINESS_TEMPLATES } from './businessTemplates'
+import { buildApp, buildProject, type Spec, type Template } from './appBuilder'
 import { scaffoldCollection } from './scaffold'
-import { makeNode, type Nodes } from './tree'
-import type { Action, BrickStyle, BrickType, GridPlace, Project, PropValue, Variable } from './types'
+import type { BrickStyle, Project, Variable } from './types'
 
-/** Description compacte d'un arbre de briques pour écrire les modèles. */
-export interface Spec {
-  type: BrickType
-  ref?: string
-  name?: string
-  props?: Record<string, PropValue>
-  style?: BrickStyle
-  hidden?: boolean
-  showIf?: string
-  /** Les cibles peuvent s'écrire « @ref » pour viser une autre brique du modèle. */
-  onClick?: Action[]
-  /** Case sur une page en grille. */
-  place?: GridPlace
-  children?: Spec[]
-}
-
-export const ROOT_ID = 'page'
-
-/** Une page d'un modèle. */
-export interface PageSpec {
-  ref?: string
-  name: string
-  title?: string
-  style?: BrickStyle
-  /** Actions lancées quand la page s'affiche. */
-  onLoad?: Action[]
-  /** Briques posées librement sur une grille plutôt qu'empilées. */
-  grid?: boolean
-  /** Variable qui reçoit la valeur envoyée par « Aller sur une page ». */
-  paramVar?: string
-  children: Spec[]
-}
-
-/** Construit un projet de plusieurs pages ; la première est la page d'accueil. */
-export function buildApp(name: string, pages: PageSpec[], variables: Variable[] = []): Project {
-  let nodes: Nodes = {}
-  const refs = new Map<string, string>()
-  const pending: { id: string; key: 'onClick' | 'onLoad'; actions: Action[] }[] = []
-  const pageIds: string[] = []
-
-  const add = (spec: Spec, parentId: string) => {
-    const node = makeNode(nodes, spec.type, { props: spec.props, style: spec.style, name: spec.name })
-    node.parent = parentId
-    node.hidden = spec.hidden
-    node.showIf = spec.showIf
-    if (spec.place) node.place = spec.place
-    nodes = { ...nodes, [node.id]: node, [parentId]: { ...nodes[parentId], children: [...nodes[parentId].children, node.id] } }
-    if (spec.ref) refs.set(spec.ref, node.id)
-    if (spec.onClick) pending.push({ id: node.id, key: 'onClick', actions: spec.onClick })
-    spec.children?.forEach((c) => add(c, node.id))
-  }
-
-  pages.forEach((page, i) => {
-    const props: Record<string, PropValue> = { title: page.title ?? (i === 0 ? name : page.name) }
-    if (page.grid) props.layout = 'grille'
-    if (page.paramVar) props.paramVar = page.paramVar
-    const made = makeNode(nodes, 'page', { props, style: page.style, name: page.name })
-    const id = i === 0 ? ROOT_ID : made.id
-    nodes = { ...nodes, [id]: { ...made, id } }
-    pageIds.push(id)
-    if (page.ref) refs.set(page.ref, id)
-    if (page.onLoad) pending.push({ id, key: 'onLoad', actions: page.onLoad })
-    page.children.forEach((c) => add(c, id))
-  })
-
-  const resolve = (ref: string) => (ref.startsWith('@') ? (refs.get(ref.slice(1)) ?? ref) : ref)
-  for (const { id, key, actions } of pending) {
-    nodes[id] = {
-      ...nodes[id],
-      [key]: mapActions(actions, (a) =>
-        'target' in a ? { ...a, target: resolve(a.target) } : a.type === 'navigate' ? { ...a, page: resolve(a.page) } : a,
-      ),
-    }
-  }
-  for (const node of Object.values(nodes)) {
-    if (node.type === 'link' && typeof node.props.page === 'string' && node.props.page) {
-      nodes[node.id] = { ...node, props: { ...node.props, page: resolve(node.props.page) } }
-    }
-  }
-  return { version: 1, name, rootId: ROOT_ID, pages: pageIds, nodes: fixPlacements(nodes), variables }
-}
-
-export function buildProject(
-  name: string,
-  page: { title?: string; style?: BrickStyle; onLoad?: Action[] },
-  children: Spec[],
-  variables: Variable[] = [],
-): Project {
-  return buildApp(name, [{ name: 'Page', title: page.title ?? name, style: page.style, onLoad: page.onLoad, children }], variables)
-}
-
-export interface Template {
-  id: string
-  name: string
-  description: string
-  /** Couleur d'accent de la vignette. */
-  accent: string
-  create: () => Project
-}
+export { ROOT_ID, buildApp, buildProject, TEMPLATE_FAMILIES } from './appBuilder'
+export type { PageSpec, Spec, Template, TemplateFamily } from './appBuilder'
 
 const H = (text: string, level: '1' | '2' | '3', style?: BrickStyle): Spec => ({
   type: 'heading',
@@ -115,6 +17,7 @@ const P = (text: string, style?: BrickStyle): Spec => ({ type: 'text', props: { 
 export const TEMPLATES: Template[] = [
   {
     id: 'vierge',
+    family: 'depart',
     name: 'Page vierge',
     description: 'Une page blanche pour partir de zéro.',
     accent: '#94a3b8',
@@ -122,6 +25,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'accueil',
+    family: 'sites',
     name: "Page d'accueil",
     description: 'Présente une idée avec un grand titre, des boutons et trois atouts.',
     accent: '#6c5ce7',
@@ -191,6 +95,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'compteur',
+    family: 'depart',
     name: 'Compteur',
     description: 'Découvre les variables : des boutons qui changent un nombre.',
     accent: '#10b981',
@@ -234,6 +139,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'contact',
+    family: 'sites',
     name: 'Formulaire de contact',
     description: 'Des champs reliés à des variables et un message de confirmation.',
     accent: '#0ea5e9',
@@ -290,6 +196,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'profil',
+    family: 'sites',
     name: 'Carte de profil',
     description: 'Une carte de présentation avec un bouton « Suivre ».',
     accent: '#f59e0b',
@@ -334,6 +241,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'taches',
+    family: 'applications',
     name: 'Liste de tâches',
     description: 'Une vraie petite appli : ajouter, cocher et retirer des tâches avec une liste.',
     accent: '#8b5cf6',
@@ -411,6 +319,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'annuaire',
+    family: 'applications',
     name: 'Annuaire (API)',
     description: 'Charge des données depuis Internet et les affiche en cartes.',
     accent: '#0d9488',
@@ -463,6 +372,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'site',
+    family: 'sites',
     name: 'Site de plusieurs pages',
     description: 'Accueil, À propos et Contact, avec un menu pour passer d’une page à l’autre.',
     accent: '#e11d48',
@@ -518,6 +428,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'tableau-bord',
+    family: 'pilotage',
     name: 'Tableau de bord',
     description: 'Chiffres clés, graphiques, objectifs et dernières commandes : un vrai écran de pilotage.',
     accent: '#0ea5e9',
@@ -588,6 +499,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'projet',
+    family: 'pilotage',
     name: 'Gestion de projet',
     description: 'Un kanban à faire glisser, le calendrier du mois et une barre d’avancement reliée à un bouton.',
     accent: '#f59e0b',
@@ -639,6 +551,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'messagerie',
+    family: 'applications',
     name: 'Messagerie mobile',
     description: 'Une application mobile de trois écrans : discussion, contacts et profil, avec la barre d’onglets en bas.',
     accent: '#8b5cf6',
@@ -703,6 +616,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'stock',
+    family: 'gestion',
     name: 'Gestion de stock',
     description: 'Une vraie petite base de données : un formulaire ajoute des produits, le tableau se met à jour et tout reste enregistré dans le navigateur.',
     accent: '#0f9c74',
@@ -753,6 +667,107 @@ export const TEMPLATES: Template[] = [
       return { ...base, variables: made ? [...base.variables, ...made.variables] : base.variables, nodes: made?.nodes ?? base.nodes, theme: { style: 'pro-sobre' } }
     },
   },
+  {
+    id: 'membres',
+    family: 'applications',
+    name: 'Espace membres',
+    description: 'Créer un compte, se connecter et ouvrir une page réservée aux membres, qui reste ouverte au retour.',
+    accent: '#4f46e5',
+    create: () => {
+      const login = { variable: 'membre', page: '@connexion' }
+      const project = buildApp(
+        'Espace membres',
+        [
+          {
+            ref: 'accueil',
+            name: 'Accueil',
+            style: { padding: 32, gap: 16, maxWidth: '720px' },
+            children: [
+              H('Le club des curieux', '1'),
+              P('Des ateliers chaque semaine, des ressources à télécharger et une communauté. Connecte-toi pour ouvrir ton espace.'),
+              { type: 'button', props: { text: 'Mon espace', variant: 'primary' }, onClick: [{ type: 'navigate', page: '@espace' }] },
+            ],
+          },
+          {
+            ref: 'connexion',
+            name: 'Connexion',
+            style: { padding: 32, gap: 16, maxWidth: '480px' },
+            children: [
+              H('Connexion', '1'),
+              {
+                type: 'card',
+                ref: 'formulaire',
+                children: [
+                  { type: 'input', props: { label: 'E-mail', placeholder: 'toi@exemple.fr', inputType: 'email', bind: 'email', required: true } },
+                  { type: 'input', props: { label: 'Mot de passe', placeholder: '6 caractères au moins', inputType: 'password', bind: 'mot_de_passe', required: true, minLength: 6 } },
+                  {
+                    type: 'row',
+                    style: { gap: 10 },
+                    children: [
+                      {
+                        type: 'button',
+                        props: { text: 'Se connecter', variant: 'primary' },
+                        onClick: [
+                          { type: 'validate', target: '@formulaire' },
+                          { type: 'login', variable: 'membre', email: '{{email}}', password: '{{mot_de_passe}}' },
+                          { type: 'set', variable: 'mot_de_passe', value: '' },
+                          { type: 'navigate', page: '@espace' },
+                        ],
+                      },
+                      {
+                        type: 'button',
+                        props: { text: 'Créer un compte', variant: 'secondary' },
+                        onClick: [
+                          { type: 'validate', target: '@formulaire' },
+                          { type: 'signup', variable: 'membre', email: '{{email}}', password: '{{mot_de_passe}}' },
+                          { type: 'set', variable: 'mot_de_passe', value: '' },
+                          { type: 'navigate', page: '@espace' },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              P('Ton compte est gardé dans ce navigateur, avec ton mot de passe chiffré.', { color: '#6b7280', fontSize: 13 }),
+            ],
+          },
+          {
+            ref: 'espace',
+            name: 'Mon espace',
+            login,
+            style: { padding: 32, gap: 16, maxWidth: '720px' },
+            children: [
+              H('Bonjour {{membre}}', '1'),
+              P('Bienvenue dans ton espace. Cette page n’est visible qu’une fois connecté.'),
+              {
+                type: 'grid',
+                props: { columns: 2 },
+                children: [
+                  { type: 'stat', props: { label: 'Ateliers suivis', value: '3', delta: 'ce mois-ci', symbol: 'trophee' } },
+                  { type: 'stat', props: { label: 'Prochain atelier', value: 'Jeudi', delta: 'Poterie, 18 h', symbol: 'calendrier' } },
+                ],
+              },
+              {
+                type: 'button',
+                props: { text: 'Se déconnecter', variant: 'secondary' },
+                onClick: [
+                  { type: 'logout', variable: 'membre' },
+                  { type: 'navigate', page: '@accueil' },
+                ],
+              },
+            ],
+          },
+        ],
+        [
+          { name: 'membre', kind: 'text', initial: '', persist: true },
+          { name: 'email', kind: 'text', initial: '' },
+          { name: 'mot_de_passe', kind: 'text', initial: '' },
+        ],
+      )
+      return { ...project, theme: { style: 'neo-clair' } }
+    },
+  },
+  ...BUSINESS_TEMPLATES,
 ]
 
 export const createDefaultProject = () => TEMPLATES[1].create()

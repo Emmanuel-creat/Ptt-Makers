@@ -39,6 +39,8 @@ export function brickClass(node: BrickNode): string {
     case 'stat':
     case 'progress':
       return node.type
+    case 'code':
+      return 'code-perso'
     default:
       return ''
   }
