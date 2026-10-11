@@ -1,4 +1,5 @@
 import {
+  MonitorDown,
   BookOpen,
   Clipboard,
   ClipboardPaste,
@@ -47,6 +48,8 @@ import { WORKSPACES, useWorkspace, type Device } from '../store/workspace'
 import { IconButton, MOD } from './ui'
 
 const REPO = 'https://github.com/Emmanuel-creat/Ptt-Makers/blob/main'
+/** Le paquet de la version pour ordinateur (Windows, macOS, Linux), mis à jour à chaque publication. */
+const LOCAL_PACKAGE = 'https://emmanuel-creat.github.io/Ptt-Makers/Ptt-Makers-local.zip'
 
 /** Briques proposées dans le menu Ajouter et dans la barre d'outils. */
 const QUICK: { type: BrickType; icon: LucideIcon }[] = [
@@ -84,6 +87,10 @@ function useMenus() {
         { label: "Écran d'accueil", icon: <LayoutTemplate size={14} />, run: () => ws.set({ splashOpen: true }) },
         'sep',
         { label: 'Exporter…', icon: <Download size={14} />, run: () => ws.set({ dialog: 'export' }) },
+        // La version installée s'ouvre depuis un fichier : inutile de la proposer à nouveau.
+        ...(location.protocol === 'file:'
+          ? []
+          : [{ label: 'Installer sur mon ordinateur', icon: <MonitorDown size={14} />, run: () => window.open(LOCAL_PACKAGE, '_blank', 'noopener') }]),
       ],
     },
     {

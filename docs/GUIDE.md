@@ -259,6 +259,16 @@ Les lignes de la brique sélectionnée sont **surlignées**, et un point violet 
 - **Copier un lien de partage** met tout le projet dans l'adresse (rien ne part sur un serveur). La personne qui ouvre le lien reçoit sa propre copie dans « Mes projets ».
 - Pour React ou Vue : crée un projet avec `npm create vite@latest` (modèle *react* ou *vue*), puis remplace `src/App.jsx` et `src/App.css`, ou `src/App.vue`, par les fichiers exportés.
 
+## Installer Ptt-Makers sur ton ordinateur
+
+Menu **Fichier**, **Installer sur mon ordinateur** : un fichier `Ptt-Makers-local.zip` se télécharge.
+
+1. Décompresse-le (Windows : clic droit, « Extraire tout »).
+2. Lance l'installateur de ton système : `Installer-Windows.bat`, `Installer-macOS.command` (clic droit, « Ouvrir » la première fois) ou `installer-linux.sh`.
+3. Le raccourci **Ptt-Makers** apparaît sur le bureau, avec son icône. Il ouvre l'atelier dans sa propre fenêtre.
+
+La version installée marche sans internet ; seul l'assistant IA en a besoin. Pour y retrouver un projet commencé en ligne : sur le site, *Exporter…*, *Projet Ptt-Makers (.json)*, puis dans la version installée, *Exporter…*, *Importer un projet*. Pour mettre à jour, télécharge le nouveau paquet et relance l'installation : tes projets sont gardés.
+
 ## Raccourcis clavier
 
 | Raccourci | Action |
