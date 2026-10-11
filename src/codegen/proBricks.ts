@@ -84,7 +84,18 @@ export const shownField = (f: CollectionField): CollectionField => (f.type === '
 
 /** Tableau relié à une collection : une colonne par champ, une ligne par fiche. */
 export function collectionTableHtml(p: Props, fields: CollectionField[], records: DataRecord[]): string[] {
-  const out = ['<table>', '  <thead>', '    <tr>']
+  const out: string[] = []
+  // Sélection : une barre (cachée tant que rien n'est coché) et une colonne de cases.
+  if (p.selectable) {
+    out.push(
+      '<div class="table-bar" hidden>',
+      '  <span class="table-count"></span>',
+      '  <button type="button" class="table-delete">Supprimer la sélection</button>',
+      '</div>',
+    )
+  }
+  out.push('<table>', '  <thead>', '    <tr>')
+  if (p.selectable) out.push('      <th scope="col" class="table-select"><input type="checkbox" aria-label="Tout sélectionner"></th>')
   for (const f of fields) {
     const label = escapeHtml(f.label)
     out.push(p.sortable ? `      <th scope="col"><button type="button">${label}</button></th>` : `      <th scope="col">${label}</th>`)
@@ -93,6 +104,7 @@ export function collectionTableHtml(p: Props, fields: CollectionField[], records
   out.push('    </tr>', '  </thead>', '  <tbody>')
   for (const r of records) {
     const tds = fields.map((f) => `<td>${recordCellHtml(readRecordField(r, f.name, fields), shownField(f))}</td>`)
+    if (p.selectable) tds.unshift('<td class="table-select"><input type="checkbox" aria-label="Sélectionner cette ligne"></td>')
     if (p.rowDelete) tds.push('<td><button type="button" class="table-delete">Supprimer</button></td>')
     out.push(`    <tr>${tds.join('')}</tr>`)
   }

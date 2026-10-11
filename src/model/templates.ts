@@ -2,7 +2,7 @@ import { BRICKS } from './bricks'
 import { BUSINESS_TEMPLATES } from './businessTemplates'
 import { buildApp, buildProject, type Spec, type Template } from './appBuilder'
 import { scaffoldCollection } from './scaffold'
-import type { Action, BrickStyle, Project, Variable } from './types'
+import type { Action, BrickStyle, Project, PropValue, Variable } from './types'
 
 export { ROOT_ID, buildApp, buildProject, TEMPLATE_FAMILIES } from './appBuilder'
 export type { PageSpec, Spec, Template, TemplateFamily } from './appBuilder'
@@ -769,6 +769,117 @@ export const TEMPLATES: Template[] = [
         ],
       )
       return { ...project, theme: { style: 'neo-clair' } }
+    },
+  },
+  {
+    id: 'back-office',
+    family: 'pilotage',
+    name: 'Back-office',
+    description: 'Un vrai logiciel de gestion : barre latérale, en-têtes, tableau de bord en zones, fiches clients modifiables dans le tableau, formulaire vérifié.',
+    accent: '#0f766e',
+    create: () => {
+      const clients: Variable = {
+        name: 'clients',
+        kind: 'collection',
+        persist: true,
+        fields: [
+          { name: 'nom', label: 'Client', type: 'text' },
+          { name: 'email', label: 'E-mail', type: 'text' },
+          { name: 'rendez_vous', label: 'Rendez-vous', type: 'date' },
+          { name: 'montant', label: 'Montant (€)', type: 'number' },
+        ],
+        initial: [
+          { nom: 'Boulangerie Martin', email: 'contact@boulangerie-martin.fr', rendez_vous: '2026-10-14', montant: 1250 },
+          { nom: 'Garage du Centre', email: 'accueil@garageducentre.fr', rendez_vous: '2026-10-20', montant: 3400 },
+          { nom: 'Studio Lumière', email: 'bonjour@studiolumiere.fr', rendez_vous: '2026-11-03', montant: 860 },
+        ],
+      }
+      const shell = (title: string, subtitle: string, actions: Spec[], content: Spec[]): Spec => ({
+        type: 'appshell',
+        props: { brand: 'Atelier Gestion', sidebarWidth: 220 },
+        children: [
+          { type: 'appheader', props: { title, subtitle }, style: { gap: 10, padding: 20 }, children: actions },
+          { type: 'section', name: 'Contenu', style: { gap: 20, padding: 24 }, children: content },
+        ],
+      })
+      const field = (label: string, bind: string, inputType: string, extra: Record<string, PropValue> = {}): Spec => ({
+        type: 'input',
+        props: { label, bind, inputType, required: true, ...extra },
+      })
+      return {
+        ...buildApp(
+          'Back-office',
+          [
+            {
+              name: 'Tableau de bord',
+              style: { padding: 0 },
+              children: [
+                shell('Tableau de bord', 'Les chiffres du mois, en direct', [{ type: 'button', props: { text: 'Nouveau client', variant: 'primary' }, onClick: [{ type: 'navigate', page: '@clients' }] }], [
+                  {
+                    type: 'grid',
+                    name: 'Zones du tableau de bord',
+                    props: { template: '1fr 1fr 1fr', areas: 'clients montant prochain\ngraphique graphique prochain' },
+                    style: { gap: 16 },
+                    children: [
+                      { type: 'stat', props: { label: 'Clients', value: '{{clients}}', delta: 'dans la base', symbol: 'groupe' }, style: { area: 'clients' } },
+                      { type: 'stat', props: { label: 'Montant total', value: '{{somme(clients.montant)}} €', delta: '+8 % ce mois', symbol: 'paiement' }, style: { area: 'montant' } },
+                      {
+                        type: 'card',
+                        name: 'Prochains rendez-vous',
+                        style: { area: 'prochain', padding: 18, gap: 10 },
+                        children: [
+                          H('Prochains rendez-vous', '3'),
+                          { type: 'repeat', props: { source: 'clients', sortField: 'rendez_vous', sortDir: 'asc' }, style: { gap: 6 }, children: [P('{{element.nom}} : {{element.rendez_vous}}', { fontSize: 14 })] },
+                        ],
+                      },
+                      { type: 'chart', props: { kind: 'barres', title: 'Chiffre d’affaires', data: 'Juil. : 8200\nAoût : 6400\nSept. : 9100\nOct. : 11800' }, style: { area: 'graphique' } },
+                    ],
+                  },
+                ]),
+              ],
+            },
+            {
+              ref: 'clients',
+              name: 'Clients',
+              style: { padding: 0 },
+              children: [
+                shell('Clients', 'Clique une case du tableau pour la modifier', [], [
+                  {
+                    type: 'grid',
+                    props: { template: 'minmax(260px, 1fr) 2fr' },
+                    style: { gap: 20, align: 'start' },
+                    children: [
+                      {
+                        type: 'form',
+                        name: 'Nouveau client',
+                        props: { submitText: 'Ajouter le client', successText: '{{nom}} est ajouté.', resetAfter: true },
+                        style: { gap: 12, padding: 20 },
+                        on: { onSubmit: [{ type: 'addRecord', variable: 'clients', values: { nom: '{{nom}}', email: '{{email}}', rendez_vous: '{{rendez_vous}}', montant: '{{montant}}' } }] },
+                        children: [
+                          H('Nouveau client', '3'),
+                          field('Nom du client', 'nom', 'text'),
+                          field('E-mail', 'email', 'email'),
+                          field('Rendez-vous', 'rendez_vous', 'date', { min: '2026-01-01' }),
+                          field('Montant (€)', 'montant', 'number', { min: '0' }),
+                        ],
+                      },
+                      { type: 'table', props: { source: 'clients', editable: true, selectable: true, sortable: true, resizable: true, striped: true } },
+                    ],
+                  },
+                ]),
+              ],
+            },
+          ],
+          [
+            clients,
+            { name: 'nom', kind: 'text', initial: '' },
+            { name: 'email', kind: 'text', initial: '' },
+            { name: 'rendez_vous', kind: 'text', initial: '' },
+            { name: 'montant', kind: 'number', initial: 0 },
+          ],
+        ),
+        theme: { style: 'pro-sobre' },
+      }
     },
   },
   ...BUSINESS_TEMPLATES,

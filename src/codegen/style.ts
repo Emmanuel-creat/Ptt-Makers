@@ -32,6 +32,34 @@ export function sanitizeColor(v: string | undefined): string | null {
   return COLOR_RE.test(t) ? t : null
 }
 
+const AREA_NAME_RE = /^[a-zA-Z][\w-]*$/
+const TRACK_RE = /^(auto|min-content|max-content|\d+(\.\d+)?(px|fr|%|rem|em)|minmax\(\d+(\.\d+)?(px|fr|%|rem|em)?, ?\d+(\.\d+)?(px|fr|%|rem|em)\))$/
+
+/** Colonnes d'une grille écrites à la main (« 240px 1fr 1fr »), vérifiées une par une. */
+export function gridTemplate(v: unknown): string | null {
+  const t = String(v ?? '').trim()
+  if (!t) return null
+  const tracks = t.replace(/,\s+/g, ',').split(/\s+/).map((x) => x.replace(/,/g, ', '))
+  return tracks.length <= 12 && tracks.every((x) => TRACK_RE.test(x)) ? tracks.join(' ') : null
+}
+
+/** Zones nommées d'une grille : une ligne par rangée, un nom (ou « . » pour une case vide) par colonne. */
+export function gridAreas(v: unknown): string | null {
+  const rows = String(v ?? '')
+    .split('\n')
+    .map((r) => r.trim().split(/\s+/).filter(Boolean))
+    .filter((r) => r.length)
+  if (!rows.length || rows.some((r) => r.length !== rows[0].length || r.some((n) => n !== '.' && !AREA_NAME_RE.test(n)))) return null
+  return rows.map((r) => `"${r.join(' ')}"`).join(' ')
+}
+
+/** Les noms de zones d'une grille, dans l'ordre (pour le menu « Zone » de ses briques). */
+export function areaNames(v: unknown): string[] {
+  const css = gridAreas(v)
+  if (!css) return []
+  return [...new Set(css.replace(/"/g, '').split(/\s+/).filter((n) => n !== '.'))]
+}
+
 const px = (n: number | undefined) => (typeof n === 'number' && Number.isFinite(n) ? `${n}px` : null)
 
 /**
@@ -47,7 +75,10 @@ export function styleEntries(node: BrickNode, style: BrickStyle = node.style): [
 
   const cols = Math.max(1, Math.min(12, Math.round(Number(node.props.columns) || 1)))
   if (node.type === 'grid') {
-    add('grid-template-columns', `repeat(${cols}, minmax(0, 1fr))`)
+    // Avec des zones nommées, il faut autant de colonnes que de noms par rangée.
+    const areaCols = gridAreas(node.props.areas)?.split('" "')[0].replace(/"/g, '').split(' ').length
+    add('grid-template-columns', gridTemplate(node.props.template) ?? `repeat(${areaCols ?? cols}, minmax(0, 1fr))`)
+    add('grid-template-areas', gridAreas(node.props.areas))
   } else if (node.type === 'repeat' && cols > 1) {
     add('display', 'grid')
     add('grid-template-columns', `repeat(${cols}, minmax(0, 1fr))`)
@@ -74,6 +105,12 @@ export function styleEntries(node: BrickNode, style: BrickStyle = node.style): [
   }
   if (s.shadow && s.shadow !== 'none') add('box-shadow', SHADOWS[s.shadow])
   if (typeof s.opacity === 'number' && s.opacity < 1) add('opacity', String(s.opacity))
+  // Place de la brique dans son parent.
+  if (s.grow) add('flex', '1 1 0')
+  if (s.alignSelf) add('align-self', ALIGN[s.alignSelf])
+  if (typeof s.order === 'number' && Number.isFinite(s.order) && s.order !== 0) add('order', String(Math.round(s.order)))
+  if (s.area && AREA_NAME_RE.test(s.area)) add('grid-area', s.area)
+  else if (typeof s.span === 'number' && s.span > 1) add('grid-column', `span ${Math.min(12, Math.round(s.span))}`)
   // Brique posée sur une page en grille : sa case.
   for (const [k, v] of placeEntries(node.place)) add(k, v)
   return out

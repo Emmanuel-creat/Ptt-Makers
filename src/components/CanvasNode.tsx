@@ -268,6 +268,45 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
           </div>
         </div>
       )
+    case 'form':
+      return (
+        <form {...common} noValidate onSubmit={(e) => e.preventDefault()}>
+          {children}
+          <button type="button" className="btn btn-primary form-submit" tabIndex={-1}>
+            {String(p.submitText || 'Envoyer')}
+          </button>
+        </form>
+      )
+    case 'appshell':
+      return (
+        <div {...common} style={{ ...common.style, ['--largeur-barre' as string]: `${Math.max(140, Math.min(400, Number(p.sidebarWidth) || 220))}px` }}>
+          <nav className="app-sidebar" aria-label="Navigation de l’application">
+            {String(p.brand ?? '').trim() && (
+              <strong className="app-brand">
+                <DynamicText text={String(p.brand)} variables={variables} scope={frame} />
+              </strong>
+            )}
+            <PageLinks />
+          </nav>
+          <div className="app-main">{children}</div>
+        </div>
+      )
+    case 'appheader':
+      return (
+        <header {...common}>
+          <div className="appheader-titles">
+            <h1 className="appheader-title">
+              <DynamicText text={String(p.title ?? '')} variables={variables} scope={frame} />
+            </h1>
+            {String(p.subtitle ?? '').trim() && (
+              <p className="appheader-subtitle">
+                <DynamicText text={String(p.subtitle)} variables={variables} scope={frame} />
+              </p>
+            )}
+          </div>
+          {node.children.length > 0 && <div className="appheader-actions">{children}</div>}
+        </header>
+      )
     case 'navbar':
       return (
         <nav {...common}>
@@ -385,17 +424,26 @@ function AccordionItem({ id, open }: { id: string; open: boolean }) {
 
 /** Liens de la barre de menu : un par page, celui de la page affichée est mis en valeur. */
 function NavbarLinks() {
+  return (
+    <div className="navbar-links">
+      <PageLinks />
+    </div>
+  )
+}
+
+/** Un lien par page du projet, celui de la page affichée mis en avant. */
+function PageLinks() {
   const pages = useEditor((s) => s.project.pages)
   const nodes = useEditor((s) => s.project.nodes)
   const current = useEditor((s) => s.currentPage)
   return (
-    <div className="navbar-links">
+    <>
       {pages.map((id) => (
         <a key={id} href="#" className={id === current ? 'is-active' : undefined} onClick={(e) => e.preventDefault()} data-ptt-page={id}>
           {nodes[id]?.name}
         </a>
       ))}
-    </div>
+    </>
   )
 }
 

@@ -85,6 +85,21 @@ Par défaut, les briques d'une page s'empilent les unes sous les autres. Pour le
 - **Vidéo** : colle l'adresse d'une vidéo YouTube ou d'un fichier `.mp4` / `.webm`.
 - **Icône** : choisis une des 52 icônes dessinées (étoile, cœur, téléphone, e-mail, maison…) dans la grille, ou cherche-la par son nom. Elle prend la taille du texte (« Taille du texte ») et sa couleur (« Couleur du texte »).
 
+### Écrans de logiciel
+
+- **Cadre d'application** <img src="icones/cadre-app.svg" width="16" height="16" alt=""> : pose-le seul sur une page dont la marge intérieure est à 0. À gauche, une barre latérale avec le **nom du logiciel** et un lien vers chaque page (la page ouverte est mise en valeur) ; à droite, la zone principale. Règle la largeur de la barre dans ses propriétés. Sur mobile, la barre passe en haut.
+- **En-tête d'application** : un titre, un sous-titre (tous deux peuvent contenir des `{{variables}}`) et, à droite, les briques que tu glisses dedans (un bouton *Nouveau client*, par exemple).
+- **Grille à zones** : dans les propriétés d'une grille, **Colonnes sur mesure** accepte des largeurs comme `1fr 2fr` ou `minmax(260px, 1fr) 2fr`, et **Zones nommées** dessine la page en texte, une ligne par rangée :
+
+  ```
+  clients  montant    prochain
+  graphique graphique prochain
+  ```
+
+  Puis, dans *Mise en page* d'une brique de la grille, choisis sa **Zone de la grille**. Une brique sans zone peut régler ses **Colonnes couvertes**. Dans une rangée ou une colonne, une brique peut aussi **Prendre la place restante**, avoir son **Alignement propre** ou changer d'**ordre**. Sur mobile, les zones s'empilent.
+
+Le modèle **Back-office** réunit le cadre, l'en-tête, un tableau de bord en zones, un formulaire et un tableau avancé.
+
 ### Les briques pro
 
 ![Le modèle Gestion de projet : avancement, kanban et calendrier](captures/briques-pro.png)
@@ -101,6 +116,8 @@ Leurs données s'écrivent directement dans les propriétés, une ligne par él�
 | Kanban | Une colonne par ligne : son titre, deux-points, puis ses cartes séparées par des points-virgules. | `À faire : Maquette ; Logo` |
 | Discussion | Un message par ligne : auteur, deux-points, message. Les messages de « Ton nom » s'affichent à droite. | `Alex : Salut !` |
 | Barre d'onglets | Une icône par page, dans l'ordre (maison, recherche, message, personne, reglages…). Les noms viennent des pages. | `maison` |
+
+Un tableau **relié à une collection** a trois options de plus : **Cases modifiables** (on change une valeur directement dans le tableau, puis Entrée ou un clic ailleurs), **Sélection de lignes** (une case par ligne, *Tout sélectionner* dans l'en-tête et une barre *Supprimer la sélection*) et **Colonnes redimensionnables** (on tire le bord droit d'un titre de colonne).
 
 Dans l'aperçu et l'application exportée : un clic sur un titre de colonne trie le tableau (un deuxième clic inverse l'ordre), les cartes du kanban se glissent d'une colonne à l'autre (ou passent à la suivante avec leur flèche), un message écrit dans la discussion s'ajoute en bas, et la barre d'onglets reste collée en bas de l'écran. Les modèles **Tableau de bord**, **Gestion de projet** et **Messagerie mobile** montrent ces briques en situation.
 
@@ -168,6 +185,10 @@ Quand les mêmes actions reviennent sur plusieurs boutons, range-les dans une **
 Chaque champ (texte, zone de texte, menu, case à cocher) a des **règles** dans ses propriétés : **Obligatoire**, **Nombre minimal de caractères**, **Nombre minimum** et **maximum** (pour un champ de type Nombre) et un **Message d'erreur** à toi. Un champ de type E-mail vérifie toujours l'adresse. Un champ obligatoire porte une petite étoile.
 
 Mets l'action **Vérifier un formulaire** en premier sur le bouton d'envoi et choisis la brique qui contient les champs (la carte du formulaire, le plus souvent). Au clic, chaque erreur s'affiche sous son champ, le curseur va sur la première, et **les actions suivantes ne sont pas faites** tant qu'une règle n'est pas respectée. L'erreur disparaît dès que le champ est corrigé. Le modèle **Formulaire de contact** le montre.
+
+Plus simple encore, la brique **Formulaire** <img src="icones/formulaire.svg" width="16" height="16" alt=""> fait tout cela toute seule : glisse tes champs dedans, écris le texte de son bouton, puis ses actions dans *Interactions*, événement **Envoi** (par exemple *Ajouter une fiche à une collection*). À l'envoi (bouton ou touche Entrée), elle vérifie chaque champ et ne lance ses actions que si tout est bon. Elle affiche ensuite son **message de succès**, qui peut citer les valeurs (`Merci {{nom}} !`), et, si tu coches **Vider les champs après l'envoi**, remet les champs à leur valeur de départ.
+
+Un champ de saisie peut aussi être une **date**, une **heure**, une **date avec heure**, un **téléphone** ou une **adresse web**. Pour une date, *Minimum* et *Maximum* s'écrivent `2026-01-01` ; un téléphone ou une adresse web mal écrits sont refusés.
 
 ### Attendre
 L'action **Attendre** fait une pause (en millisecondes : 1000 pour une seconde) avant l'action suivante. La page montre ce qui a déjà changé avant la pause : pratique pour un message « Enregistrement… » qui laisse place à « C'est fait ! ».

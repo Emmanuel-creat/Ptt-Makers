@@ -730,3 +730,42 @@ test.describe('logique avancée', () => {
     await expect(panel.locator('.pm-debugger-vars')).toContainText('1')
   })
 })
+
+test.describe('logiciels de gestion', () => {
+  test('le back-office : barre latérale, formulaire vérifié et tableau modifiable', async ({ page }) => {
+    await openTemplate(page, /Back-office/)
+    const p = preview(page)
+    await expect(p.locator('.stat-value').first()).toHaveText('3')
+    await p.locator('.app-sidebar').getByRole('link', { name: 'Clients' }).click()
+    await expect(p.getByRole('heading', { name: 'Clients', level: 1 })).toBeVisible()
+    const rows = p.locator('.table tbody tr')
+    await expect(rows).toHaveCount(3)
+
+    // Le formulaire refuse un envoi incomplet, puis ajoute la fiche et annonce le succès.
+    await p.getByRole('button', { name: 'Ajouter le client' }).click()
+    await expect(p.locator('.field-error').first()).toHaveText('Ce champ est obligatoire.')
+    await p.getByLabel('Nom du client').fill('Fleurs de Lyon')
+    await p.getByLabel('E-mail', { exact: true }).fill('pas-un-mail')
+    await p.getByLabel('Rendez-vous', { exact: true }).fill('2026-12-01')
+    await p.getByLabel('Montant (€)', { exact: true }).fill('500')
+    await p.getByRole('button', { name: 'Ajouter le client' }).click()
+    await expect(rows).toHaveCount(3)
+    await p.getByLabel('E-mail', { exact: true }).fill('fleurs@lyon.fr')
+    await p.getByRole('button', { name: 'Ajouter le client' }).click()
+    await expect(rows).toHaveCount(4)
+    await expect(p.locator('.form-success')).toHaveText('Fleurs de Lyon est ajouté.')
+
+    // Une case se modifie dans le tableau.
+    const cell = rows.first().getByRole('textbox', { name: 'nom' })
+    await cell.fill('Boulangerie Durand')
+    await cell.press('Enter')
+    await expect(rows.first().getByRole('textbox', { name: 'nom' })).toHaveValue('Boulangerie Durand')
+
+    // Cocher deux lignes puis les supprimer ensemble.
+    await rows.nth(0).getByLabel('Sélectionner cette ligne').check()
+    await rows.nth(1).getByLabel('Sélectionner cette ligne').check()
+    await expect(p.locator('.table-count')).toHaveText('2 ligne(s) sélectionnée(s)')
+    await p.getByRole('button', { name: 'Supprimer la sélection' }).click()
+    await expect(rows).toHaveCount(2)
+  })
+})

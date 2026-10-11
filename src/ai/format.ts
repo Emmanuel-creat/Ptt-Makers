@@ -59,7 +59,7 @@ export interface AiBrick {
   place: { col: number; row: number; w: number; h: number }
 }
 
-export const AI_EVENTS = { survol: 'onHover', saisie: 'onInput', changement: 'onChange', touche: 'onKey' } as const
+export const AI_EVENTS = { survol: 'onHover', saisie: 'onInput', changement: 'onChange', touche: 'onKey', envoi: 'onSubmit' } as const
 export type AiEventName = keyof typeof AI_EVENTS
 
 export interface AiEvent {
@@ -153,8 +153,13 @@ const STYLE_KEYS: (keyof BrickStyle)[] = [
   'fontSize',
   'fontWeight',
   'textAlign',
+  'grow',
+  'alignSelf',
+  'order',
+  'area',
+  'span',
 ]
-const NUMERIC_STYLE = new Set<keyof BrickStyle>(['gap', 'padding', 'margin', 'borderRadius', 'borderWidth', 'opacity', 'fontSize'])
+const NUMERIC_STYLE = new Set<keyof BrickStyle>(['gap', 'padding', 'margin', 'borderRadius', 'borderWidth', 'opacity', 'fontSize', 'order', 'span'])
 
 const obj = (properties: Record<string, unknown>) => ({
   type: 'object',
@@ -255,7 +260,7 @@ function toStyle(list: AiKeyValue[]): BrickStyle | undefined {
     if (NUMERIC_STYLE.has(key as keyof BrickStyle)) {
       const n = Number.parseFloat(value)
       if (Number.isFinite(n)) style[key] = n
-    } else if (key === 'wrap') style[key] = value === 'true'
+    } else if (key === 'wrap' || key === 'grow') style[key] = value === 'true'
     else style[key] = value
   }
   return Object.keys(style).length ? (style as BrickStyle) : undefined
