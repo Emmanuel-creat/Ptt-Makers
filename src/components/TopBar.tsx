@@ -37,7 +37,7 @@ export function Logo({ size = 28 }: { size?: number }) {
 const THEME_NEXT: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' }
 const THEME_LABEL: Record<Theme, string> = { system: 'Thème : système', light: 'Thème : clair', dark: 'Thème : sombre' }
 
-export function TopBar() {
+export function TopBar({ compact = false }: { compact?: boolean }) {
   const name = useEditor((s) => s.project.name)
   const canUndo = useEditor((s) => s.past.length > 0)
   const canRedo = useEditor((s) => s.future.length > 0)
@@ -46,7 +46,7 @@ export function TopBar() {
   const [layoutOpen, setLayoutOpen] = useState(false)
 
   return (
-    <header className="pm-topbar">
+    <header className={`pm-topbar ${compact ? 'is-compact' : ''}`}>
       <div className="pm-brand">
         <Logo />
         <span className="pm-brand-name">
@@ -90,7 +90,7 @@ export function TopBar() {
         <IconButton label={THEME_LABEL[ws.theme]} onClick={() => ws.set({ theme: THEME_NEXT[ws.theme] })}>
           {ws.theme === 'light' ? <Sun size={17} /> : ws.theme === 'dark' ? <Moon size={17} /> : <SunMoon size={17} />}
         </IconButton>
-        <div className="pm-popover-anchor">
+        <div className="pm-popover-anchor pm-layout-anchor">
           <IconButton label="Disposition de l'espace de travail" active={layoutOpen} onClick={() => setLayoutOpen(!layoutOpen)}>
             <Settings2 size={17} />
           </IconButton>

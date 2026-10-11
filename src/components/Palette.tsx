@@ -4,6 +4,7 @@ import { BRICKS, CATEGORIES, PALETTE_ORDER } from '../model/bricks'
 import type { BrickType } from '../model/types'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
+import { MOBILE_QUERY } from '../hooks/useIsMobile'
 import { BrickBadge } from './BrickIcon'
 
 const normalize = (s: string) =>
@@ -84,7 +85,11 @@ export function Palette() {
                     draggable
                     onDragStart={(e) => onDragStart(e, type)}
                     onDragEnd={() => setDragging(null)}
-                    onClick={() => addBrickNearSelection(type)}
+                    onClick={() => {
+                      addBrickNearSelection(type)
+                      // Sur mobile, on montre tout de suite la brique ajoutée.
+                      if (window.matchMedia(MOBILE_QUERY).matches) useWorkspace.getState().set({ mobileView: 'create' })
+                    }}
                     data-tip={def.description}
                     data-tip-side="right"
                     aria-label={`Ajouter : ${def.label}. ${def.description}`}
