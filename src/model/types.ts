@@ -279,7 +279,11 @@ export interface ComponentVariant {
 
 export interface Project {
   version: 1
+  /** Format du projet enregistré (voir model/migrate) : un projet plus ancien est mis à niveau à l'ouverture. */
+  format?: number
   name: string
+  /** Numéro de version de l'application (« 1.2.0 »), écrit dans le code exporté. */
+  appVersion?: string
   /** Page d'accueil (la première affichée). */
   rootId: string
   /** Toutes les pages, dans l'ordre des onglets. Chaque page est une brique « page » sans parent. */

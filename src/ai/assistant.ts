@@ -127,14 +127,16 @@ export function generateProject(s: AiSettings, description: string, onProgress?:
   return requestProject(s, `Crée cette application :\n\n${description}`, onProgress)
 }
 
-/** Modifie le projet ouvert selon une consigne ; renvoie le projet complet mis à jour. */
-export function modifyProject(s: AiSettings, project: Project, instruction: string, onProgress?: (chars: number) => void) {
+/**
+ * Modifie le projet ouvert selon une consigne ; renvoie le projet complet mis à jour.
+ * `focus` : identifiant d'une brique ; l'assistant ne touche alors qu'à elle et à son contenu.
+ */
+export function modifyProject(s: AiSettings, project: Project, instruction: string, onProgress?: (chars: number) => void, focus?: string) {
   const current = JSON.stringify(projectToAi(project))
-  return requestProject(
-    s,
-    `Voici le projet actuel :\n${current}\n\nModifie-le selon cette consigne, en gardant tout le reste tel quel (mêmes refs, mêmes textes) et renvoie le projet complet :\n\n${instruction}`,
-    onProgress,
-  )
+  const scope = focus
+    ? `Ne modifie que la brique dont la ref est « ${focus} » et les briques qu'elle contient : garde-la avec la même ref et le même type. Tu peux ajouter des variables ou des fonctions si la consigne en a besoin. Tout le reste du projet doit rester identique. Renvoie le projet complet :`
+    : 'Modifie-le selon cette consigne, en gardant tout le reste tel quel (mêmes refs, mêmes textes) et renvoie le projet complet :'
+  return requestProject(s, `Voici le projet actuel :\n${current}\n\n${scope}\n\n${instruction}`, onProgress)
 }
 
 /** Répond à une question sur le projet ou sur son code, en flux (le texte arrive au fur et à mesure). */

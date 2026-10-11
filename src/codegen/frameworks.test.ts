@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import * as Vue from 'vue'
 import { parse } from 'vue/compiler-sfc'
 import { TEMPLATES } from '../model/templates'
-import { htmlToJsx, toReact, toVue } from './frameworks'
+import { htmlToJsx, toReact, toVue, viteReactFiles } from './frameworks'
 
 const project = (id: string) => TEMPLATES.find((t) => t.id === id)!.create()
 
@@ -133,5 +133,26 @@ describe('partage par lien', () => {
     expect(await decodeProject(data)).toEqual(p)
     expect(await decodeProject('pas-un-projet')).toBeNull()
     expect(await shareUrl(p, 'https://exemple.fr/app/#ancien')).toBe(`https://exemple.fr/app/#projet=${data}`)
+  })
+})
+
+describe('projet Vite + React', () => {
+  it('contient tout ce qu’il faut pour lancer npm run dev, avec le numéro de version', () => {
+    const p = { ...project('vierge'), name: 'Ma Boutique', appVersion: '2.3.1' }
+    const files = viteReactFiles(p)
+    const paths = files.map((f) => f.path)
+    expect(paths).toEqual(
+      expect.arrayContaining(['ma-boutique/package.json', 'ma-boutique/index.html', 'ma-boutique/vite.config.js', 'ma-boutique/src/main.jsx', 'ma-boutique/src/App.jsx', 'ma-boutique/src/App.css']),
+    )
+    const pkg = JSON.parse(files.find((f) => f.path.endsWith('package.json'))!.data as string)
+    expect(pkg.version).toBe('2.3.1')
+    expect(pkg.scripts.dev).toBe('vite')
+    expect(files.find((f) => f.path.endsWith('index.html'))!.data).toContain('<title>Ma Boutique</title>')
+    expect(files.find((f) => f.path.endsWith('App.jsx'))!.data).toBe(toReact(p).jsx)
+  })
+
+  it('prend 1.0.0 quand le projet n’a pas encore de numéro', () => {
+    const files = viteReactFiles({ ...project('vierge'), appVersion: undefined })
+    expect(JSON.parse(files.find((f) => f.path.endsWith('package.json'))!.data as string).version).toBe('1.0.0')
   })
 })

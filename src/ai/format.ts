@@ -466,7 +466,8 @@ function toVariableValue(v: AiVariable): Variable | null {
 }
 
 /** Construit un vrai projet Ptt-Makers à partir de la réponse de l'IA (les briques inconnues sont ignorées). */
-export function aiToProject(ai: AiProject): Project {
+/** `refs` (facultatif) reçoit la correspondance ref de l'IA vers identifiant de la brique créée. */
+export function aiToProject(ai: AiProject, refs?: Map<string, string>): Project {
   const pageRefs = new Set(ai.pages.map((p) => p.ref))
   const known = new Set<string>([...pageRefs])
   const children = new Map<string, Spec[]>()
@@ -523,7 +524,7 @@ export function aiToProject(ai: AiProject): Project {
   const functions = (ai.functions ?? [])
     .filter((f, i, all) => VAR_NAME_RE.test(f.name) && all.findIndex((x) => x.name === f.name) === i)
     .map((f) => ({ name: f.name, actions: toActions(f.actions) }))
-  const project = buildApp(ai.name || 'Projet IA', pages, variables, functions)
+  const project = buildApp(ai.name || 'Projet IA', pages, variables, functions, refs)
   const theme = ai.theme
   if (theme && (theme.style || theme.primary || theme.font || theme.radius || theme.darkMode)) {
     const t: ProjectTheme = {

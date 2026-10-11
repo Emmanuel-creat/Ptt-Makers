@@ -186,6 +186,15 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F88** **Aligner et répartir** une multi-sélection.
 - **F89** Des **gabarits de pages** : tableau de bord, paramètres, connexion, liste et détail.
 
+### 4.23 Des projets qui durent (version 2.14)
+
+- **F90** Un **numéro de version** de l'application (correctif, évolution, version majeure), écrit dans le code exporté.
+- **F91** La **mise à niveau** automatique des projets enregistrés avec un format plus ancien, et le refus clair d'un format plus récent.
+- **F92** L'export d'un **projet Vite + React complet**, prêt à lancer.
+- **F93** La **retouche ciblée** d'une brique par l'assistant IA, sans toucher au reste du projet.
+- **F94** La **relecture** des changements de l'assistant (ajouts, modifications, retraits, aperçu) avant de les appliquer ou de les rejeter.
+- **F95** Un éditeur **fluide au-delà de 500 briques** : calques et code fenêtrés.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -222,4 +231,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 19. Dans la liste de tâches, la touche Entrée ajoute une tâche ; une fonction créée dans le panneau Variables et lancée par un bouton change le texte de l'aperçu ; avec le débogueur en pas à pas, le compteur reste à 0 tant que l'on n'a pas cliqué sur *Action suivante*, puis passe à 1.
 20. Dans le modèle « Back-office », le lien *Clients* de la barre latérale ouvre la page des clients ; le formulaire vide affiche « Ce champ est obligatoire. », un e-mail mal écrit bloque l'envoi, puis une fiche complète arrive dans le tableau avec le message « Fleurs de Lyon est ajouté. » ; une case du tableau se modifie sur place ; deux lignes cochées disparaissent avec *Supprimer la sélection*.
 21. Un fond rouge réglé dans l'état *Survol* d'un bouton n'apparaît dans l'aperçu qu'au passage de la souris ; une variante créée sur une copie d'un composant change le fond de cette copie seulement ; deux briques sélectionnées se centrent d'un clic ; le gabarit « Liste et détail » ouvre la fiche choisie puis revient à la liste ; le bouton *Clair ou sombre* du Back-office change l'ambiance de l'aperçu.
-22. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+22. Le bouton *Évolution* fait passer l'application de 1.0.0 à 1.1.0 et le code exporté porte ce numéro ; un projet sans numéro de format s'importe et s'ouvre ; le `.zip` Vite + React se construit avec `npm run build` ; une retouche ciblée qui change aussi une autre brique ne modifie que la brique sélectionnée, et *Rejeter* laisse le projet intact ; avec 2 000 briques, les calques et le code affichent moins de 200 et 400 lignes et suivent la brique choisie.
+23. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

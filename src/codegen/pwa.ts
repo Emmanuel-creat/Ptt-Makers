@@ -10,7 +10,7 @@ import { bundle, generate } from './generate'
  * Le dossier contient aussi de quoi l'emballer pour Android et iOS avec Capacitor.
  */
 
-const slug = (name: string) =>
+export const slug = (name: string) =>
   name
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
