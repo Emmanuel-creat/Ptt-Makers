@@ -16,6 +16,7 @@
   --cat-texte: #0b9bd8;
   --cat-interaction: #0fa678;
   --cat-medias: #e8900c;
+  --cat-pro: #e5484d;
 
   --pm-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -97,6 +98,7 @@
   --cat-texte: #38bdf8;
   --cat-interaction: #34d399;
   --cat-medias: #fbbf24;
+  --cat-pro: #ff7b7f;
 
   --code-bg: #10131b;
   --code-line: rgba(138, 123, 255, 0.14);

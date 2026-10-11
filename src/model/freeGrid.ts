@@ -38,6 +38,14 @@ const SIZES: Partial<Record<BrickType, { w: number; h: number }>> = {
   icon: { w: 1, h: 1 },
   divider: { w: 12, h: 1 },
   spacer: { w: 12, h: 1 },
+  table: { w: 12, h: 6 },
+  chart: { w: 6, h: 7 },
+  calendar: { w: 8, h: 11 },
+  kanban: { w: 12, h: 7 },
+  chat: { w: 6, h: 9 },
+  tabbar: { w: 12, h: 2 },
+  stat: { w: 3, h: 3 },
+  progress: { w: 6, h: 2 },
 }
 
 /** Taille de départ d'une brique posée sur la grille. */

@@ -118,6 +118,13 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F47** Une barre d'outils verticale sur la zone de création, des onglets d'icônes dans les propriétés et une barre d'état.
 - **F48** Un écran d'accueil au démarrage (modèles, projets récents, reprise, aide), désactivable, et l'interface classique toujours disponible.
 
+### 4.14 Briques pro (version 2.5)
+
+- **F49** Une famille de briques **Pro** pour construire des logiciels : tableau, graphique (barres, courbe, anneau), chiffre clé, barre de progression, calendrier, kanban, discussion et barre d'onglets mobile.
+- **F50** Leurs données s'écrivent en texte simple (une ligne par élément, cellules séparées par des points-virgules, « étiquette : valeur ») et elles prennent les couleurs du style du projet.
+- **F51** Dans l'application générée, le tableau se trie, les cartes du kanban se déplacent (glisser-déposer ou flèche), la discussion ajoute les messages envoyés, la barre d'onglets mène aux pages ; chiffre clé et progression affichent des variables en direct.
+- **F52** Trois nouveaux modèles : Tableau de bord, Gestion de projet et Messagerie mobile.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -145,4 +152,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 10. Sur une page en grille, un bouton déposé dans le coin en haut à gauche occupe la colonne 1, rangée 1, dans l'éditeur, dans l'aperçu et dans le code exporté ; en format mobile, les briques s'empilent.
 11. Choisir le style « Nuit et jaune » change le fond de la page et des cartes dans l'éditeur et dans l'aperçu ; « Adapter toutes les briques au style » retire une couleur de fond donnée à la main.
 12. Au rechargement, l'écran d'accueil s'ouvre et se ferme avec `Échap` ; le menu Fichier le rouvre ; la barre d'outils ajoute un titre que le menu Édition annule ; l'espace Code affiche le code ; l'interface classique se choisit dans la disposition.
-12. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+13. Le modèle « Gestion de projet » fait passer une carte du kanban dans la colonne suivante et remplit sa barre d'avancement d'un clic ; le modèle « Messagerie mobile » ajoute un message envoyé à la discussion ; le tableau du « Tableau de bord » se trie d'un clic sur un titre.
+14. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

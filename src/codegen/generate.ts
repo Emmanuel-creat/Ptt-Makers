@@ -4,6 +4,7 @@ import type { Action, BrickNode, Project, Variable } from '../model/types'
 import { interpolate, parseTemplate } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
 import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
+import { proHtml, tabbarIcons } from './proBricks'
 import { BREAKPOINTS, overrideEntries, styleEntries, themeEntries, themeFontsUrl } from './style'
 
 export type LineRange = [start: number, end: number]
@@ -299,6 +300,32 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
         ])}>`,
       )
       break
+    case 'table':
+    case 'chart':
+    case 'calendar':
+    case 'kanban':
+    case 'chat':
+    case 'stat':
+    case 'progress': {
+      const content = proHtml(node.type, p, (t) => interpolate(t, variables)) ?? []
+      out.push(`${indent}<!-- ${escapeHtml(node.name)} -->`)
+      const extra: [string, string | null][] = node.type === 'chat' ? [['data-moi', String(p.me ?? '').trim() || null]] : []
+      out.push(`${indent}<div${attrs([...base, ...extra])}>`)
+      for (const l of content) out.push(inner + l)
+      out.push(`${indent}</div>`)
+      break
+    }
+    case 'tabbar': {
+      const icons = tabbarIcons(p, project.pages.length)
+      out.push(`${indent}<nav${attrs([...base, ['aria-label', 'Navigation de l’application']])}>`)
+      project.pages.forEach((id, i) => {
+        const pg = project.nodes[id]
+        if (!pg) return
+        out.push(`${inner}<a href="#${id}"${id === project.rootId ? ' class="is-active"' : ''}>${iconSvg(icons[i])}<span>${escapeHtml(pg.name)}</span></a>`)
+      })
+      out.push(`${indent}</nav>`)
+      break
+    }
     case 'divider':
       out.push(`${indent}<hr${attrs(base)}>`)
       break
@@ -634,9 +661,25 @@ function emitActionsBlock(out: Emitter, g: Gen, actions: Action[], ctx: ActionCt
 }
 
 /** Propriétés dont le texte peut contenir des {{…}} : [clé, propriété DOM]. */
-function dynamicProps(n: BrickNode): [string, 'textContent' | 'src'][] {
-  if (n.type === 'image') return [['src', 'src']]
-  return [['text', 'textContent']]
+/** Propriétés qui peuvent afficher une variable : [propriété de la brique, ce qu'on met à jour, texte ajouté après]. */
+function dynamicProps(n: BrickNode): [string, string, string?][] {
+  switch (n.type) {
+    case 'image':
+      return [['src', 'src']]
+    case 'stat':
+      return [
+        ['label', 'querySelector(".stat-label").textContent'],
+        ['value', 'querySelector(".stat-value").textContent'],
+      ]
+    case 'progress':
+      return [
+        ['label', 'querySelector(".progress-head span").textContent'],
+        ['value', 'querySelector("progress").value'],
+        ['value', 'querySelector(".progress-value").textContent', ' %'],
+      ]
+    default:
+      return [['text', 'textContent']]
+  }
 }
 
 function emitJs(g: Gen): string {
@@ -658,10 +701,15 @@ function emitJs(g: Gen): string {
   const hasTabs = order.some((n) => n.type === 'tabs')
   const hasModals = order.some((n) => n.type === 'modal')
   const hasNavbar = order.some((n) => n.type === 'navbar')
+  const hasTabbar = order.some((n) => n.type === 'tabbar')
+  const hasSortable = order.some((n) => n.type === 'table' && n.props.sortable)
+  const hasKanban = order.some((n) => n.type === 'kanban')
+  const hasChat = order.some((n) => n.type === 'chat' && n.props.composer)
+  const hasWidgets = hasSortable || hasKanban || hasChat
 
   out.push('// Code généré par Ptt-Makers. Tu peux le lire, le copier et le modifier librement !')
 
-  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !hasTabs && !hasModals) {
+  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !hasTabs && !hasModals && !hasWidgets) {
     out.push('// Ce projet ne contient pas encore d’interactions.')
     out.push('// Ajoute une variable ou une action « Au clic » pour voir du JavaScript apparaître ici.')
     return out.toString()
@@ -692,9 +740,9 @@ function emitJs(g: Gen): string {
     out.push('  // Rien à mettre à jour pour le moment.')
   }
   for (const n of dynamicTexts) {
-    for (const [k, prop] of dynamicProps(n)) {
+    for (const [k, prop, after = ''] of dynamicProps(n)) {
       if (!needsTemplate(n.props[k], variables, false)) continue
-      out.push(`  document.getElementById(${jsString(n.id)}).${prop} = ${jsTemplate(String(n.props[k]), variables)};`)
+      out.push(`  document.getElementById(${jsString(n.id)}).${prop} = ${jsTemplate(String(n.props[k]) + after, variables)};`)
     }
   }
   for (const n of dynamicLists) {
@@ -793,8 +841,8 @@ function emitJs(g: Gen): string {
     out.push('  const page = PAGES.includes(demandee) ? demandee : PAGE_DEPART;')
     out.push('  for (const id of PAGES) document.getElementById(id).hidden = id !== page;')
     out.push('  window.scrollTo(0, 0);')
-    if (hasNavbar) {
-      out.push('  for (const lien of document.querySelectorAll(".navbar a")) {')
+    if (hasNavbar || hasTabbar) {
+      out.push('  for (const lien of document.querySelectorAll(".navbar a, .tabbar a")) {')
       out.push('    lien.classList.toggle("is-active", lien.getAttribute("href") === "#" + page);')
       out.push('  }')
     }
@@ -850,6 +898,100 @@ function emitJs(g: Gen): string {
     out.push('}')
   }
 
+  if (hasSortable) {
+    title('Tableaux : un clic sur un titre de colonne trie les lignes')
+    out.push('for (const tableau of document.querySelectorAll(".table")) {')
+    out.push('  const titres = [...tableau.querySelectorAll("th button")];')
+    out.push('  titres.forEach((bouton, colonne) => {')
+    out.push('    bouton.addEventListener("click", () => {')
+    out.push('      const th = bouton.parentElement;')
+    out.push('      const croissant = th.getAttribute("aria-sort") !== "ascending";')
+    out.push('      for (const autre of tableau.querySelectorAll("th")) autre.removeAttribute("aria-sort");')
+    out.push('      th.setAttribute("aria-sort", croissant ? "ascending" : "descending");')
+    out.push('      const corps = tableau.querySelector("tbody");')
+    out.push('      const lignes = [...corps.rows].sort((a, b) => {')
+    out.push('        const x = a.cells[colonne]?.textContent ?? "";')
+    out.push('        const y = b.cells[colonne]?.textContent ?? "";')
+    out.push('        const ordre = x.localeCompare(y, "fr", { numeric: true });')
+    out.push('        return croissant ? ordre : -ordre;')
+    out.push('      });')
+    out.push('      corps.append(...lignes);')
+    out.push('    });')
+    out.push('  });')
+    out.push('}')
+  }
+
+  if (hasKanban) {
+    title('Kanban : glisse une carte dans une autre colonne, ou utilise sa flèche')
+    out.push('for (const kanban of document.querySelectorAll(".kanban")) {')
+    out.push('  const colonnes = [...kanban.querySelectorAll(".kanban-cards")];')
+    out.push('  const compter = () => {')
+    out.push('    for (const liste of colonnes) {')
+    out.push('      liste.parentElement.querySelector(".kanban-count").textContent = liste.children.length;')
+    out.push('    }')
+    out.push('  };')
+    out.push('  let deplacee = null;')
+    out.push('  kanban.addEventListener("dragstart", (evenement) => {')
+    out.push('    deplacee = evenement.target.closest(".kanban-card");')
+    out.push('    deplacee?.classList.add("is-dragging");')
+    out.push('  });')
+    out.push('  kanban.addEventListener("dragend", () => {')
+    out.push('    deplacee?.classList.remove("is-dragging");')
+    out.push('    deplacee = null;')
+    out.push('  });')
+    out.push('  for (const liste of colonnes) {')
+    out.push('    liste.addEventListener("dragover", (evenement) => evenement.preventDefault());')
+    out.push('    liste.addEventListener("drop", (evenement) => {')
+    out.push('      evenement.preventDefault();')
+    out.push('      if (!deplacee) return;')
+    out.push('      const apres = [...liste.children].find((carte) => {')
+    out.push('        const boite = carte.getBoundingClientRect();')
+    out.push('        return evenement.clientY < boite.top + boite.height / 2;')
+    out.push('      });')
+    out.push('      liste.insertBefore(deplacee, apres ?? null);')
+    out.push('      compter();')
+    out.push('    });')
+    out.push('  }')
+    out.push('  kanban.addEventListener("click", (evenement) => {')
+    out.push('    const bouton = evenement.target.closest(".kanban-move");')
+    out.push('    if (!bouton) return;')
+    out.push('    const carte = bouton.closest(".kanban-card");')
+    out.push('    const suivante = colonnes[(colonnes.indexOf(carte.parentElement) + 1) % colonnes.length];')
+    out.push('    suivante.append(carte);')
+    out.push('    bouton.focus();')
+    out.push('    compter();')
+    out.push('  });')
+    out.push('}')
+  }
+
+  if (hasChat) {
+    title('Discussion : envoyer un message l’ajoute en bas de la conversation')
+    out.push('for (const discussion of document.querySelectorAll(".chat")) {')
+    out.push('  const formulaire = discussion.querySelector(".chat-form");')
+    out.push('  if (!formulaire) continue;')
+    out.push('  const auteur = discussion.dataset.moi || "Moi";')
+    out.push('  formulaire.addEventListener("submit", (evenement) => {')
+    out.push('    evenement.preventDefault();')
+    out.push('    const champ = formulaire.querySelector("input");')
+    out.push('    const texte = champ.value.trim();')
+    out.push('    if (!texte) return;')
+    out.push('    const message = document.createElement("div");')
+    out.push('    message.className = "chat-msg is-me";')
+    out.push('    const nom = document.createElement("span");')
+    out.push('    nom.className = "chat-author";')
+    out.push('    nom.textContent = auteur;')
+    out.push('    const bulle = document.createElement("p");')
+    out.push('    bulle.className = "chat-bubble";')
+    out.push('    bulle.textContent = texte;')
+    out.push('    message.append(nom, bulle);')
+    out.push('    const fil = discussion.querySelector(".chat-messages");')
+    out.push('    fil.append(message);')
+    out.push('    fil.scrollTop = fil.scrollHeight;')
+    out.push('    champ.value = "";')
+    out.push('  });')
+    out.push('}')
+  }
+
   out.push('')
   out.push('// Premier affichage')
   out.push('afficher();')
@@ -880,8 +1022,8 @@ function emitRepeat(out: Emitter, g: Gen, r: BrickNode, order: BrickNode[], show
   out.push(`  // ${oneLine(r.name)} : une copie par élément de etat.${source.name}`)
   out.push(`  rendreListe(${jsString(r.id)}, etat.${source.name}, (copie, element, position) => {`)
   for (const n of members) {
-    for (const [k, prop] of dynamicProps(n)) {
-      if (needsTemplate(n.props[k], variables, true)) out.push(`    ${q(n)}.${prop} = ${jsTemplate(String(n.props[k]), variables, true)};`)
+    for (const [k, prop, after = ''] of dynamicProps(n)) {
+      if (needsTemplate(n.props[k], variables, true)) out.push(`    ${q(n)}.${prop} = ${jsTemplate(String(n.props[k]) + after, variables, true)};`)
     }
     if (n.showIf && variables.some((v) => v.name === n.showIf)) out.push(`    ${q(n)}.hidden = ${showIfExpr(n.showIf)};`)
   }

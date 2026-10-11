@@ -2,6 +2,27 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.5.0] : 2026-10-11
+
+Des briques de logiciel professionnel : tableaux, graphiques, calendrier, kanban, discussion.
+
+### Ajouté
+- **Nouvelle famille « Pro »** dans la bibliothèque, avec 8 briques :
+  - **Tableau** : titres de colonnes et lignes écrites en texte (cellules séparées par des points-virgules), lignes alternées, tri d'un clic sur un titre.
+  - **Graphique** : barres, courbe ou anneau à partir de lignes « étiquette : valeur », avec unité, valeurs affichées, échelle ronde et légende.
+  - **Chiffre clé** : libellé, grand chiffre, évolution en vert ou en rouge et icône dessinée, pour les tableaux de bord.
+  - **Progression** : une barre de 0 à 100 %, qui peut suivre une variable (`{{score}}`).
+  - **Calendrier** : un mois complet qui commence le lundi, avec les événements sur leurs jours.
+  - **Kanban** : des colonnes de cartes ; dans l'application, on les fait glisser d'une colonne à l'autre ou on clique leur flèche, et les compteurs se mettent à jour.
+  - **Discussion** : des bulles de conversation (les tiennes à droite) et une zone pour écrire et envoyer un message.
+  - **Barre d'onglets** : la barre du bas des applications mobiles, avec une icône et le nom de chaque page, collée en bas de l'écran.
+- Ces briques suivent le style du projet (couleurs, arrondis, relief, flou) et s'exportent en HTML, React et Vue.
+- **Trois modèles** : Tableau de bord, Gestion de projet (kanban, calendrier, avancement relié à un bouton) et Messagerie mobile (trois écrans et barre d'onglets).
+- L'assistant IA connaît les nouvelles briques et peut les utiliser.
+
+### Modifié
+- Tests : 112 tests unitaires et 29 tests de bout en bout.
+
 ## [2.4.0] : 2026-10-11
 
 Une interface de logiciel professionnel, inspirée de Blender : sombre, compacte, rangée par espaces de travail.

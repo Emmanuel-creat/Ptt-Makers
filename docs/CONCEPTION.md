@@ -21,7 +21,7 @@ Aucun serveur : tout fonctionne dans le navigateur, le projet est sauvegardé da
 src/
 ├── model/        Modèle de données (aucune dépendance à React)
 │   ├── types.ts        Brique, style, action, variable, projet
-│   ├── bricks.ts       Catalogue des 25 briques + familles
+│   ├── bricks.ts       Catalogue des 33 briques + familles
 │   ├── actions.ts      Parcours des actions (conditions imbriquées comprises)
 │   ├── tree.ts         Opérations sur l'arbre (insérer, déplacer, dupliquer…)
 │   ├── freeGrid.ts     Page en grille : cases, tailles de départ, remise en ordre
@@ -34,6 +34,7 @@ src/
 │   ├── generate.ts     Projet → index.html + style.css + script.js + carte des lignes
 │   ├── style.ts        Styles d'une brique (partagés éditeur / export)
 │   ├── baseCss.ts      Styles de base des briques
+│   ├── proBricks.ts    HTML des briques pro (tableau, graphique, calendrier…)
 │   ├── escape.ts       Échappement HTML/JS, liens sûrs
 │   └── highlight.ts    Coloration syntaxique maison
 ├── store/
@@ -156,6 +157,14 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
 - Les briques n'ont plus de couleurs par défaut (page, carte, fenêtre, barre de menu) : le CSS de base les prend dans le style. `adoptStyle` retire les couleurs, bordures, ombres et arrondis donnés à la main (sauf l'arrondi des images et vidéos).
 - Les polices grotesque, éditoriale, géométrique et manuscrite viennent de Google Fonts : le code généré ajoute le lien seulement si le style les utilise, et l'éditeur charge la même feuille.
 
+### Briques pro (version 2.5)
+
+- `src/codegen/proBricks.ts` écrit le HTML de chaque brique pro à partir de ses propriétés texte (lignes, points-virgules, « étiquette : valeur »). Le code généré place ces lignes dans la balise de la brique, et la zone de création affiche le même HTML : ce qu'on voit est ce qui sera exporté.
+- Le graphique est un SVG calculé à l'avance : échelle ronde (pas de 1, 2 ou 5 × 10ⁿ), barres, courbe et aire, ou anneau en `stroke-dasharray`. Les couleurs viennent de classes (`serie-1` à `serie-6`), la première suit la couleur principale du style. Un `aria-label` décrit toutes les valeurs pour les lecteurs d'écran.
+- Pas de style en ligne dans le HTML des briques pro (la barre de progression est un `<progress>`) : l'export React et Vue reste un simple changement d'attributs.
+- Le script généré ajoute, seulement si le projet en a besoin, le tri des tableaux (`localeCompare` numérique, `aria-sort`), le kanban (glisser-déposer HTML5 et bouton flèche, compteurs) et l'envoi de messages. Chiffre clé et progression rejoignent les textes dynamiques : `afficher()` met à jour leur valeur quand une variable change.
+- La barre d'onglets est en `position: sticky` en bas de la page, et la navigation entre pages met en valeur son lien actif comme celui de la barre de menu.
+
 ### Interface pro (version 2.4)
 
 - `useWorkspace` (`src/store/workspace.ts`) garde `ui` (`pro` par défaut ou `classique`), l'espace de travail actif et `showSplash`. `WORKSPACES` décrit chaque espace comme un jeu de réglages de disposition (panneaux, position et taille de l'aperçu, onglets) appliqué d'un coup.
@@ -207,6 +216,6 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
 |---|---|---|
 | Unitaires | `src/ai/format.test.ts`, `serveur-ia/worker.test.js` | Aller-retour de chaque modèle par le format de l'IA (code identique), réponse avec des éléments invalides, schéma non récursif et fermé, relais (clé ajoutée, modèle imposé, origines refusées). |
 | Unitaires | `src/model/*.test.ts` | Défis (validés par les modèles correspondants), identifiants, déplacements, interdiction de déposer un conteneur en lui-même, duplication, variables, renommage. |
-| Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, conditions, répétitions, pages, adresses d'API refusées, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil, tâches, annuaire avec API simulée, site de plusieurs pages, onglets, fenêtre et menu). Thème et `@media` par format. Export React compilé et affiché avec React, export Vue monté avec Vue, lien de partage aller-retour. |
+| Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, conditions, répétitions, pages, adresses d'API refusées, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil, tâches, annuaire avec API simulée, site de plusieurs pages, onglets, fenêtre et menu, kanban, discussion, tableau triable, progression reliée à une variable). Thème et `@media` par format. Export React compilé et affiché avec React, export Vue monté avec Vue, lien de partage aller-retour. |
 | Unitaires | `src/store/editor.test.ts` | Ajout dans la sélection, regroupement des frappes dans l'historique, copier-coller, renommage de variable (jusque dans les conditions), pages (ajout, accueil, suppression, annulation), style par format, Mes composants, Mes projets. |
-| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée), Mes composants, masquer sur mobile, Mes projets, défi guidé, lien de partage, export React, assistant IA (création, explication en flux, modification annulable) avec une API simulée, page en grille, icônes dessinées, Studio de style, interface pro (écran d'accueil, menus, barre d'outils, espaces de travail, interface classique). |
+| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée), Mes composants, masquer sur mobile, Mes projets, défi guidé, lien de partage, export React, assistant IA (création, explication en flux, modification annulable) avec une API simulée, page en grille, icônes dessinées, Studio de style, interface pro (écran d'accueil, menus, barre d'outils, espaces de travail, interface classique), briques pro (kanban, discussion, tableau triable). |

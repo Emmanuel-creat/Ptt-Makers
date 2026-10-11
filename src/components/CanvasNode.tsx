@@ -3,6 +3,7 @@ import { BRICKS } from '../model/bricks'
 import { SVG_ATTRS, iconNode } from '../model/icons'
 import { PLACEHOLDER_IMAGE, brickClass } from '../codegen/baseCss'
 import { safeImageSrc, videoSource } from '../codegen/escape'
+import { proHtml, tabbarIcons } from '../codegen/proBricks'
 import { effectiveStyle, reactStyle } from '../codegen/style'
 import type { BrickNode, Variable } from '../model/types'
 import { interpolate, parseTemplate, resolveToken, type RepeatScope } from '../model/variables'
@@ -294,6 +295,23 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
           alt={interpolate(String(p.alt ?? ''), variables, frame ?? undefined)}
         />
       )
+    case 'table':
+    case 'chart':
+    case 'calendar':
+    case 'kanban':
+    case 'chat':
+    case 'stat':
+    case 'progress': {
+      // Même HTML que dans le code généré ; un envoi de message reste sans effet dans l'éditeur.
+      const html = (proHtml(node.type, p, (t) => interpolate(t, variables, frame ?? undefined)) ?? []).join('\n')
+      return <div {...common} data-moi={node.type === 'chat' ? String(p.me ?? '') || undefined : undefined} onSubmit={(e) => e.preventDefault()} dangerouslySetInnerHTML={{ __html: html }} />
+    }
+    case 'tabbar':
+      return (
+        <nav {...common}>
+          <TabbarLinks icons={String(p.icons ?? '')} />
+        </nav>
+      )
     case 'divider':
       return <hr {...common} />
     case 'spacer':
@@ -355,5 +373,23 @@ function NavbarLinks() {
         </a>
       ))}
     </div>
+  )
+}
+
+/** Barre d'onglets : une icône et le nom de chaque page ; un clic ouvre la page dans l'éditeur. */
+function TabbarLinks({ icons }: { icons: string }) {
+  const pages = useEditor((s) => s.project.pages)
+  const nodes = useEditor((s) => s.project.nodes)
+  const current = useEditor((s) => s.currentPage)
+  const names = tabbarIcons({ icons }, pages.length)
+  return (
+    <>
+      {pages.map((id, i) => (
+        <a key={id} href="#" className={id === current ? 'is-active' : undefined} onClick={(e) => e.preventDefault()} data-ptt-page={id}>
+          <IconSvg name={names[i]} />
+          <span>{nodes[id]?.name}</span>
+        </a>
+      ))}
+    </>
   )
 }

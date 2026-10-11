@@ -505,6 +505,191 @@ export const TEMPLATES: Template[] = [
       ], [{ name: 'email', kind: 'text', initial: '' }])
     },
   },
+  {
+    id: 'tableau-bord',
+    name: 'Tableau de bord',
+    description: 'Chiffres clés, graphiques, objectifs et dernières commandes : un vrai écran de pilotage.',
+    accent: '#0ea5e9',
+    create: () => ({
+      ...buildProject('Tableau de bord', { style: { padding: 28, gap: 20 } }, [
+        {
+          type: 'row',
+          name: 'En-tête',
+          style: { justify: 'space-between' },
+          children: [H('Tableau de bord', '1', { fontSize: 30 }), { type: 'badge', props: { text: 'Octobre 2026' } }],
+        },
+        {
+          type: 'grid',
+          name: 'Chiffres clés',
+          props: { columns: 4 },
+          children: [
+            { type: 'stat', props: { label: 'Chiffre d’affaires', value: '48 250 €', delta: '+12,4 %', symbol: 'paiement' } },
+            { type: 'stat', props: { label: 'Commandes', value: '1 284', delta: '+6,1 %', symbol: 'panier' } },
+            { type: 'stat', props: { label: 'Nouveaux clients', value: '312', delta: '+18 %', symbol: 'groupe' } },
+            { type: 'stat', props: { label: 'Panier moyen', value: '37,60 €', delta: '-2,3 %', symbol: 'cadeau' } },
+          ],
+        },
+        {
+          type: 'grid',
+          name: 'Graphiques',
+          props: { columns: 2 },
+          children: [
+            {
+              type: 'stack',
+              name: 'Ventes de la semaine',
+              children: [
+                H('Ventes de la semaine', '3'),
+                { type: 'chart', props: { kind: 'barres', data: 'Lun : 5 200\nMar : 6 800\nMer : 6 100\nJeu : 8 400\nVen : 9 300\nSam : 7 900\nDim : 4 500', unit: '€', showValues: false } },
+              ],
+            },
+            {
+              type: 'stack',
+              name: 'Ventes par canal',
+              children: [
+                H('Ventes par canal', '3'),
+                { type: 'chart', props: { kind: 'anneau', data: 'Site web : 52\nMagasins : 31\nPlaces de marché : 17', unit: '%', showValues: true } },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'card',
+          name: 'Objectifs',
+          children: [
+            H('Objectifs du trimestre', '3'),
+            { type: 'progress', props: { label: 'Chiffre d’affaires', value: '72' } },
+            { type: 'progress', props: { label: 'Satisfaction client', value: '88' } },
+          ],
+        },
+        H('Dernières commandes', '3'),
+        {
+          type: 'table',
+          props: {
+            columns: 'N° ; Client ; Montant ; Statut',
+            rows: '1042 ; Camille Martin ; 128,00 € ; Livrée\n1043 ; Yanis Benali ; 54,90 € ; En préparation\n1044 ; Léa Dubois ; 249,00 € ; Expédiée\n1045 ; Hugo Petit ; 19,90 € ; Annulée\n1046 ; Inès Moreau ; 87,50 € ; Livrée',
+            striped: true,
+            sortable: true,
+          },
+        },
+      ]),
+      theme: { style: 'pro-sobre' },
+    }),
+  },
+  {
+    id: 'projet',
+    name: 'Gestion de projet',
+    description: 'Un kanban à faire glisser, le calendrier du mois et une barre d’avancement reliée à un bouton.',
+    accent: '#f59e0b',
+    create: () => ({
+      ...buildProject(
+        'Gestion de projet',
+        { style: { padding: 28, gap: 18 } },
+        [
+          H('Refonte du site', '1', { fontSize: 30 }),
+          P('Glisse les cartes d’une colonne à l’autre dans l’aperçu, ou clique leur flèche.'),
+          {
+            type: 'row',
+            name: 'Avancement',
+            children: [
+              { type: 'progress', props: { label: 'Avancement du projet', value: '{{avancement}}' }, style: { width: '60%' } },
+              {
+                type: 'button',
+                props: { text: '+10 %', variant: 'secondary' },
+                onClick: [
+                  {
+                    type: 'if',
+                    variable: 'avancement',
+                    op: 'lt',
+                    value: '100',
+                    then: [{ type: 'add', variable: 'avancement', amount: 10 }],
+                    else: [{ type: 'alert', message: 'Le projet est terminé !' }],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'kanban',
+            props: {
+              columns:
+                'À faire : Écrire les textes ; Choisir les photos ; Préparer la mise en ligne\nEn cours : Maquette de l’accueil ; Logo\nÀ valider : Charte graphique\nTerminé : Réunion de lancement ; Cahier des charges',
+            },
+          },
+          H('Planning', '2'),
+          {
+            type: 'calendar',
+            props: { month: '2026-10', events: '5 : Atelier contenu\n9 : Revue maquette\n14 : Point d’équipe\n21 : Test utilisateurs\n28 : Mise en ligne' },
+          },
+        ],
+        [{ name: 'avancement', kind: 'number', initial: 40 }],
+      ),
+      theme: { style: 'pastel' },
+    }),
+  },
+  {
+    id: 'messagerie',
+    name: 'Messagerie mobile',
+    description: 'Une application mobile de trois écrans : discussion, contacts et profil, avec la barre d’onglets en bas.',
+    accent: '#8b5cf6',
+    create: () => {
+      const tabbar: Spec = { type: 'tabbar', props: { icons: 'message\ngroupe\npersonne' } }
+      const pageStyle: BrickStyle = { padding: 16, gap: 14 }
+      return {
+        ...buildApp('Messagerie', [
+          {
+            name: 'Discussions',
+            title: 'Messagerie',
+            style: pageStyle,
+            children: [
+              H('Alex Martin', '2'),
+              { type: 'badge', props: { text: 'En ligne' } },
+              {
+                type: 'chat',
+                props: {
+                  messages:
+                    'Alex : Salut ! Tu es dispo pour la démo de demain ?\nMoi : Oui, 10 h ça te va ?\nAlex : Parfait. J’apporte les maquettes.\nMoi : Super, à demain !',
+                  me: 'Moi',
+                  composer: true,
+                  placeholder: 'Écris un message…',
+                },
+              },
+              tabbar,
+            ],
+          },
+          {
+            name: 'Contacts',
+            style: pageStyle,
+            children: [
+              H('Contacts', '2'),
+              {
+                type: 'table',
+                props: { columns: 'Nom ; Statut', rows: 'Alex Martin ; En ligne\nSam Diallo ; Absent\nNora Lefèvre ; En ligne\nTom Garnier ; Hors ligne', striped: false, sortable: true },
+              },
+              tabbar,
+            ],
+          },
+          {
+            name: 'Profil',
+            style: pageStyle,
+            children: [
+              H('Mon profil', '2'),
+              {
+                type: 'grid',
+                props: { columns: 2 },
+                children: [
+                  { type: 'stat', props: { label: 'Messages envoyés', value: '1 248', delta: '+32 cette semaine', symbol: 'message' } },
+                  { type: 'stat', props: { label: 'Contacts', value: '86', delta: '+4', symbol: 'groupe' } },
+                ],
+              },
+              { type: 'progress', props: { label: 'Profil complété', value: '80' } },
+              tabbar,
+            ],
+          },
+        ]),
+        theme: { style: 'neo-sombre' },
+      }
+    },
+  },
 ]
 
 export const createDefaultProject = () => TEMPLATES[1].create()

@@ -52,6 +52,7 @@ Tu préfères l'ancienne allure ? Bouton Disposition <img src="icones/reglages.s
 | <img src="icones/famille-texte.svg" width="14" height="14" alt=""> Texte | Titre, Paragraphe, Lien, Étiquette, Liste |
 | <img src="icones/famille-interaction.svg" width="14" height="14" alt=""> Interaction | Bouton, Champ texte, Zone de texte, Case à cocher, Menu déroulant |
 | <img src="icones/famille-medias.svg" width="14" height="14" alt=""> Médias | Image, Vidéo, Icône, Séparateur, Espace |
+| <img src="icones/famille-pro.svg" width="14" height="14" alt=""> Pro | Tableau, Graphique, Chiffre clé, Progression, Calendrier, Kanban, Discussion, Barre d'onglets |
 
 - **Ajouter** : glisse une brique vers la zone de création (une ligne violette montre où elle ira), ou **clique** dessus pour l'ajouter dans la brique sélectionnée.
 - **Déplacer** : glisse-la dans la zone de création ou dans les **calques** ; ou utilise les flèches de la barre flottante.
@@ -83,6 +84,25 @@ Par défaut, les briques d'une page s'empilent les unes sous les autres. Pour le
 - **Barre de menu** : elle affiche un lien vers chaque page du projet et met en avant la page affichée.
 - **Vidéo** : colle l'adresse d'une vidéo YouTube ou d'un fichier `.mp4` / `.webm`.
 - **Icône** : choisis une des 52 icônes dessinées (étoile, cœur, téléphone, e-mail, maison…) dans la grille, ou cherche-la par son nom. Elle prend la taille du texte (« Taille du texte ») et sa couleur (« Couleur du texte »).
+
+### Les briques pro
+
+![Le modèle Gestion de projet : avancement, kanban et calendrier](captures/briques-pro.png)
+
+Leurs données s'écrivent directement dans les propriétés, une ligne par élément.
+
+| Brique | Ce qu'on écrit | Exemple |
+|---|---|---|
+| Tableau | Les titres dans « Colonnes », puis une ligne par ligne du tableau ; les cellules sont séparées par des points-virgules. | `Camille ; Design ; Lyon` |
+| Graphique | Une ligne par donnée : étiquette, deux-points, valeur. Choisis barres, courbe ou anneau, et une unité. | `Lundi : 12` |
+| Chiffre clé | Un libellé, une valeur (qui peut contenir une variable) et une évolution : `+` l'affiche en vert, `-` en rouge. | `{{total}} €` · `+8 %` |
+| Progression | Une valeur de 0 à 100, ou une variable. | `{{avancement}}` |
+| Calendrier | Le mois (`AAAA-MM`, vide pour le mois en cours), puis un événement par ligne. | `12 : Réunion d'équipe` |
+| Kanban | Une colonne par ligne : son titre, deux-points, puis ses cartes séparées par des points-virgules. | `À faire : Maquette ; Logo` |
+| Discussion | Un message par ligne : auteur, deux-points, message. Les messages de « Ton nom » s'affichent à droite. | `Alex : Salut !` |
+| Barre d'onglets | Une icône par page, dans l'ordre (maison, recherche, message, personne, reglages…). Les noms viennent des pages. | `maison` |
+
+Dans l'aperçu et l'application exportée : un clic sur un titre de colonne trie le tableau (un deuxième clic inverse l'ordre), les cartes du kanban se glissent d'une colonne à l'autre (ou passent à la suivante avec leur flèche), un message écrit dans la discussion s'ajoute en bas, et la barre d'onglets reste collée en bas de l'écran. Les modèles **Tableau de bord**, **Gestion de projet** et **Messagerie mobile** montrent ces briques en situation.
 
 ### Mes composants
 
