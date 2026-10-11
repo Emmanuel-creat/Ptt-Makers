@@ -103,7 +103,7 @@ export function Section({
   const [open, setOpen] = useState(defaultOpen)
   const id = useId()
   return (
-    <section className={`pm-section ${open ? 'is-open' : ''}`}>
+    <section className={`pm-section ${open ? 'is-open' : ''}`} data-section={title}>
       <button type="button" className="pm-section-head" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
         {icon}
         <span>{title}</span>

@@ -24,6 +24,7 @@ import { useState } from 'react'
 import { useEditor } from '../store/editor'
 import { useWorkspace, type Theme } from '../store/workspace'
 import { Popover } from './fields'
+import { MenuBar, WorkspaceTabs } from './ProChrome'
 import { IconButton, MOD, Segmented, Switch } from './ui'
 
 export function Logo({ size = 28 }: { size?: number }) {
@@ -47,6 +48,7 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
   const { undo, redo, renameProject } = useEditor.getState()
   const ws = useWorkspace()
   const [layoutOpen, setLayoutOpen] = useState(false)
+  const pro = ws.ui === 'pro' && !compact
 
   return (
     <header className={`pm-topbar ${compact ? 'is-compact' : ''}`}>
@@ -56,6 +58,12 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
           Ptt<span>-Makers</span>
         </span>
       </div>
+      {pro && (
+        <>
+          <MenuBar />
+          <WorkspaceTabs />
+        </>
+      )}
       <div className="pm-topbar-sep" />
       <input
         className="pm-project-name"
@@ -90,9 +98,11 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
         <IconButton label="Mode débutant (aides et explications)" active={ws.beginner} onClick={() => ws.set({ beginner: !ws.beginner })}>
           <GraduationCap size={18} />
         </IconButton>
-        <IconButton label={THEME_LABEL[ws.theme]} onClick={() => ws.set({ theme: THEME_NEXT[ws.theme] })}>
-          {ws.theme === 'light' ? <Sun size={17} /> : ws.theme === 'dark' ? <Moon size={17} /> : <SunMoon size={17} />}
-        </IconButton>
+        {!pro && (
+          <IconButton label={THEME_LABEL[ws.theme]} onClick={() => ws.set({ theme: THEME_NEXT[ws.theme] })}>
+            {ws.theme === 'light' ? <Sun size={17} /> : ws.theme === 'dark' ? <Moon size={17} /> : <SunMoon size={17} />}
+          </IconButton>
+        )}
         <div className="pm-popover-anchor pm-layout-anchor">
           <IconButton label="Disposition de l'espace de travail" active={layoutOpen} onClick={() => setLayoutOpen(!layoutOpen)}>
             <Settings2 size={17} />
@@ -101,6 +111,19 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
             <Popover onClose={() => setLayoutOpen(false)}>
               <p className="pm-popover-title">Espace de travail</p>
               <div className="pm-layout-options">
+                <div className="pm-layout-dock">
+                  <span>Interface</span>
+                  <Segmented
+                    label="Interface"
+                    size="sm"
+                    value={ws.ui}
+                    onChange={(ui) => ws.set({ ui })}
+                    options={[
+                      { value: 'pro', label: 'Pro' },
+                      { value: 'classique', label: 'Classique' },
+                    ]}
+                  />
+                </div>
                 <Switch checked={!ws.leftCollapsed} onChange={(v) => ws.set({ leftCollapsed: !v })} label="Briques et calques" />
                 <Switch checked={!ws.rightCollapsed} onChange={(v) => ws.set({ rightCollapsed: !v })} label="Propriétés" />
                 <Switch checked={!ws.dockCollapsed} onChange={(v) => ws.set({ dockCollapsed: !v })} label="Aperçu et code" />

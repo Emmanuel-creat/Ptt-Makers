@@ -2,8 +2,8 @@
 
 ## Premiers pas
 
-1. Ouvre Ptt-Makers : une **visite guidée** présente les quatre zones (tu peux la revoir depuis l'aide `?`).
-2. Choisis un **modèle** (bouton *Modèles* en haut à droite) ou pars d'une **page vierge**.
+1. Ouvre Ptt-Makers : une **visite guidée** présente les quatre zones (tu peux la revoir depuis le menu *Aide*). Aux ouvertures suivantes, l'**écran d'accueil** propose un nouveau projet, tes projets récents ou la reprise du projet en cours.
+2. Choisis un **modèle** (menu *Fichier* ou bouton *Modèles* en haut à droite) ou pars d'une **page vierge**.
 3. Ajoute des briques, règle-les, teste dans l'**aperçu**, lis le **code**.
 4. **Exporte** ta page quand elle te plaît.
 
@@ -17,6 +17,32 @@
 | Aperçu / Code | en bas (ou à droite) | L'application qui fonctionne vraiment, et son code HTML, CSS et JavaScript. |
 
 Les bords entre zones se **redimensionnent** (glisser, ou flèches du clavier ; double-clic pour revenir à la taille par défaut). Le bouton Disposition <img src="icones/reglages.svg" width="16" height="16" alt=""> de la barre du haut permet de **masquer** une zone ou de placer l'aperçu **à droite** ou **en bas**.
+
+## L'interface pro
+
+![L'interface pro : menus, espaces de travail, barre d'outils et propriétés à onglets](captures/interface-pro.png)
+
+Par défaut, Ptt-Makers a l'allure d'un logiciel professionnel, inspirée de Blender : sombre, compacte, avec tout à portée de main.
+
+- **Barre de menus** (en haut à gauche) : *Fichier* (nouveau projet, Mes projets, écran d'accueil, export), *Édition* (annuler, dupliquer, copier, coller, supprimer), *Ajouter* (les briques courantes et une nouvelle page), *Affichage* (format, panneaux, disposition, mode débutant, interface classique) et *Aide*. Survole un autre menu pour passer de l'un à l'autre ; `Échap` referme.
+- **Espaces de travail** (les onglets à côté des menus) : chacun range les panneaux pour une tâche.
+
+| Espace | Ce qu'il montre |
+|---|---|
+| Construction | Briques à gauche, propriétés à droite, aperçu en bas. |
+| Style | Calques à gauche, propriétés, aperçu à droite pour juger du rendu. |
+| Logique | Variables à gauche, aperçu en bas pour tester les actions. |
+| Code | Calques à gauche et code en grand à droite. |
+| Aperçu | L'application en grand, sans les panneaux. |
+
+- **Barre d'outils verticale** (sur le bord gauche de la zone de création) : la flèche sélectionne la page, les autres outils ajoutent une section, une carte, un titre, un paragraphe, un bouton, un champ, une image ou une icône à côté de la brique sélectionnée.
+- **Onglets d'icônes des propriétés** (colonne étroite à gauche des propriétés) : Contenu, Mise en page, Apparence, Texte, Interactions et Style du projet. Un clic ouvre la section et la fait défiler.
+- **Barre d'état** (tout en bas) : les gestes utiles, le nombre de briques, de pages et de variables, et la version.
+- **Écran d'accueil** : il s'ouvre au démarrage, et à tout moment depuis *Fichier > Écran d'accueil*. Décoche « Afficher au démarrage » pour ne plus le voir.
+
+![L'écran d'accueil](captures/ecran-accueil.png)
+
+Tu préfères l'ancienne allure ? Bouton Disposition <img src="icones/reglages.svg" width="16" height="16" alt=""> puis **Interface : Classique** (ou *Affichage > Interface classique*). L'interface classique garde ses thèmes clair, sombre et système ; le même réglage ramène l'interface pro.
 
 ## Les briques
 

@@ -2,6 +2,10 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export type Theme = 'system' | 'light' | 'dark'
+/** Interface de l'éditeur : « pro » (sombre et compacte, façon logiciel de 3D) ou « classique ». */
+export type UiStyle = 'pro' | 'classique'
+/** Espaces de travail : chacun range les panneaux pour une tâche. */
+export type WorkspaceTab = 'construction' | 'style' | 'logique' | 'code' | 'apercu'
 export type Device = 'mobile' | 'tablet' | 'desktop'
 export type DockPosition = 'right' | 'bottom'
 export type LeftTab = 'bricks' | 'layers' | 'variables'
@@ -35,6 +39,11 @@ export const DEFAULT_LAYOUT: Layout = {
 
 interface WorkspaceState extends Layout {
   theme: Theme
+  ui: UiStyle
+  workspaceTab: WorkspaceTab
+  /** Écran d'accueil (nouveau projet, projets récents) à l'ouverture. */
+  showSplash: boolean
+  splashOpen: boolean
   device: Device
   beginner: boolean
   onboardingDone: boolean
@@ -56,6 +65,10 @@ export const useWorkspace = create<WorkspaceState>()(
     (set) => ({
       ...DEFAULT_LAYOUT,
       theme: 'system',
+      ui: 'pro',
+      workspaceTab: 'construction',
+      showSplash: true,
+      splashOpen: false,
       device: 'desktop',
       beginner: true,
       onboardingDone: false,
@@ -68,11 +81,20 @@ export const useWorkspace = create<WorkspaceState>()(
       challengesDone: [],
       dialog: null,
       set: (patch) => set(patch),
-      resetLayout: () => set(DEFAULT_LAYOUT),
+      resetLayout: () => set({ ...DEFAULT_LAYOUT, workspaceTab: 'construction' }),
     }),
     {
       name: 'ptt-makers:espace',
-      partialize: ({ dialog: _dialog, set: _set, resetLayout: _reset, ...rest }) => rest,
+      partialize: ({ dialog: _dialog, splashOpen: _splash, set: _set, resetLayout: _reset, ...rest }) => rest,
     },
   ),
 )
+
+/** Disposition de chaque espace de travail (les panneaux restent redimensionnables). */
+export const WORKSPACES: { id: WorkspaceTab; label: string; layout: Partial<Layout> & { leftTab?: LeftTab; dockTab?: DockTab } }[] = [
+  { id: 'construction', label: 'Construction', layout: { ...DEFAULT_LAYOUT, leftTab: 'bricks', dockTab: 'preview' } },
+  { id: 'style', label: 'Style', layout: { leftCollapsed: false, rightCollapsed: false, dockCollapsed: false, dockPosition: 'right', dockSize: 440, rightWidth: 360, leftTab: 'layers', dockTab: 'preview' } },
+  { id: 'logique', label: 'Logique', layout: { leftCollapsed: false, rightCollapsed: false, dockCollapsed: false, dockPosition: 'bottom', dockSize: 320, leftTab: 'variables', dockTab: 'preview' } },
+  { id: 'code', label: 'Code', layout: { leftCollapsed: false, rightCollapsed: true, dockCollapsed: false, dockPosition: 'right', dockSize: 720, leftTab: 'layers', dockTab: 'code' } },
+  { id: 'apercu', label: 'Aperçu', layout: { leftCollapsed: true, rightCollapsed: true, dockCollapsed: false, dockPosition: 'right', dockSize: 960, dockTab: 'preview' } },
+]

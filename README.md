@@ -4,7 +4,7 @@
 
 <img src="docs/icones/essayer.svg" width="18" height="18" alt=""> **Essayer en ligne : [emmanuel-creat.github.io/Ptt-Makers](https://emmanuel-creat.github.io/Ptt-Makers/)** (fonctionne aussi sur téléphone).
 
-![Ptt-Makers en thème clair : bibliothèque de briques, zone de création, propriétés et code surligné](docs/captures/editeur-clair.png)
+![L'interface pro de Ptt-Makers : barre de menus, espaces de travail, barre d'outils verticale, propriétés à onglets d'icônes et code surligné](docs/captures/interface-pro.png)
 
 ## Pourquoi ?
 
@@ -12,6 +12,7 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 
 ## Ce que tu peux faire
 
+- <img src="docs/icones/espace.svg" width="18" height="18" alt=""> **Interface de logiciel pro**, façon Blender : barre de menus, espaces de travail (Construction, Style, Logique, Code, Aperçu), barre d'outils verticale, propriétés à onglets d'icônes, barre d'état et écran d'accueil. L'interface classique claire reste à un clic.
 - <img src="docs/icones/briques.svg" width="18" height="18" alt=""> **25 briques** en 4 familles colorées (structure, texte, interaction, médias), dont des onglets, un accordéon, une fenêtre, une barre de menu et une vidéo, à glisser ou à ajouter d'un clic.
 - <img src="docs/icones/zone-creation.svg" width="18" height="18" alt=""> **Zone de création** fidèle au résultat : sélection, glisser-déposer avec indicateur, barre d'actions flottante, édition du texte sur place, formats mobile / tablette / ordinateur.
 - <img src="docs/icones/proprietes.svg" width="18" height="18" alt=""> **Propriétés** claires : contenu, mise en page, apparence, typographie, interactions.
@@ -37,6 +38,10 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 ![L'assistant IA de la version Pro](docs/captures/assistant-ia.png)
 
 ![Le Studio de style : le style « Verre de nuit à halos » appliqué à tout le projet](docs/captures/studio-style.png)
+
+![L'écran d'accueil : nouveau projet depuis un modèle, projets récents, nouveautés et guide](docs/captures/ecran-accueil.png)
+
+![L'interface classique en thème clair : bibliothèque de briques, zone de création, propriétés et code surligné](docs/captures/editeur-clair.png)
 
 ![Ptt-Makers en thème sombre, format mobile, avec les calques et l'aperçu à droite](docs/captures/editeur-sombre.png)
 

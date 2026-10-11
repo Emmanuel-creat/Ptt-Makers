@@ -156,6 +156,14 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
 - Les briques n'ont plus de couleurs par défaut (page, carte, fenêtre, barre de menu) : le CSS de base les prend dans le style. `adoptStyle` retire les couleurs, bordures, ombres et arrondis donnés à la main (sauf l'arrondi des images et vidéos).
 - Les polices grotesque, éditoriale, géométrique et manuscrite viennent de Google Fonts : le code généré ajoute le lien seulement si le style les utilise, et l'éditeur charge la même feuille.
 
+### Interface pro (version 2.4)
+
+- `useWorkspace` (`src/store/workspace.ts`) garde `ui` (`pro` par défaut ou `classique`), l'espace de travail actif et `showSplash`. `WORKSPACES` décrit chaque espace comme un jeu de réglages de disposition (panneaux, position et taille de l'aperçu, onglets) appliqué d'un coup.
+- `useTheme` pose `data-ui="pro"` sur `<html>` et force le thème sombre. Toute l'allure pro vient de `src/styles/pro.css`, dont chaque règle commence par `:root[data-ui='pro']` : l'interface classique n'est pas touchée.
+- `src/components/ProChrome.tsx` regroupe la barre de menus (fermeture au clic dehors et à `Échap`, passage d'un menu à l'autre au survol), les onglets d'espaces de travail, la barre d'outils verticale, les onglets d'icônes des propriétés (ils ouvrent la section `data-section` correspondante et la font défiler) et la barre d'état.
+- `src/components/Splash.tsx` dessine l'écran d'accueil en SVG. Il s'ouvre au démarrage seulement après la visite guidée et jamais pour un lien de partage. La version affichée vient de `package.json`, injectée par Vite (`__APP_VERSION__`).
+- Palette pro : fond `#161616`, en-têtes `#1f1f1f`, panneaux `#2b2b2b` et `#313131`, champs `#1d1d1d`, texte `#e6e6e6`, bleu de marque `#4772b3`, sélection orange `#ffa033`. Boutons et champs de 22 px, libellés alignés à droite sur 104 px.
+
 ### Assistant IA (version Pro)
 
 - **Format d'échange** (`src/ai/format.ts`) : les schémas JSON des sorties structurées ne peuvent pas être récursifs. Le projet est donc décrit à plat, comme le modèle interne : une liste de pages et une liste de briques qui nomment leur parent par une `ref`. Propriétés et styles sont des listes clé / valeur, et une action « Si » contient des actions simples. Le schéma est construit à partir du catalogue des briques, et la liste des briques avec leurs propriétés est écrite dans les consignes de l'IA à partir du même catalogue : une nouvelle brique est connue de l'assistant sans autre changement.
@@ -172,6 +180,7 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
   - Les variables ont leur propre accent rose `#EC4899` (`{ }`).
 - **Typographie** : Inter (interface, 13,5 px de base), JetBrains Mono sans ligatures pour le code.
 - **Formes** : rayons 7 / 10 / 14 px, ombres douces, fond de zone de création pointillé façon « table à dessin ».
+- **Interface pro** (par défaut depuis la version 2.4) : palette sombre et compacte inspirée de Blender, décrite dans « Interface pro » ci-dessus. L'interface classique garde l'identité ci-dessous.
 - **Thèmes** : clair, sombre ou système ; tous les jetons sont des variables CSS (`src/styles/tokens.css`).
 - **Mouvement** : transitions courtes (150–300 ms), désactivées si l'utilisateur préfère réduire les animations.
 
@@ -200,4 +209,4 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
 | Unitaires | `src/model/*.test.ts` | Défis (validés par les modèles correspondants), identifiants, déplacements, interdiction de déposer un conteneur en lui-même, duplication, variables, renommage. |
 | Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, conditions, répétitions, pages, adresses d'API refusées, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil, tâches, annuaire avec API simulée, site de plusieurs pages, onglets, fenêtre et menu). Thème et `@media` par format. Export React compilé et affiché avec React, export Vue monté avec Vue, lien de partage aller-retour. |
 | Unitaires | `src/store/editor.test.ts` | Ajout dans la sélection, regroupement des frappes dans l'historique, copier-coller, renommage de variable (jusque dans les conditions), pages (ajout, accueil, suppression, annulation), style par format, Mes composants, Mes projets. |
-| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée), Mes composants, masquer sur mobile, Mes projets, défi guidé, lien de partage, export React, assistant IA (création, explication en flux, modification annulable) avec une API simulée. |
+| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée), Mes composants, masquer sur mobile, Mes projets, défi guidé, lien de partage, export React, assistant IA (création, explication en flux, modification annulable) avec une API simulée, page en grille, icônes dessinées, Studio de style, interface pro (écran d'accueil, menus, barre d'outils, espaces de travail, interface classique). |

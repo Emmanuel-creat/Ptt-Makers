@@ -30,7 +30,7 @@ test('ajoute une brique au clic, la modifie et voit le résultat partout', async
   await text.fill('Bonjour le monde')
   await expect(page.locator('.pm-frame h2')).toHaveText('Bonjour le monde')
   await expect(preview(page).locator('h2')).toHaveText('Bonjour le monde')
-  await page.getByRole('tab', { name: 'Code' }).click()
+  await page.getByRole('tab', { name: 'Code', exact: true }).click()
   await expect(page.locator('.pm-code-line.is-hl')).toContainText('<h2 id="titre-1">Bonjour le monde</h2>')
 })
 
@@ -203,7 +203,7 @@ test.describe('composants, formats et projets', () => {
     await scope.getByRole('radio', { name: 'Mobile' }).click()
     await page.getByText('Masquer sur ce format').click()
     await expect(scope.getByRole('radio', { name: 'Mobile · 1' })).toBeVisible()
-    await page.getByRole('tab', { name: 'Code' }).click()
+    await page.getByRole('tab', { name: 'Code', exact: true }).click()
     await page.getByRole('tab', { name: 'CSS' }).click()
     await expect(page.locator('.pm-code')).toContainText('@media (max-width: 600px)')
   })
@@ -425,7 +425,7 @@ test.describe('studio de style', () => {
     await openBlank(page)
     await page.locator('.pm-tile', { hasText: 'Carte' }).click()
     await page.locator('.pm-frame .page').click({ position: { x: 4, y: 4 } })
-    await page.getByRole('button', { name: /Style du projet/ }).click()
+    await page.getByRole('button', { name: /^Style du projet/ }).click()
     await page.getByRole('listbox', { name: 'Styles proposés' }).getByRole('option', { name: 'Nuit et jaune' }).click()
     await expect(page.locator('.pm-frame .page')).toHaveCSS('background-color', 'rgb(17, 18, 21)')
     await expect(page.locator('.pm-frame [data-ptt-id="carte-1"]')).toHaveCSS('background-color', 'rgb(29, 31, 36)')
@@ -440,8 +440,60 @@ test.describe('studio de style', () => {
     await page.getByLabel('Fond', { exact: true }).fill('#ff0000')
     await expect(page.locator('.pm-frame [data-ptt-id="carte-1"]')).toHaveCSS('background-color', 'rgb(255, 0, 0)')
     await page.locator('.pm-frame .page').click({ position: { x: 4, y: 4 } })
-    await page.getByRole('button', { name: /Style du projet/ }).click()
+    await page.getByRole('button', { name: /^Style du projet/ }).click()
     await page.getByRole('button', { name: 'Adapter toutes les briques au style' }).click()
     await expect(page.locator('.pm-frame [data-ptt-id="carte-1"]')).toHaveCSS('background-color', 'rgb(29, 31, 36)')
+  })
+})
+
+test.describe('interface pro', () => {
+  test("l'écran d'accueil s'ouvre au démarrage et se ferme avec Échap", async ({ page }) => {
+    await openBlank(page)
+    await page.reload()
+    const splash = page.getByRole('dialog', { name: "Écran d'accueil" })
+    await expect(splash).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(splash).toHaveCount(0)
+    // On peut le rouvrir depuis le menu Fichier, puis le désactiver au démarrage.
+    await page.getByRole('navigation', { name: 'Menus' }).getByRole('button', { name: 'Fichier' }).click()
+    await page.getByRole('menuitem', { name: "Écran d'accueil" }).click()
+    await expect(splash).toBeVisible()
+    await splash.getByLabel('Afficher au démarrage').uncheck()
+    await page.reload()
+    await expect(page.locator('.pm-toolstrip')).toBeVisible()
+    await expect(splash).toHaveCount(0)
+  })
+
+  test("un nouveau projet se crée depuis l'écran d'accueil", async ({ page }) => {
+    await openBlank(page)
+    await page.reload()
+    await page.getByRole('dialog', { name: "Écran d'accueil" }).getByRole('button', { name: 'Compteur' }).click()
+    await expect(page.getByLabel('Nom du projet')).toHaveValue('Compteur')
+  })
+
+  test('menus, barre d’outils et espaces de travail', async ({ page }) => {
+    await openBlank(page)
+    await expect(page.locator('html')).toHaveAttribute('data-ui', 'pro')
+    // La barre d'outils ajoute une brique, le menu Édition l'annule.
+    await page.getByRole('toolbar', { name: 'Outils rapides' }).getByRole('button', { name: 'Titre' }).click()
+    await expect(page.locator('.pm-frame [data-ptt-id="titre-1"]')).toBeVisible()
+    await page.getByRole('navigation', { name: 'Menus' }).getByRole('button', { name: 'Édition' }).click()
+    await page.getByRole('menuitem', { name: /Annuler/ }).click()
+    await expect(page.locator('.pm-frame [data-ptt-id="titre-1"]')).toHaveCount(0)
+    // L'espace Code range le code à droite, en grand.
+    await page.getByRole('tab', { name: 'Espace Code' }).click()
+    await expect(page.getByRole('tab', { name: 'Espace Code' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: 'Code', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('tab', { name: 'Espace Construction' }).click()
+    await expect(page.getByRole('tab', { name: 'Aperçu', exact: true })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  test("l'interface classique reste disponible", async ({ page }) => {
+    await openBlank(page)
+    await page.getByRole('button', { name: "Disposition de l'espace de travail" }).click()
+    await page.getByRole('radiogroup', { name: 'Interface' }).getByRole('radio', { name: 'Classique' }).click()
+    await expect(page.locator('html')).not.toHaveAttribute('data-ui', 'pro')
+    await expect(page.getByRole('navigation', { name: 'Menus' })).toHaveCount(0)
+    await expect(page.locator('.pm-toolstrip')).toHaveCount(0)
   })
 })

@@ -1,0 +1,820 @@
+/* ==========================================================================
+   Interface pro : sombre, compacte et rangée en zones, comme un logiciel de 3D.
+   Tout est rangé sous :root[data-ui='pro'] ; l'interface classique ne change pas.
+   ========================================================================== */
+
+:root[data-ui='pro'] {
+  color-scheme: dark;
+  --pm-font: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --pm-radius-lg: 6px;
+  --pm-radius: 4px;
+  --pm-radius-sm: 3px;
+  --pm-topbar-h: 30px;
+
+  /* Gris neutres : fentes entre les zones, régions, panneaux, champs. */
+  --pm-gap: #161616;
+  --pm-header: #1f1f1f;
+  --pm-bg: #161616;
+  --pm-surface: #2b2b2b;
+  --pm-surface-2: #222222;
+  --pm-surface-3: #3a3a3a;
+  --pm-panel: #313131;
+  --pm-field: #1d1d1d;
+  --pm-widget: #545454;
+  --pm-hover: #3d3d3d;
+  --pm-border: #1b1b1b;
+  --pm-border-strong: #4a4a4a;
+  --pm-text: #e6e6e6;
+  --pm-text-2: #c2c2c2;
+  --pm-muted: #8f8f8f;
+  /* Bleu pour les réglages actifs, orange pour la sélection dans la zone de création. */
+  --pm-brand: #4772b3;
+  --pm-brand-hover: #5583c6;
+  --pm-brand-soft: rgba(71, 114, 179, 0.32);
+  --pm-brand-text: #a8c6ff;
+  --pm-on-brand: #ffffff;
+  --pm-focus: rgba(71, 114, 179, 0.55);
+  --pm-select: #ffa033;
+  --pm-select-soft: rgba(255, 160, 51, 0.16);
+  --pm-danger: #ff6b6b;
+  --pm-success: #6ccf6f;
+  --pm-canvas: #393939;
+  --pm-canvas-line: #434343;
+  --pm-canvas-line-strong: #4d4d4d;
+  --pm-overlay: rgba(0, 0, 0, 0.45);
+  --pm-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --pm-shadow-2: 0 8px 22px rgba(0, 0, 0, 0.5);
+  --pm-shadow-3: 0 18px 50px rgba(0, 0, 0, 0.65);
+
+  --cat-structure: #9d8cff;
+  --cat-texte: #58b8ef;
+  --cat-interaction: #5fd39a;
+  --cat-medias: #f2b84b;
+
+  --code-bg: #1d1d1d;
+  --code-line: rgba(255, 160, 51, 0.12);
+  --code-gutter: #5c5c5c;
+}
+
+/* --------------------------------------------------------------- Ensemble */
+
+:root[data-ui='pro'] body {
+  font-size: 12px;
+  line-height: 1.4;
+  background: var(--pm-gap);
+}
+:root[data-ui='pro'] * {
+  scrollbar-width: thin;
+  scrollbar-color: #5a5a5a transparent;
+}
+:root[data-ui='pro'] .pm-main {
+  gap: 2px;
+  padding: 0 2px 2px;
+  background: var(--pm-gap);
+}
+:root[data-ui='pro'] .pm-center,
+:root[data-ui='pro'] .pm-center-row {
+  gap: 2px;
+}
+:root[data-ui='pro'] .pm-panel,
+:root[data-ui='pro'] .pm-canvas-area {
+  border: 0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+:root[data-ui='pro'] .pm-left,
+:root[data-ui='pro'] .pm-right,
+:root[data-ui='pro'] .pm-dock.is-right,
+:root[data-ui='pro'] .pm-dock.is-bottom {
+  border: 0;
+}
+:root[data-ui='pro'] .pm-splitter-x {
+  width: 2px;
+  margin: 0 -2px;
+}
+:root[data-ui='pro'] .pm-splitter-y {
+  height: 2px;
+  margin: -2px 0;
+}
+
+/* ------------------------------------------------------- Barre du haut */
+
+:root[data-ui='pro'] .pm-topbar {
+  gap: 4px;
+  padding: 0 6px;
+  background: var(--pm-header);
+  border-bottom: 0;
+}
+:root[data-ui='pro'] .pm-brand {
+  gap: 6px;
+  padding-right: 2px;
+}
+:root[data-ui='pro'] .pm-logo {
+  width: 18px;
+  height: 18px;
+}
+:root[data-ui='pro'] .pm-brand-name {
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+:root[data-ui='pro'] .pm-topbar-sep {
+  height: 16px;
+  margin: 0 2px;
+  background: #3a3a3a;
+}
+:root[data-ui='pro'] .pm-project-name {
+  width: 150px;
+  height: 22px;
+  padding: 0 6px;
+  font-weight: 500;
+}
+:root[data-ui='pro'] .pm-topbar-center {
+  justify-content: flex-start;
+}
+
+/* Menus Fichier, Édition, Ajouter, Affichage, Aide */
+.pm-menubar {
+  display: flex;
+  align-items: center;
+}
+.pm-menu-btn {
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--pm-text-2);
+  font-size: 12px;
+}
+.pm-menu-btn:hover,
+.pm-menu-btn[aria-expanded='true'] {
+  background: var(--pm-hover);
+  color: var(--pm-text);
+}
+.pm-menu {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 2px);
+  left: 0;
+  min-width: 230px;
+  padding: 4px;
+  border: 1px solid #111;
+  border-radius: 5px;
+  background: #262626;
+  box-shadow: var(--pm-shadow-3);
+}
+.pm-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--pm-text);
+  font-size: 12px;
+  text-align: left;
+}
+.pm-menu-item svg {
+  flex-shrink: 0;
+  color: var(--pm-muted);
+}
+.pm-menu-item:hover:not(:disabled) {
+  background: var(--pm-brand);
+  color: #fff;
+}
+.pm-menu-item:hover:not(:disabled) svg {
+  color: #fff;
+}
+.pm-menu-item:disabled {
+  opacity: 0.4;
+}
+.pm-menu-item kbd {
+  margin-left: auto;
+  color: var(--pm-muted);
+  font: inherit;
+  font-size: 11px;
+}
+.pm-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: #3a3a3a;
+}
+
+/* Onglets des espaces de travail */
+.pm-workspaces {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 6px;
+}
+.pm-workspace-tab {
+  height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  color: var(--pm-text-2);
+  font-size: 12px;
+}
+.pm-workspace-tab:hover {
+  background: #2c2c2c;
+  color: var(--pm-text);
+}
+.pm-workspace-tab[aria-selected='true'] {
+  background: #474747;
+  color: #fff;
+}
+
+/* ---------------------------------------------------- Boutons et champs */
+
+:root[data-ui='pro'] .pm-btn {
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+:root[data-ui='pro'] .pm-btn svg {
+  width: 14px;
+  height: 14px;
+}
+:root[data-ui='pro'] .pm-btn-secondary {
+  background: var(--pm-widget);
+  border-color: transparent;
+  color: var(--pm-text);
+}
+:root[data-ui='pro'] .pm-btn-secondary:hover:not(:disabled) {
+  background: #636363;
+}
+:root[data-ui='pro'] .pm-btn-sm {
+  height: 22px;
+  font-size: 12px;
+}
+:root[data-ui='pro'] .pm-icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+}
+:root[data-ui='pro'] .pm-icon-btn svg {
+  width: 15px;
+  height: 15px;
+}
+:root[data-ui='pro'] .pm-icon-btn-sm {
+  width: 20px;
+  height: 20px;
+}
+:root[data-ui='pro'] .pm-icon-btn.is-active {
+  background: var(--pm-brand);
+  color: #fff;
+}
+:root[data-ui='pro'] .pm-input {
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  background: var(--pm-field);
+  font-size: 12px;
+}
+:root[data-ui='pro'] textarea.pm-input {
+  height: auto;
+  padding: 5px 7px;
+}
+:root[data-ui='pro'] .pm-input:hover {
+  border-color: #555;
+}
+:root[data-ui='pro'] .pm-input:focus {
+  border-color: var(--pm-brand);
+  background: #181818;
+  box-shadow: none;
+}
+:root[data-ui='pro'] .pm-segmented {
+  padding: 0;
+  gap: 1px;
+  border-radius: 4px;
+  background: #1d1d1d;
+}
+:root[data-ui='pro'] .pm-segmented button {
+  height: 22px;
+  min-width: 26px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+:root[data-ui='pro'] .pm-segmented button.is-active {
+  background: var(--pm-brand);
+  color: #fff;
+  box-shadow: none;
+}
+:root[data-ui='pro'] .pm-search {
+  height: 24px;
+  margin: 6px 6px 2px;
+  border-radius: 12px;
+  background: var(--pm-field);
+  border-color: #3a3a3a;
+}
+
+/* ------------------------------------------------------------- Panneaux */
+
+:root[data-ui='pro'] .pm-panel-head {
+  height: 28px;
+  padding: 0 4px 0 8px;
+  background: var(--pm-surface);
+  border-bottom: 1px solid var(--pm-border);
+}
+:root[data-ui='pro'] .pm-panel-title {
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+:root[data-ui='pro'] .pm-tab {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 3px;
+  color: var(--pm-text-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+:root[data-ui='pro'] .pm-tab[aria-selected='true'] {
+  background: #474747;
+  color: #fff;
+}
+:root[data-ui='pro'] .pm-right {
+  background: #282828;
+}
+:root[data-ui='pro'] .pm-section {
+  margin: 4px 6px 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--pm-panel);
+}
+:root[data-ui='pro'] .pm-section-head {
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+:root[data-ui='pro'] .pm-section-head:hover {
+  background: #383838;
+}
+:root[data-ui='pro'] .pm-section-body {
+  gap: 5px;
+  padding: 2px 8px 10px;
+}
+:root[data-ui='pro'] .pm-row {
+  gap: 2px 8px;
+}
+:root[data-ui='pro'] .pm-row:not(.is-stacked) {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+:root[data-ui='pro'] .pm-row:not(.is-stacked) > .pm-row-label {
+  text-align: right;
+}
+/* Les paires de réglages gardent leur étiquette au-dessus, comme les champs X/Y de Blender */
+:root[data-ui='pro'] .pm-row-pair {
+  gap: 6px;
+}
+:root[data-ui='pro'] .pm-row-pair .pm-row:not(.is-stacked) {
+  grid-template-columns: minmax(0, 1fr);
+}
+:root[data-ui='pro'] .pm-row-pair .pm-row > .pm-row-label {
+  text-align: left;
+}
+:root[data-ui='pro'] .pm-row-control .pm-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+:root[data-ui='pro'] .pm-row-control .pm-segmented button {
+  flex: 1 1 auto;
+  padding: 0 6px;
+}
+:root[data-ui='pro'] .pm-row-label {
+  font-size: 12px;
+  font-weight: 400;
+}
+:root[data-ui='pro'] .pm-row-help {
+  font-size: 11px;
+}
+
+/* Bibliothèque de briques : tuiles plates et serrées */
+:root[data-ui='pro'] .pm-tile {
+  gap: 6px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: #3a3a3a;
+}
+:root[data-ui='pro'] .pm-tile:hover {
+  background: #474747;
+  box-shadow: none;
+  transform: none;
+}
+:root[data-ui='pro'] .pm-tile-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+:root[data-ui='pro'] .pm-brick-badge {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+:root[data-ui='pro'] .pm-layer {
+  height: 22px;
+  border-radius: 3px;
+}
+:root[data-ui='pro'] .pm-layer.is-selected {
+  background: #334d80;
+  color: var(--pm-select);
+}
+
+/* ------------------------------------------------- Zone de création (vue) */
+
+:root[data-ui='pro'] .pm-canvas {
+  background-color: var(--pm-canvas);
+  background-image:
+    linear-gradient(var(--pm-canvas-line-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--pm-canvas-line-strong) 1px, transparent 1px),
+    linear-gradient(var(--pm-canvas-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--pm-canvas-line) 1px, transparent 1px);
+  background-size:
+    120px 120px,
+    120px 120px,
+    24px 24px,
+    24px 24px;
+}
+:root[data-ui='pro'] .pm-pages {
+  height: 28px;
+  gap: 4px;
+  padding: 0 6px;
+  background: var(--pm-surface);
+}
+:root[data-ui='pro'] .pm-page-btn {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+:root[data-ui='pro'] .pm-ov-hover {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+:root[data-ui='pro'] .pm-ov-select {
+  box-shadow: 0 0 0 2px var(--pm-select), 0 0 0 5px var(--pm-select-soft);
+}
+:root[data-ui='pro'] .pm-ov-tag {
+  border-radius: 3px;
+  background: var(--pm-select);
+  color: #1d1d1d;
+}
+
+/* Barre d'outils verticale, à gauche de la vue */
+:root[data-ui='pro'] .pm-canvas-area {
+  position: relative;
+}
+.pm-toolstrip {
+  position: absolute;
+  top: 38px;
+  left: 8px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 6px;
+  background: rgba(32, 32, 32, 0.92);
+  box-shadow: var(--pm-shadow-2);
+}
+.pm-toolstrip-sep {
+  height: 1px;
+  margin: 3px 2px;
+  background: #3f3f3f;
+}
+.pm-toolstrip .pm-icon-btn {
+  width: 30px;
+  height: 30px;
+  color: #d0d0d0;
+}
+.pm-toolstrip .pm-icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+.pm-toolstrip .pm-icon-btn.is-active {
+  background: var(--pm-brand);
+  color: #fff;
+}
+:root[data-ui='pro'] .pm-canvas-scroll {
+  padding-left: 58px;
+}
+
+/* --------------------------------- Onglets à icônes du panneau Propriétés */
+
+.pm-props {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+.pm-props-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 3px;
+  background: #1f1f1f;
+  flex-shrink: 0;
+}
+.pm-props-tab {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #b8b8b8;
+}
+.pm-props-tab:hover {
+  background: #3a3a3a;
+  color: #fff;
+}
+.pm-props-tab[aria-current='true'] {
+  background: #474747;
+  color: var(--pm-select);
+}
+.pm-props .pm-panel-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ------------------------------------------------- Barre d'état en bas */
+
+.pm-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 22px;
+  padding: 0 10px;
+  background: var(--pm-header);
+  color: var(--pm-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.pm-statusbar span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.pm-statusbar kbd {
+  padding: 0 4px;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: var(--pm-text-2);
+  font: inherit;
+  font-size: 10.5px;
+}
+.pm-statusbar-right {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------ Fenêtres et menus */
+
+:root[data-ui='pro'] .pm-popover {
+  padding: 6px;
+  border: 1px solid #111;
+  border-radius: 5px;
+  background: #262626;
+}
+:root[data-ui='pro'] .pm-modal {
+  border-radius: 8px;
+  border: 1px solid #111;
+  background: var(--pm-surface);
+}
+:root[data-ui='pro'] [data-tip]::after {
+  border-radius: 3px;
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  font-size: 11px;
+}
+
+/* ---------------------------------------------------- Écran d'accueil */
+
+.pm-splash-back {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.pm-splash {
+  width: min(560px, 100%);
+  overflow: hidden;
+  border: 1px solid #111;
+  border-radius: 6px;
+  background: #1f1f1f;
+  color: var(--pm-text);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+  font-size: 12px;
+}
+.pm-splash-art {
+  position: relative;
+  height: 230px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 78% 30%, rgba(255, 160, 51, 0.55), transparent 38%),
+    radial-gradient(circle at 20% 90%, rgba(71, 114, 179, 0.7), transparent 45%),
+    linear-gradient(160deg, #20242e, #12141a 70%);
+}
+.pm-splash-art svg.pm-splash-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.pm-splash-brand {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.pm-splash-version {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  color: #ddd;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pm-splash-credit {
+  position: absolute;
+  left: 18px;
+  bottom: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+}
+.pm-splash-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 24px;
+  padding: 14px 24px 8px;
+}
+.pm-splash-cols h3 {
+  margin: 0 0 4px;
+  color: var(--pm-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.pm-splash-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pm-splash-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 22px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--pm-text);
+  font-size: 12px;
+  text-align: left;
+}
+.pm-splash-item {
+  text-decoration: none;
+  cursor: pointer;
+}
+.pm-splash-item input {
+  margin: 0;
+  accent-color: var(--pm-brand);
+}
+.pm-splash-item span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pm-splash-item svg {
+  flex-shrink: 0;
+  color: #c8c8c8;
+}
+.pm-splash-item:hover {
+  background: var(--pm-brand);
+  color: #fff;
+}
+.pm-splash-item:hover svg {
+  color: #fff;
+}
+.pm-splash-foot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+  margin: 6px 24px 0;
+  padding: 8px 0 14px;
+  border-top: 1px solid #333;
+}
+.pm-splash-empty {
+  padding: 2px 6px;
+  color: var(--pm-muted);
+}
+@media (max-width: 520px) {
+  .pm-splash-cols,
+  .pm-splash-foot {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Notifications : bandeau sombre et compact */
+:root[data-ui='pro'] .pm-toast {
+  padding: 6px 12px;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  background: #1f1f1f;
+  color: var(--pm-text);
+  font-size: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+:root[data-ui='pro'] .pm-range input {
+  min-width: 0;
+}
+:root[data-ui='pro'] .pm-range span {
+  flex: none;
+  width: 36px;
+}
+
+/* Barre du haut : sous 1700 px, les boutons secondaires ne gardent que leur icône
+   (le libellé reste lu par les lecteurs d'écran et affiché dans les menus). */
+@media (max-width: 1700px) {
+  :root[data-ui='pro'] .pm-topbar .pm-btn-secondary {
+    padding: 0 6px;
+  }
+  :root[data-ui='pro'] .pm-topbar .pm-btn-secondary .pm-hide-sm {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+@media (max-width: 1440px) {
+  :root[data-ui='pro'] .pm-project-name {
+    width: 120px;
+  }
+}
+@media (max-width: 1360px) {
+  :root[data-ui='pro'] .pm-brand-name,
+  :root[data-ui='pro'] .pm-topbar .pm-btn-ai .pm-hide-sm {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  :root[data-ui='pro'] .pm-workspace-tab {
+    padding: 0 7px;
+  }
+}
+/* Écran moyen : annuler, rétablir et l'aide restent dans les menus Édition et Aide */
+@media (max-width: 1240px) {
+  :root[data-ui='pro'] .pm-project-name + .pm-topbar-group,
+  :root[data-ui='pro'] .pm-topbar [aria-label='Raccourcis clavier et aide'] {
+    display: none;
+  }
+}
+@media (max-width: 1080px) {
+  :root[data-ui='pro'] .pm-topbar .pm-btn-primary .pm-hide-sm {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  :root[data-ui='pro'] .pm-project-name {
+    width: 90px;
+  }
+  :root[data-ui='pro'] .pm-menu-btn,
+  :root[data-ui='pro'] .pm-workspace-tab {
+    padding: 0 5px;
+  }
+}
+/* Les onglets d'espaces de travail se replient en bande défilante quand la place manque */
+:root[data-ui='pro'] .pm-workspaces {
+  flex: 0 1 auto;
+  min-width: 56px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
