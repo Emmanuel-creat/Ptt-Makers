@@ -2334,6 +2334,94 @@ select.pm-input {
   background: var(--accent);
 }
 
+/* Liste de tâches : un champ, puis des lignes répétées */
+.pm-thumb-taches .a {
+  left: 20%;
+  right: 38%;
+  top: 14%;
+  height: 13%;
+  background: color-mix(in srgb, var(--accent) 18%, var(--pm-surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.pm-thumb-taches .b {
+  left: 64%;
+  right: 20%;
+  top: 14%;
+  height: 13%;
+  background: var(--accent);
+}
+.pm-thumb-taches .c,
+.pm-thumb-taches .d {
+  left: 20%;
+  right: 20%;
+  width: auto;
+  height: 13%;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 22px 0 color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.pm-thumb-taches .c {
+  top: 38%;
+}
+.pm-thumb-taches .d {
+  top: 58%;
+  opacity: 0.6;
+}
+/* Annuaire : trois fiches */
+.pm-thumb-annuaire .a,
+.pm-thumb-annuaire .b,
+.pm-thumb-annuaire .c {
+  top: 22%;
+  height: 56%;
+  width: 18%;
+  background: var(--pm-surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-top: 6px solid var(--accent);
+}
+.pm-thumb-annuaire .a {
+  left: 17%;
+  right: auto;
+}
+.pm-thumb-annuaire .b {
+  left: 41%;
+  right: auto;
+}
+.pm-thumb-annuaire .c {
+  left: 65%;
+}
+.pm-thumb-annuaire .d {
+  display: none;
+}
+/* Site : un menu et des pages superposées */
+.pm-thumb-site .a {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18%;
+  border-radius: 0;
+  background: #1b1d29;
+}
+.pm-thumb-site .b {
+  left: 22%;
+  right: 46%;
+  top: 34%;
+  height: 12%;
+  background: var(--accent);
+}
+.pm-thumb-site .c {
+  left: 22%;
+  right: 26%;
+  width: auto;
+  top: 54%;
+  height: 7%;
+}
+.pm-thumb-site .d {
+  left: 22%;
+  right: 40%;
+  width: auto;
+  top: 67%;
+  height: 7%;
+}
+
 .pm-export-list {
   display: flex;
   flex-direction: column;
