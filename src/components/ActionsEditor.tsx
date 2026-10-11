@@ -26,6 +26,9 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   addRecord: 'Ajouter une fiche à une collection',
   validate: 'Vérifier un formulaire',
   wait: 'Attendre',
+  signup: 'Créer un compte',
+  login: 'Se connecter',
+  logout: 'Se déconnecter',
 }
 
 const ACTION_GROUPS: { label: string; types: ActionType[] }[] = [
@@ -33,6 +36,7 @@ const ACTION_GROUPS: { label: string; types: ActionType[] }[] = [
   { label: 'Listes et collections', types: ['listAdd', 'addRecord', 'listRemove', 'listClear'] },
   { label: 'Logique', types: ['if', 'validate', 'wait'] },
   { label: 'Pages et briques', types: ['navigate', 'show', 'hide', 'toggle', 'scrollTo'] },
+  { label: 'Comptes', types: ['signup', 'login', 'logout'] },
   { label: 'Autres', types: ['alert', 'openUrl', 'fetch'] },
 ]
 
@@ -90,6 +94,11 @@ function defaultAction(type: ActionType, ctx: Ctx): Action {
       return { type, target: ctx.parentId }
     case 'wait':
       return { type, ms: 1000 }
+    case 'signup':
+    case 'login':
+      return { type, variable: ctx.firstVar(['text']), email: '', password: '' }
+    case 'logout':
+      return { type, variable: ctx.firstVar(['text']) }
     default:
       return { type, target: ctx.selfId }
   }
@@ -231,6 +240,35 @@ function ActionFields({ action: a, onChange, ctx }: { action: Action; onChange: 
       )
     case 'addRecord':
       return <AddRecordFields action={a} onChange={onChange} />
+    case 'signup':
+    case 'login':
+    case 'logout':
+      return (
+        <>
+          {a.type !== 'logout' && (
+            <>
+              <div className="pm-inline">
+                <span>e-mail</span>
+                <TextInput value={a.email} dynamic placeholder="{{email}}" onChange={(email) => onChange({ ...a, email })} />
+              </div>
+              <div className="pm-inline">
+                <span>mot de passe</span>
+                <TextInput value={a.password} dynamic placeholder="{{mot_de_passe}}" onChange={(password) => onChange({ ...a, password })} />
+              </div>
+            </>
+          )}
+          <div className="pm-inline">
+            <span>{a.type === 'logout' ? 'vider' : 'personne connectée dans'}</span>
+            <VariableSelect value={a.variable} kinds={['text']} placeholder="Choisir une variable…" onChange={(variable) => onChange({ ...a, variable })} />
+          </div>
+          {a.type !== 'logout' && (
+            <p className="pm-row-help">
+              Si l’e-mail ou le mot de passe ne vont pas, un message le dit et les actions suivantes ne sont pas faites. Les comptes sont gardés dans le navigateur de chaque
+              personne, avec le mot de passe chiffré : c’est un espace personnel, pas encore un vrai serveur de comptes.
+            </p>
+          )}
+        </>
+      )
     case 'if':
       return <IfFields action={a} onChange={onChange} ctx={ctx} />
     case 'navigate':

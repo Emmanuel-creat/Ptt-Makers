@@ -154,6 +154,14 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F68** **Panneau Problèmes** : erreurs et conseils du projet, avec un lien vers la brique ou la variable concernée.
 - **F69** **Versions nommées** d'un projet, auxquelles on revient sans rien perdre.
 
+### 4.19 Logiciels prêts à livrer (version 2.10)
+
+- **F70** Une **galerie de modèles** classés par famille, avec une recherche.
+- **F71** Des **modèles métiers** prêts à l'emploi : CRM, facturation, réservations, ressources humaines, gestion de stock, et d'autres outils de gestion.
+- **F72** Une brique **Code personnalisé** (HTML, CSS, JavaScript), isolée dans l'éditeur.
+- **F73** L'export en **application installable** (PWA qui marche sans internet), préparée pour Android et iOS avec Capacitor.
+- **F74** Des **comptes dans l'application générée** (créer un compte, se connecter, se déconnecter, pages réservées), avec des mots de passe jamais gardés en clair.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -186,4 +194,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 15. Dans le modèle « Gestion de stock », la valeur du stock est la somme des quantités multipliées par les prix ; chercher « epicerie » ne garde que les deux produits d'épicerie ; le bouton Ajouter, sans nom de produit, affiche « Ce champ est obligatoire. » et n'ajoute rien. Dans le modèle « Formulaire de contact », la confirmation n'apparaît qu'une fois l'e-mail et le message valides.
 16. Le paquet pour ordinateur ouvre l'atelier depuis un fichier, sans réseau : un modèle choisi s'affiche dans l'aperçu et reste là après un rechargement.
 17. Deux briques sélectionnées avec `Maj + clic` se groupent puis se dégroupent ; un texte changé dans une copie d'un composant change aussi l'autre copie ; un bouton sans texte apparaît dans le panneau Problèmes et un clic le sélectionne ; revenir à une version enregistrée rend une brique supprimée depuis.
-18. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+18. La galerie filtrée sur « Gestion et métiers » et la recherche « tva » ne montrent que la facturation, dont le total TTC vaut 2 284 € ; une brique Code personnalisé affiche le résultat de son script dans l'éditeur et dans l'aperçu ; dans le modèle « Espace membres », la page réservée renvoie vers la connexion puis s'ouvre après la création d'un compte ; l'application installable se télécharge en .zip, et une fois en ligne son service worker est actif.
+19. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

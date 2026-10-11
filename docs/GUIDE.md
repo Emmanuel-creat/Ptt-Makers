@@ -3,7 +3,7 @@
 ## Premiers pas
 
 1. Ouvre Ptt-Makers : une **visite guidée** présente les quatre zones (tu peux la revoir depuis le menu *Aide*). Aux ouvertures suivantes, l'**écran d'accueil** propose un nouveau projet, tes projets récents ou la reprise du projet en cours.
-2. Choisis un **modèle** (menu *Fichier* ou bouton *Modèles* en haut à droite) ou pars d'une **page vierge**.
+2. Choisis un **modèle** (menu *Fichier* ou bouton *Modèles* en haut à droite) ou pars d'une **page vierge**. La galerie range ses 29 modèles en familles (sites, applications, gestion et métiers, pilotage) et se fouille avec sa barre de recherche : « facture », « réservation », « équipe »…
 3. Ajoute des briques, règle-les, teste dans l'**aperçu**, lis le **code**.
 4. **Exporte** ta page quand elle te plaît.
 
@@ -213,6 +213,12 @@ La collection elle-même ne change pas : seul l'affichage suit. « Créer un for
 
 Coche **Garder dans le navigateur** sur une variable pour que l'application générée la retrouve après un rechargement de la page (elle est enregistrée dans le navigateur de la personne qui utilise l'application). Le modèle **Gestion de stock** montre tout cela.
 
+### Code personnalisé
+
+La brique **Code personnalisé** <img src="icones/code-perso.svg" width="16" height="16" alt=""> (famille Pro) accueille ton propre HTML, CSS et JavaScript, pour ce qu'aucune brique ne sait encore faire : une horloge, un petit jeu, un widget. Dans le script, `bloc` est la brique elle-même (`bloc.querySelector(".horloge")`) et `etat` contient les variables de l'application. Le CSS s'ajoute au style de toute la page : commence tes sélecteurs par une classe de tes éléments.
+
+Dans l'éditeur, le code tourne dans un **cadre isolé** : il ne peut toucher ni à l'éditeur ni à tes projets. Une erreur de JavaScript s'affiche dans le panneau Problèmes. La brique ne marche pas dans une répétition.
+
 ## Plusieurs pages
 
 Les **onglets au-dessus de la zone de création** listent les pages. Le bouton **+ Page** en ajoute une ; le bouton **⋯** permet de la renommer, la dupliquer, la déplacer, en faire la page d'accueil (icône Maison <img src="icones/accueil.svg" width="16" height="16" alt="">) ou la supprimer. Double-clique un onglet pour le renommer.
@@ -220,6 +226,17 @@ Les **onglets au-dessus de la zone de création** listent les pages. Le bouton *
 Pour passer d'une page à l'autre : l'action **Aller sur une page**, ou un **Lien** dont le champ *Vers une page du projet* est rempli. L'aperçu s'ouvre sur la page en cours d'édition. Dans le code exporté, toutes les pages sont dans `index.html` et l'adresse se termine par `#nom-de-la-page`.
 
 **Envoyer une valeur à une page** : l'action *Aller sur une page* a un champ **en envoyant** (ex. `{{element.nom}}` sur un bouton placé dans une répétition). Dans les réglages de la page d'arrivée, choisis la **Valeur reçue dans la variable** : la valeur y est rangée à l'ouverture, et la page peut afficher `{{produit_choisi}}` ou filtrer une collection dessus. L'adresse devient `#fiche/Café`, et elle marche aussi si on la partage.
+
+## Comptes et pages réservées
+
+Le modèle **Espace membres** <img src="icones/comptes.svg" width="16" height="16" alt=""> montre tout en place. Pour le construire toi-même :
+
+1. Crée trois variables texte : `email`, `mot_de_passe` et `membre` (coche *Garder après un rechargement* pour `membre` : la personne reste connectée).
+2. Sur une page **Connexion**, pose deux champs reliés à `email` et `mot_de_passe` (type *Mot de passe* pour le second), puis un bouton avec l'action **Se connecter** (e-mail `{{email}}`, mot de passe `{{mot_de_passe}}`, personne connectée dans `membre`) suivie de *Aller sur une page*. Un autre bouton fait de même avec **Créer un compte**.
+3. Dans les réglages d'une page, choisis **Réservée aux personnes connectées** : `membre`, et la page de connexion. Sans connexion, on y est renvoyé.
+4. Un bouton avec l'action **Se déconnecter** vide `membre`.
+
+Si l'e-mail ou le mot de passe ne vont pas, un message le dit et les actions suivantes ne sont pas faites. Le mot de passe n'est jamais gardé en clair, seulement son empreinte. Les comptes restent dans le navigateur de chaque personne : c'est un espace personnel, pas encore un vrai serveur de comptes partagé entre appareils.
 
 ## Charger des données (API)
 
@@ -265,6 +282,7 @@ Les lignes de la brique sélectionnée sont **surlignées**, et un point violet 
 - **Mes projets** (en haut à droite) liste tous tes projets : ouvrir, dupliquer, supprimer. Choisir un modèle ou importer un `.json` crée un nouveau projet : l'actuel reste dans la liste.
 - **Exporter** propose : une page HTML autonome, les trois fichiers séparés, un **composant React** (`App.jsx` et `App.css`), un **composant Vue** (`App.vue`), ou le projet `.json` (à réimporter plus tard).
 - **Copier un lien de partage** met tout le projet dans l'adresse (rien ne part sur un serveur). La personne qui ouvre le lien reçoit sa propre copie dans « Mes projets ».
+- **Application installable** <img src="icones/installable.svg" width="16" height="16" alt=""> télécharge un `.zip`. Mets le dossier `www` en ligne sur une adresse `https://` (GitHub Pages, Netlify…) : le navigateur propose *Installer l'application*, et elle marche ensuite sans internet. Pour Android et iOS, le même dossier se prépare avec Capacitor : `npm install`, puis `npm run android` (Android Studio) ou `npm run ios` (Xcode sur un Mac). Le fichier `LISEZ-MOI.txt` du `.zip` détaille chaque étape.
 - Pour React ou Vue : crée un projet avec `npm create vite@latest` (modèle *react* ou *vue*), puis remplace `src/App.jsx` et `src/App.css`, ou `src/App.vue`, par les fichiers exportés.
 
 ## Installer Ptt-Makers sur ton ordinateur

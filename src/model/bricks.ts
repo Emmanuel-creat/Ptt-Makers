@@ -39,7 +39,7 @@ const validationFields = (opts: { length?: boolean; range?: boolean } = {}): Fie
 
 const VIEW_DEFAULTS = { search: '', filterField: '', filterOp: 'eq', filterValue: '', sortField: '', sortDir: 'asc' }
 
-export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url' | 'page' | 'icon' | 'field'
+export type FieldKind = 'text' | 'textarea' | 'code' | 'number' | 'select' | 'boolean' | 'variable' | 'url' | 'page' | 'icon' | 'field'
 
 export interface FieldDef {
   key: string
@@ -112,8 +112,16 @@ export const BRICKS: Record<BrickType, BrickDef> = {
         kinds: ['text', 'number'],
         help: 'Quand une action « Aller sur une page » envoie une valeur (ex. le nom d’un produit), elle arrive dans cette variable.',
       },
+      {
+        key: 'loginVar',
+        label: 'Réservée aux personnes connectées',
+        kind: 'variable',
+        kinds: ['text'],
+        help: 'La variable qui reçoit la personne connectée (actions « Se connecter » et « Créer un compte »). Vide : la page est ouverte à tous.',
+      },
+      { key: 'loginPage', label: 'Sinon, aller sur la page', kind: 'page', help: 'La page de connexion.' },
     ],
-    defaultProps: { title: 'Mon projet', paramVar: '' },
+    defaultProps: { title: 'Mon projet', paramVar: '', loginVar: '', loginPage: '' },
     defaultStyle: { direction: 'column', gap: 16, padding: 24 },
   },
   section: {
@@ -616,6 +624,31 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     },
     defaultStyle: { padding: 16, gap: 12 },
   },
+  code: {
+    type: 'code',
+    label: 'Code personnalisé',
+    category: 'pro',
+    icon: 'code',
+    description: 'Ton propre HTML, CSS et JavaScript, pour ce que les autres briques ne savent pas encore faire.',
+    container: false,
+    idPrefix: 'code',
+    fields: [
+      { key: 'html', label: 'HTML', kind: 'code', help: 'Le contenu de la brique.' },
+      { key: 'css', label: 'CSS', kind: 'code', help: 'Ajouté au style de toute la page. Commence tes sélecteurs par la classe de tes éléments.' },
+      {
+        key: 'js',
+        label: 'JavaScript',
+        kind: 'code',
+        help: 'Lancé une fois la page prête. « bloc » est la brique elle-même, « etat » contient les variables de l’application.',
+      },
+    ],
+    defaultProps: {
+      html: '<p class="horloge">--:--:--</p>',
+      css: '.horloge {\n  margin: 0;\n  font: 700 2.4rem/1 ui-monospace, monospace;\n  text-align: center;\n}',
+      js: 'const horloge = bloc.querySelector(".horloge");\nconst tic = () => (horloge.textContent = new Date().toLocaleTimeString("fr-FR"));\ntic();\nsetInterval(tic, 1000);',
+    },
+    defaultStyle: { padding: 12 },
+  },
   tabbar: {
     type: 'tabbar',
     label: 'Barre d’onglets',
@@ -696,6 +729,7 @@ export const PALETTE_ORDER: BrickType[] = [
   'kanban',
   'chat',
   'tabbar',
+  'code',
 ]
 
 export const isContainer = (type: BrickType) => BRICKS[type].container

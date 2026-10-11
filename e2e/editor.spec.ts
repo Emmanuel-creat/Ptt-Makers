@@ -640,3 +640,44 @@ test.describe('outils de l’éditeur', () => {
   })
 })
 
+
+test.describe('logiciels prêts à livrer', () => {
+  test('la galerie se filtre par famille et par recherche, et ouvre un modèle métier', async ({ page }) => {
+    await openBlank(page)
+    await page.getByRole('button', { name: 'Modèles' }).click()
+    await page.getByRole('radio', { name: 'Gestion et métiers' }).click()
+    await expect(page.getByRole('button', { name: /Liste de tâches/ })).toHaveCount(0)
+    await page.getByLabel('Chercher un modèle').fill('tva')
+    await expect(page.locator('.pm-template')).toHaveCount(1)
+    await page.getByRole('button', { name: /Facturation/ }).click()
+    await expect(preview(page).locator('.stat-value').nth(2)).toHaveText('2 284 €')
+  })
+
+  test('la brique de code personnalisé tourne dans l’aperçu', async ({ page }) => {
+    await openBlank(page)
+    await page.locator('.pm-tile', { hasText: 'Code personnalisé' }).click()
+    await page.getByLabel('HTML', { exact: true }).fill('<p class="salut">Salut</p>')
+    await page.getByLabel('JavaScript', { exact: true }).fill('bloc.querySelector(".salut").textContent = "Bonjour " + (2 + 3);')
+    await expect(preview(page).locator('#code-1 .salut')).toHaveText('Bonjour 5')
+    await expect(page.frameLocator('.pm-frame .pm-code-frame').locator('.salut')).toHaveText('Bonjour 5')
+  })
+
+  test('les comptes ouvrent la page réservée dans l’aperçu', async ({ page }) => {
+    await openTemplate(page, /Espace membres/)
+    const p = preview(page)
+    await p.getByRole('button', { name: 'Mon espace' }).click()
+    await expect(p.getByRole('heading', { name: 'Connexion' })).toBeVisible()
+    await p.getByLabel('E-mail').fill('lina@exemple.fr')
+    await p.getByLabel('Mot de passe').fill('secret42')
+    await p.getByRole('button', { name: 'Créer un compte' }).click()
+    await expect(p.getByRole('heading', { name: 'Bonjour lina@exemple.fr' })).toBeVisible()
+  })
+
+  test('exporter une application installable', async ({ page }) => {
+    await openBlank(page)
+    await page.getByRole('button', { name: 'Exporter' }).click()
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: /Application installable/ }).click()
+    expect((await download).suggestedFilename()).toBe('nouveau-projet-application.zip')
+  })
+})

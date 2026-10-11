@@ -474,3 +474,54 @@ describe('logique : validation, pages avec une valeur, actions qui attendent', (
     expect(shown()).toBe('fini 42')
   })
 })
+
+describe('comptes et pages réservées', () => {
+  const settle = () => new Promise((r) => setTimeout(r, 30))
+
+  it('une page réservée renvoie vers la connexion, puis s’ouvre après la création du compte', async () => {
+    localStorage.clear()
+    location.hash = ''
+    const project = TEMPLATES.find((t) => t.id === 'membres')!.create()
+    const [, connexion, espace] = project.pages
+    const $ = run(project)
+    location.hash = espace
+    await settle()
+    expect($(connexion).hidden).toBe(false)
+    expect($(espace).hidden).toBe(true)
+    const [email, motDePasse] = [...document.querySelectorAll<HTMLInputElement>(`#${connexion} input`)]
+    email.value = 'Lina@Exemple.fr'
+    email.dispatchEvent(new Event('input'))
+    motDePasse.value = 'secret42'
+    motDePasse.dispatchEvent(new Event('input'))
+    const [seConnecter, creer] = [...document.querySelectorAll<HTMLButtonElement>(`#${connexion} button`)]
+    creer.click()
+    await settle()
+    expect($(espace).hidden).toBe(false)
+    expect($(espace).querySelector('h1')!.textContent).toBe('Bonjour lina@exemple.fr')
+    // Le mot de passe n'est jamais gardé en clair.
+    const stored = Object.entries(localStorage).find(([k]) => k.endsWith(':comptes'))!
+    expect(stored[1]).not.toContain('secret42')
+    expect(JSON.parse(stored[1])['lina@exemple.fr']).toMatch(/^[0-9a-f]{64}$/)
+    // Déconnexion, puis mauvais mot de passe : la page reste fermée.
+    ;[...document.querySelectorAll<HTMLButtonElement>(`#${espace} button`)].at(-1)!.click()
+    await settle()
+    location.hash = espace
+    await settle()
+    expect($(espace).hidden).toBe(true)
+    const alerts: string[] = []
+    window.alert = (m?: string) => void alerts.push(String(m))
+    email.value = 'lina@exemple.fr'
+    email.dispatchEvent(new Event('input'))
+    motDePasse.value = 'mauvais1'
+    motDePasse.dispatchEvent(new Event('input'))
+    seConnecter.click()
+    await settle()
+    expect(alerts).toEqual(['E-mail ou mot de passe incorrect.'])
+    expect($(espace).hidden).toBe(true)
+    motDePasse.value = 'secret42'
+    motDePasse.dispatchEvent(new Event('input'))
+    seConnecter.click()
+    await settle()
+    expect($(espace).hidden).toBe(false)
+  })
+})

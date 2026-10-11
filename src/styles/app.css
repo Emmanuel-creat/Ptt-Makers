@@ -3675,3 +3675,131 @@ select.pm-input {
     font-size: 12px;
   }
 }
+
+/* Galerie de modèles */
+.pm-gallery-bar {
+  position: sticky;
+  top: -8px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: -8px 0 16px;
+  padding: 8px 0 10px;
+  background: var(--pm-surface);
+}
+.pm-gallery-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.pm-gallery-search svg {
+  position: absolute;
+  left: 11px;
+  color: var(--pm-muted);
+  pointer-events: none;
+}
+.pm-gallery-search .pm-input {
+  width: 100%;
+  padding-left: 34px;
+}
+.pm-gallery-families {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pm-chip-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--pm-border);
+  border-radius: 999px;
+  background: var(--pm-surface);
+  color: var(--pm-text-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pm-chip-btn:hover {
+  border-color: var(--pm-brand);
+}
+.pm-chip-btn.is-on {
+  border-color: var(--pm-brand);
+  background: var(--pm-brand-soft);
+  color: var(--pm-brand);
+}
+.pm-gallery-group + .pm-gallery-group {
+  margin-top: 20px;
+}
+.pm-gallery-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.pm-gallery-title .pm-muted {
+  margin-left: 4px;
+  font-weight: 500;
+}
+.pm-gallery-empty {
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* Vignette des modèles de gestion : trois chiffres clés au-dessus d'un tableau */
+.pm-thumb-fam-gestion .a,
+.pm-thumb-fam-gestion .b,
+.pm-thumb-fam-gestion .c {
+  top: 14%;
+  height: 22%;
+  width: 24%;
+  right: auto;
+  background: var(--pm-surface);
+  box-shadow: inset 0 -5px 0 color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.pm-thumb-fam-gestion .a {
+  left: 10%;
+}
+.pm-thumb-fam-gestion .b {
+  left: 38%;
+}
+.pm-thumb-fam-gestion .c {
+  left: 66%;
+}
+.pm-thumb-fam-gestion .d {
+  left: 10%;
+  right: 10%;
+  width: auto;
+  top: 46%;
+  height: 40%;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 8px, color-mix(in srgb, var(--accent) 22%, transparent) 8px 9px),
+    var(--pm-surface);
+  border-top: 7px solid var(--accent);
+}
+
+/* Brique Code personnalisé */
+.pm-frame .code-perso {
+  position: relative;
+  min-height: 60px;
+}
+.pm-code-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 60px;
+  border: 0;
+  background: transparent;
+}
+.pm-code-shield {
+  position: absolute;
+  inset: 0;
+}
+.pm-code-input {
+  min-height: 110px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  tab-size: 2;
+  resize: vertical;
+}

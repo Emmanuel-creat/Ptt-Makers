@@ -21,7 +21,7 @@ Aucun serveur : tout fonctionne dans le navigateur, le projet est sauvegardé da
 src/
 ├── model/        Modèle de données (aucune dépendance à React)
 │   ├── types.ts        Brique, style, action, variable, projet
-│   ├── bricks.ts       Catalogue des 33 briques + familles
+│   ├── bricks.ts       Catalogue des 34 briques + familles
 │   ├── actions.ts      Parcours des actions (conditions imbriquées comprises)
 │   ├── tree.ts         Opérations sur l'arbre (insérer, déplacer, dupliquer…)
 │   ├── freeGrid.ts     Page en grille : cases, tailles de départ, remise en ordre
@@ -29,12 +29,16 @@ src/
 │   ├── styles.ts       Les 24 styles du Studio et le calcul des réglages
 │   ├── variables.ts    Textes dynamiques {{nom}}, conversions
 │   ├── refactor.ts     Renommage / usages d'une variable
+│   ├── appBuilder.ts   Construction d'un projet à partir d'une description compacte
+│   ├── businessTemplates.ts  Modèles de gestion (CRM, facturation, RH…)
 │   └── templates.ts    Modèles de départ + validation d'import
 ├── codegen/      Générateur de code (pur, testé)
 │   ├── generate.ts     Projet → index.html + style.css + script.js + carte des lignes
 │   ├── style.ts        Styles d'une brique (partagés éditeur / export)
 │   ├── baseCss.ts      Styles de base des briques
 │   ├── proBricks.ts    HTML des briques pro (tableau, graphique, calendrier…)
+│   ├── customCode.ts   Brique Code personnalisé (cadre isolé, échappement)
+│   ├── pwa.ts          Application installable : manifeste, service worker, Capacitor
 │   ├── escape.ts       Échappement HTML/JS, liens sûrs
 │   └── highlight.ts    Coloration syntaxique maison
 ├── store/
