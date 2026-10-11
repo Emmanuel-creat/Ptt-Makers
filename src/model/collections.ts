@@ -1,4 +1,5 @@
 import type { CollectionField, DataRecord, FieldType, Variable, VariableValue } from './types'
+import { readRecordField } from './expressions'
 import { toVariableName } from './variables'
 
 /**
@@ -13,6 +14,7 @@ export const FIELD_TYPE_LABEL: Record<FieldType, string> = {
   boolean: 'Oui / non',
   image: 'Image (adresse)',
   link: 'Lien',
+  formula: 'Calcul (formule)',
 }
 
 export const isCollection = (v: Variable | undefined): v is Variable & { kind: 'collection' } => v?.kind === 'collection'
@@ -70,7 +72,7 @@ export function formatField(value: unknown, type: FieldType): string {
   if (value == null || value === '') return ''
   if (type === 'number') {
     const n = Number(value)
-    return Number.isFinite(n) ? formatNumberFr(n) : String(value)
+    return Number.isFinite(n) ? formatNumberFr(n) : Number.isNaN(n) ? String(value) : ''
   }
   if (type === 'boolean') return value === true || value === 'true' ? 'Oui' : 'Non'
   if (type === 'date') {
@@ -96,7 +98,7 @@ export function addField(v: Variable, label: string, type: FieldType): Pick<Vari
 }
 
 /** Change un champ ; les fiches suivent (nouveau nom, valeurs converties dans le nouveau type). */
-export function updateField(v: Variable, name: string, patch: Partial<Pick<CollectionField, 'label' | 'type'>>): Pick<Variable, 'fields' | 'initial'> {
+export function updateField(v: Variable, name: string, patch: Partial<Pick<CollectionField, 'label' | 'type' | 'formula'>>): Pick<Variable, 'fields' | 'initial'> {
   const fields = fieldsOf(v)
   const old = fields.find((f) => f.name === name)
   if (!old) return { fields, initial: recordsOf(v) }
@@ -106,6 +108,7 @@ export function updateField(v: Variable, name: string, patch: Partial<Pick<Colle
     label: patch.label ?? old.label,
     type: patch.type ?? old.type,
   }
+  if (next.type === 'formula') next.formula = patch.formula ?? old.formula ?? ''
   return {
     fields: fields.map((f) => (f.name === name ? next : f)),
     initial: recordsOf(v).map((r) => {
@@ -207,4 +210,91 @@ export function importCsv(text: string): Pick<Variable, 'fields' | 'initial'> | 
     return raw === '' ? emptyValue(f.type) : coerceField(raw, f.type)
   }
   return { fields, initial: body.map((r) => Object.fromEntries(fields.map((f, i) => [f.name, toValue(r[i] ?? '', f)]))) }
+}
+
+/* ------------------------- Recherche, filtre et tri ------------------------ */
+
+export type FilterOp = 'eq' | 'neq' | 'gt' | 'lt' | 'contains' | 'checked' | 'unchecked'
+
+export const FILTER_OPS: { value: FilterOp; label: string; needsValue: boolean }[] = [
+  { value: 'eq', label: 'est égal à', needsValue: true },
+  { value: 'neq', label: 'est différent de', needsValue: true },
+  { value: 'contains', label: 'contient', needsValue: true },
+  { value: 'gt', label: 'est plus grand que', needsValue: true },
+  { value: 'lt', label: 'est plus petit que', needsValue: true },
+  { value: 'checked', label: 'est coché (oui)', needsValue: false },
+  { value: 'unchecked', label: 'n’est pas coché (non)', needsValue: false },
+]
+
+/** Réglages d'affichage d'une liste ou d'une collection (sur un tableau ou une répétition). */
+export interface ViewOptions {
+  /** Texte cherché dans tous les champs (vide : pas de recherche). */
+  search: string
+  filter: { field: string; op: FilterOp; value: string } | null
+  sort: { field: string; desc: boolean } | null
+}
+
+type Props = Record<string, string | number | boolean>
+
+/** Lit les réglages d'une brique ; `fill` remplace les {{variables}} de la valeur du filtre. */
+export function viewOptions(p: Props, variables: Variable[], fill: (t: string) => string): ViewOptions | null {
+  const searchVar = variables.find((v) => v.name === p.search)
+  const search = searchVar && !Array.isArray(searchVar.initial) ? String(searchVar.initial) : ''
+  const op = String(p.filterOp || 'eq') as FilterOp
+  const filter = p.filterField ? { field: String(p.filterField), op, value: fill(String(p.filterValue ?? '')) } : null
+  const sort = p.sortField ? { field: String(p.sortField), desc: p.sortDir === 'desc' } : null
+  return searchVar || filter || sort ? { search, filter, sort } : null
+}
+
+/** Texte sans accents ni majuscules, pour comparer « Épicerie » et « epicerie ». */
+export const normalize = (s: unknown) =>
+  String(s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+
+export function compareValues(a: unknown, b: unknown): number {
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  return String(a ?? '').localeCompare(String(b ?? ''), 'fr', { numeric: true })
+}
+
+/** Les éléments affichés : la recherche, le filtre puis le tri (la liste elle-même ne change pas). */
+export function applyView(items: unknown[], fields: CollectionField[] | undefined, view: ViewOptions | null): unknown[] {
+  if (!view) return items
+  const read = (x: unknown, name: string) => readRecordField(x, name, fields)
+  let out = items
+  if (view.search) {
+    const word = normalize(view.search)
+    out = out.filter((x) => normalize(isRecord(x) ? (fields ?? []).map((f) => read(x, f.name)).concat(Object.values(x)).join(' ') : x).includes(word))
+  }
+  const f = view.filter
+  if (f) {
+    const type = fields?.find((x) => x.name === f.field)?.type
+    out = out.filter((x) => {
+      const v = read(x, f.field)
+      switch (f.op) {
+        case 'checked':
+          return v === true || v === 'true'
+        case 'unchecked':
+          return !(v === true || v === 'true')
+        case 'contains':
+          return f.value === '' || normalize(v).includes(normalize(f.value))
+        case 'gt':
+        case 'lt': {
+          if (f.value === '') return true
+          const c = type === 'number' || type === 'formula' ? Number(v) - Number(f.value.replace(',', '.')) : compareValues(v, f.value)
+          return f.op === 'gt' ? c > 0 : c < 0
+        }
+        default: {
+          if (f.value === '') return true
+          const same = type === 'number' ? Number(v) === Number(f.value.replace(',', '.')) : normalize(v) === normalize(f.value)
+          return f.op === 'eq' ? same : !same
+        }
+      }
+    })
+  }
+  const s = view.sort
+  if (s) out = [...out].sort((a, b) => compareValues(read(a, s.field), read(b, s.field)) * (s.desc ? -1 : 1))
+  return out
 }

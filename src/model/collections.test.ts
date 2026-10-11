@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addField, coerceField, formatField, importCsv, inferFields, parseCsv, removeField, toRecords, updateField } from './collections'
+import { addField, applyView, coerceField, formatField, importCsv, inferFields, parseCsv, removeField, toRecords, updateField } from './collections'
 import type { Variable } from './types'
 
 const produits = (): Variable => ({
@@ -88,3 +88,38 @@ describe('import CSV', () => {
     expect(importCsv('juste,un,titre')).toBeNull()
   })
 })
+
+describe('vue d’une collection : recherche, filtre et tri', () => {
+  const fields = [
+    { name: 'nom', label: 'Nom', type: 'text' as const },
+    { name: 'rayon', label: 'Rayon', type: 'text' as const },
+    { name: 'prix', label: 'Prix', type: 'number' as const },
+    { name: 'bio', label: 'Bio', type: 'boolean' as const },
+    { name: 'double', label: 'Double', type: 'formula' as const, formula: 'prix * 2' },
+  ]
+  const items = [
+    { nom: 'Café', rayon: 'Épicerie', prix: 18, bio: true },
+    { nom: 'Tasse', rayon: 'Vaisselle', prix: 14, bio: false },
+    { nom: 'Thé', rayon: 'Épicerie', prix: 6.5, bio: true },
+  ]
+  const names = (v: Parameters<typeof applyView>[2]) => applyView(items, fields, v).map((x) => (x as { nom: string }).nom)
+
+  it('cherche sans tenir compte des accents ni des majuscules, valeurs calculées comprises', () => {
+    expect(names({ search: 'EPICERIE', filter: null, sort: null })).toEqual(['Café', 'Thé'])
+    expect(names({ search: '28', filter: null, sort: null })).toEqual(['Tasse'])
+  })
+
+  it('filtre selon la condition, une valeur vide montre tout', () => {
+    expect(names({ search: '', filter: { field: 'prix', op: 'gt', value: '10' }, sort: null })).toEqual(['Café', 'Tasse'])
+    expect(names({ search: '', filter: { field: 'bio', op: 'unchecked', value: '' }, sort: null })).toEqual(['Tasse'])
+    expect(names({ search: '', filter: { field: 'rayon', op: 'neq', value: 'epicerie' }, sort: null })).toEqual(['Tasse'])
+    expect(names({ search: '', filter: { field: 'rayon', op: 'eq', value: '' }, sort: null })).toHaveLength(3)
+  })
+
+  it('trie sans modifier la collection', () => {
+    expect(names({ search: '', filter: null, sort: { field: 'double', desc: false } })).toEqual(['Thé', 'Tasse', 'Café'])
+    expect(names({ search: '', filter: null, sort: { field: 'nom', desc: true } })).toEqual(['Thé', 'Tasse', 'Café'])
+    expect(items[0].nom).toBe('Café')
+  })
+})
+

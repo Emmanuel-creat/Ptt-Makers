@@ -1,6 +1,45 @@
+import { FILTER_OPS } from './collections'
 import type { BrickStyle, BrickType, Category, PropValue, VariableKind } from './types'
 
-export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url' | 'page' | 'icon'
+/** Recherche, filtre et tri : communs au tableau et à la répétition. */
+const VIEW_FIELDS: FieldDef[] = [
+  {
+    key: 'search',
+    label: 'Recherche (variable du texte cherché)',
+    kind: 'variable',
+    kinds: ['text'],
+    help: 'Relie un champ de saisie à cette variable : seuls les éléments qui contiennent le texte restent affichés.',
+  },
+  { key: 'filterField', label: 'Filtrer sur le champ', kind: 'field' },
+  { key: 'filterOp', label: 'Condition du filtre', kind: 'select', options: FILTER_OPS.map(({ value, label }) => ({ value, label })) },
+  { key: 'filterValue', label: 'Valeur du filtre', kind: 'text', dynamic: true, placeholder: '{{categorie_choisie}}', help: 'Vide : tout est affiché.' },
+  { key: 'sortField', label: 'Trier par', kind: 'field' },
+  {
+    key: 'sortDir',
+    label: 'Ordre du tri',
+    kind: 'select',
+    options: [
+      { value: 'asc', label: 'Croissant (A à Z, 1 à 9)' },
+      { value: 'desc', label: 'Décroissant (Z à A, 9 à 1)' },
+    ],
+  },
+]
+/** Règles de validation d'un champ de formulaire (vérifiées par l'action « Vérifier le formulaire »). */
+const validationFields = (opts: { length?: boolean; range?: boolean } = {}): FieldDef[] => [
+  { key: 'required', label: 'Obligatoire', kind: 'boolean' },
+  ...(opts.length ? [{ key: 'minLength', label: 'Nombre minimal de caractères', kind: 'number', help: '0 : pas de minimum.' } as FieldDef] : []),
+  ...(opts.range
+    ? ([
+        { key: 'min', label: 'Nombre minimum', kind: 'text', placeholder: 'aucun' },
+        { key: 'max', label: 'Nombre maximum', kind: 'text', placeholder: 'aucun' },
+      ] as FieldDef[])
+    : []),
+  { key: 'errorText', label: 'Message d’erreur', kind: 'text', placeholder: 'Message automatique', help: 'Affiché sous le champ quand la règle n’est pas respectée.' },
+]
+
+const VIEW_DEFAULTS = { search: '', filterField: '', filterOp: 'eq', filterValue: '', sortField: '', sortDir: 'asc' }
+
+export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url' | 'page' | 'icon' | 'field'
 
 export interface FieldDef {
   key: string
@@ -64,8 +103,17 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     description: 'La page entière. Tout le projet est construit à l’intérieur.',
     container: true,
     idPrefix: 'page',
-    fields: [{ key: 'title', label: "Titre de l'onglet", kind: 'text' }],
-    defaultProps: { title: 'Mon projet' },
+    fields: [
+      { key: 'title', label: "Titre de l'onglet", kind: 'text' },
+      {
+        key: 'paramVar',
+        label: 'Valeur reçue dans la variable',
+        kind: 'variable',
+        kinds: ['text', 'number'],
+        help: 'Quand une action « Aller sur une page » envoie une valeur (ex. le nom d’un produit), elle arrive dans cette variable.',
+      },
+    ],
+    defaultProps: { title: 'Mon projet', paramVar: '' },
     defaultStyle: { direction: 'column', gap: 16, padding: 24 },
   },
   section: {
@@ -144,8 +192,9 @@ export const BRICKS: Record<BrickType, BrickDef> = {
       { key: 'source', label: 'Liste à parcourir', kind: 'variable', kinds: ['list', 'collection'] },
       { key: 'columns', label: 'Colonnes', kind: 'number', help: '1 pour une liste, plus pour une grille de cartes.' },
       { key: 'empty', label: 'Texte si la liste est vide', kind: 'text', placeholder: 'Rien pour le moment.' },
+      ...VIEW_FIELDS,
     ],
-    defaultProps: { source: '', columns: 1, empty: '' },
+    defaultProps: { source: '', columns: 1, empty: '', ...VIEW_DEFAULTS },
     defaultStyle: { direction: 'column', gap: 10 },
   },
   tabs: {
@@ -336,8 +385,9 @@ export const BRICKS: Record<BrickType, BrickDef> = {
         ],
       },
       { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', kinds: ['text', 'number', 'boolean'], help: 'Ce qui est écrit met à jour la variable.' },
+      ...validationFields({ length: true, range: true }),
     ],
-    defaultProps: { label: 'Ton prénom', placeholder: 'Ex. Camille', inputType: 'text', bind: '' },
+    defaultProps: { label: 'Ton prénom', placeholder: 'Ex. Camille', inputType: 'text', bind: '', required: false, minLength: 0, min: '', max: '', errorText: '' },
     defaultStyle: {},
   },
   textarea: {
@@ -352,8 +402,9 @@ export const BRICKS: Record<BrickType, BrickDef> = {
       { key: 'label', label: 'Libellé', kind: 'text' },
       { key: 'placeholder', label: 'Texte indicatif', kind: 'text' },
       { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', kinds: ['text', 'number', 'boolean'] },
+      ...validationFields({ length: true }),
     ],
-    defaultProps: { label: 'Message', placeholder: 'Écris ton message…', bind: '' },
+    defaultProps: { label: 'Message', placeholder: 'Écris ton message…', bind: '', required: false, minLength: 0, errorText: '' },
     defaultStyle: {},
   },
   checkbox: {
@@ -367,8 +418,9 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     fields: [
       { key: 'label', label: 'Libellé', kind: 'text' },
       { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', kinds: ['boolean', 'text'] },
+      ...validationFields(),
     ],
-    defaultProps: { label: "J'accepte les conditions", bind: '' },
+    defaultProps: { label: "J'accepte les conditions", bind: '', required: false, errorText: '' },
     defaultStyle: {},
   },
   select: {
@@ -383,8 +435,9 @@ export const BRICKS: Record<BrickType, BrickDef> = {
       { key: 'label', label: 'Libellé', kind: 'text' },
       { key: 'options', label: 'Choix (un par ligne)', kind: 'textarea' },
       { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', kinds: ['text', 'number', 'boolean'] },
+      ...validationFields(),
     ],
-    defaultProps: { label: 'Ton choix', options: 'Option A\nOption B\nOption C', bind: '' },
+    defaultProps: { label: 'Ton choix', options: 'Option A\nOption B\nOption C', bind: '', required: false, errorText: '' },
     defaultStyle: {},
   },
   image: {
@@ -468,6 +521,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
       { key: 'source', label: 'Collection affichée', kind: 'variable', kinds: ['collection'], help: 'Relie le tableau à une collection : il se met à jour tout seul. Sinon, écris les lignes ci-dessous.' },
       { key: 'rowDelete', label: 'Bouton « Supprimer » sur chaque ligne', kind: 'boolean', help: 'Seulement pour un tableau relié à une collection.' },
       { key: 'empty', label: 'Texte si la collection est vide', kind: 'text', placeholder: 'Aucune donnée pour le moment.' },
+      ...VIEW_FIELDS,
       { key: 'columns', label: 'Colonnes', kind: 'text', help: 'Les titres, séparés par des points-virgules.' },
       { key: 'rows', label: 'Lignes (une par ligne)', kind: 'textarea', help: 'Les cellules sont séparées par des points-virgules. Ex. : Camille ; Design ; Lyon' },
       { key: 'striped', label: 'Lignes alternées', kind: 'boolean' },
@@ -477,6 +531,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
       source: '',
       rowDelete: false,
       empty: '',
+      ...VIEW_DEFAULTS,
       columns: 'Nom ; Rôle ; Ville ; Statut',
       rows: 'Camille Martin ; Design ; Lyon ; Actif\nYanis Benali ; Développement ; Paris ; Actif\nLéa Dubois ; Marketing ; Nantes ; En congé\nHugo Petit ; Ventes ; Lille ; Actif',
       striped: true,

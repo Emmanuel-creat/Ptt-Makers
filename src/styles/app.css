@@ -2778,6 +2778,23 @@ select.pm-input {
 .pm-coll-field > button {
   grid-area: del;
 }
+.pm-coll-formula {
+  grid-column: 1 / -1;
+}
+.pm-coll-formula .pm-input {
+  width: 100%;
+  font-family: var(--pm-mono);
+}
+.pm-input.is-invalid {
+  border-color: var(--pm-danger);
+}
+.pm-coll-computed {
+  display: block;
+  min-width: 72px;
+  padding: 0 6px;
+  font-variant-numeric: tabular-nums;
+  color: var(--pm-text-2);
+}
 .pm-coll-new {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -33,6 +33,8 @@ export interface PageSpec {
   onLoad?: Action[]
   /** Briques posées librement sur une grille plutôt qu'empilées. */
   grid?: boolean
+  /** Variable qui reçoit la valeur envoyée par « Aller sur une page ». */
+  paramVar?: string
   children: Spec[]
 }
 
@@ -58,6 +60,7 @@ export function buildApp(name: string, pages: PageSpec[], variables: Variable[] 
   pages.forEach((page, i) => {
     const props: Record<string, PropValue> = { title: page.title ?? (i === 0 ? name : page.name) }
     if (page.grid) props.layout = 'grille'
+    if (page.paramVar) props.paramVar = page.paramVar
     const made = makeNode(nodes, 'page', { props, style: page.style, name: page.name })
     const id = i === 0 ? ROOT_ID : made.id
     nodes = { ...nodes, [id]: { ...made, id } }
@@ -241,20 +244,27 @@ export const TEMPLATES: Template[] = [
         [
           {
             type: 'card',
+            ref: 'formulaire',
             name: 'Formulaire',
             style: { padding: 28, gap: 14, width: '100%', maxWidth: '480px', shadow: 'md' },
             children: [
               H('Contacte-nous', '2'),
               P('Bonjour {{nom}} ! Laisse-nous un message, on te répond vite.', { color: '#4b5068' }),
-              { type: 'input', props: { label: 'Ton prénom', placeholder: 'Ex. Camille', inputType: 'text', bind: 'nom' } },
-              { type: 'input', props: { label: 'Ton e-mail', placeholder: 'camille@exemple.fr', inputType: 'email', bind: 'email' } },
-              { type: 'textarea', props: { label: 'Ton message', placeholder: 'Écris ici…', bind: 'message' } },
+              { type: 'input', props: { label: 'Ton prénom', placeholder: 'Ex. Camille', inputType: 'text', bind: 'nom', required: true } },
+              { type: 'input', props: { label: 'Ton e-mail', placeholder: 'camille@exemple.fr', inputType: 'email', bind: 'email', required: true } },
+              {
+                type: 'textarea',
+                props: { label: 'Ton message', placeholder: 'Écris ici…', bind: 'message', required: true, minLength: 10, errorText: 'Ton message doit faire au moins 10 caractères.' },
+              },
               { type: 'checkbox', props: { label: 'Je veux recevoir la lettre d’information', bind: 'abonne' } },
               {
                 type: 'button',
                 props: { text: 'Envoyer', variant: 'primary' },
                 style: { width: '100%' },
-                onClick: [{ type: 'set', variable: 'envoye', value: 'true' }],
+                onClick: [
+                  { type: 'validate', target: '@formulaire' },
+                  { type: 'set', variable: 'envoye', value: 'true' },
+                ],
               },
               {
                 type: 'card',
@@ -707,6 +717,7 @@ export const TEMPLATES: Template[] = [
           { name: 'quantite', label: 'Quantité', type: 'number' },
           { name: 'prix', label: 'Prix (€)', type: 'number' },
           { name: 'arrivage', label: 'Arrivage', type: 'date' },
+          { name: 'valeur', label: 'Valeur (€)', type: 'formula', formula: 'quantite * prix' },
         ],
         initial: [
           { nom: 'Café en grains 1 kg', categorie: 'Épicerie', quantite: 24, prix: 18.9, arrivage: '2026-10-02' },
@@ -725,7 +736,14 @@ export const TEMPLATES: Template[] = [
             children: [
               H('Gestion de stock', '1'),
               P('Ajoute un produit avec le formulaire : il apparaît dans le tableau et reste enregistré, même après un rechargement.'),
-              { type: 'stat', props: { label: 'Produits suivis', value: '{{produits}}', delta: 'mis à jour en direct', symbol: 'panier' } },
+              {
+                type: 'grid',
+                props: { columns: 2 },
+                children: [
+                  { type: 'stat', props: { label: 'Produits suivis', value: '{{produits}}', delta: 'mis à jour en direct', symbol: 'panier' } },
+                  { type: 'stat', props: { label: 'Valeur du stock', value: '{{somme(produits.valeur)}} €', delta: '{{somme(produits.quantite)}} articles', symbol: 'paiement' } },
+                ],
+              },
             ],
           },
         ],

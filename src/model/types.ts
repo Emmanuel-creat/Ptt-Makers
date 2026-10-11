@@ -87,8 +87,12 @@ export type Action =
   | { type: 'show' | 'hide' | 'toggle' | 'scrollTo'; target: string }
   | { type: 'alert'; message: string }
   | { type: 'openUrl'; url: string }
-  /** Aller sur une autre page du projet. */
-  | { type: 'navigate'; page: string }
+  /** Aller sur une autre page du projet, avec une valeur facultative (ex. l'identifiant d'une fiche) que la page reçoit. */
+  | { type: 'navigate'; page: string; value?: string }
+  /** Vérifier les champs d'un formulaire : s'il y a une erreur, les actions suivantes ne sont pas faites. */
+  | { type: 'validate'; target: string }
+  /** Attendre un moment avant l'action suivante (en millisecondes). */
+  | { type: 'wait'; ms: number }
   /** Ajouter un élément à la fin d'une liste. */
   | { type: 'listAdd'; variable: string; value: string }
   /** Retirer un élément : celui de la copie cliquée (dans une répétition), le premier ou le dernier. */
@@ -138,7 +142,7 @@ export interface BrickNode {
 export type VariableKind = 'text' | 'number' | 'boolean' | 'list' | 'collection'
 
 /** Types des champs d'une collection. */
-export type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'image' | 'link'
+export type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'image' | 'link' | 'formula'
 
 /** Un champ d'une collection (une colonne de la base de données). */
 export interface CollectionField {
@@ -147,6 +151,8 @@ export interface CollectionField {
   /** Nom affiché (titre de colonne). */
   label: string
   type: FieldType
+  /** Champ calculé : sa formule, avec les autres champs (ex. « prix * quantite »). */
+  formula?: string
 }
 
 /** Une fiche d'une collection : une valeur par champ. */

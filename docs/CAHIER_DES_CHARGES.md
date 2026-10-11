@@ -133,6 +133,14 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F56** Une variable peut être **gardée dans le navigateur** de l'application générée : elle survit à un rechargement.
 - **F57** Une répétition parcourt une collection, avec les champs proposés dans « Insérer une variable » ; l'assistant IA sait créer des collections et des tableaux reliés.
 
+### 4.16 Logique (version 2.7)
+
+- **F58** Des **formules** : un champ de collection calculé à partir des autres (`quantite * prix`), et des calculs dans les textes (`{{somme(produits.valeur)}}`, `moyenne`, `min`, `max`, `nombre`, `arrondi`, `&` pour les textes). Une formule fausse est signalée et ne casse jamais l'application.
+- **F59** Un tableau ou une répétition relié à une collection se **cherche**, se **filtre** (la valeur du filtre peut suivre une variable) et se **trie**, sans modifier la collection.
+- **F60** Chaque champ de formulaire a des **règles** (obligatoire, longueur minimale, nombre minimum et maximum, e-mail valide, message d'erreur) ; l'action **Vérifier un formulaire** affiche les erreurs sous les champs et arrête les actions suivantes.
+- **F61** L'action **Aller sur une page** peut **envoyer une valeur**, que la page d'arrivée range dans une variable ; l'adresse `#page/valeur` se partage.
+- **F62** Les actions **s'enchaînent** : un chargement d'API est attendu avant l'action suivante, et l'action **Attendre** fait une pause. Le code généré utilise `async` et `await`.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -162,4 +170,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 12. Au rechargement, l'écran d'accueil s'ouvre et se ferme avec `Échap` ; le menu Fichier le rouvre ; la barre d'outils ajoute un titre que le menu Édition annule ; l'espace Code affiche le code ; l'interface classique se choisit dans la disposition.
 13. Le modèle « Gestion de projet » fait passer une carte du kanban dans la colonne suivante et remplit sa barre d'avancement d'un clic ; le modèle « Messagerie mobile » ajoute un message envoyé à la discussion ; le tableau du « Tableau de bord » se trie d'un clic sur un titre.
 14. Dans une collection créée dans l'éditeur, « Créer un formulaire et un tableau » produit un formulaire qui ajoute une fiche au tableau de l'aperçu, et le bouton « Supprimer » d'une ligne la retire ; un fichier CSV importé remplit la collection ; dans le modèle « Gestion de stock », une fiche ajoutée est encore là après un rechargement.
-15. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+15. Dans le modèle « Gestion de stock », la valeur du stock est la somme des quantités multipliées par les prix ; chercher « epicerie » ne garde que les deux produits d'épicerie ; le bouton Ajouter, sans nom de produit, affiche « Ce champ est obligatoire. » et n'ajoute rien. Dans le modèle « Formulaire de contact », la confirmation n'apparaît qu'une fois l'e-mail et le message valides.
+16. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

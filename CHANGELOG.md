@@ -2,6 +2,25 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.7.0] : 2026-10-11
+
+La logique d'un vrai logiciel : la deuxième vague du plan des 200 améliorations.
+
+### Ajouté
+- **Formules** : un champ de collection peut être calculé (`quantite * prix`), et un texte peut afficher le résultat d'un calcul : `{{prix * quantite}}`, `{{somme(produits.valeur)}}`, `{{moyenne(notes)}}`, `{{nombre(produits)}}`, `{{min(…)}}`, `{{max(…)}}`, `{{arrondi(total / 3, 2)}}`, et `&` pour coller des textes. Une formule fausse est signalée dans le panneau Variables et n'empêche jamais l'application de marcher ; une division par zéro n'affiche rien.
+- **Recherche, filtre et tri** sur un tableau ou une répétition reliés à une collection : une variable de recherche (sans tenir compte des accents ni des majuscules, valeurs calculées comprises), un filtre (égal, différent, contient, plus grand, plus petit, coché, pas coché) dont la valeur peut suivre une variable, et un tri croissant ou décroissant. La collection ne change pas, seul l'affichage suit.
+- **Vérification des formulaires** : un champ peut être obligatoire, demander un nombre minimal de caractères, un nombre entre un minimum et un maximum ; une adresse e-mail est toujours vérifiée. La nouvelle action « Vérifier un formulaire » affiche les erreurs sous les champs, place le curseur sur la première et arrête les actions suivantes. L'erreur disparaît dès que le champ est corrigé.
+- **Pages qui reçoivent une valeur** : l'action « Aller sur une page » peut envoyer une valeur (`{{element.nom}}`), que la page range dans sa variable « Valeur reçue ». L'adresse devient `#fiche/Café`, qu'on peut partager.
+- **Action « Attendre »** : une pause en millisecondes avant l'action suivante. La page montre ce qui a déjà changé avant chaque pause et chaque chargement.
+- **Actions en chaîne** : un chargement d'API attend maintenant la réponse avant de passer à l'action suivante (le code généré utilise `async` et `await`).
+- « Créer un formulaire et un tableau » ajoute une barre de recherche, rend le premier champ obligatoire et vérifie le formulaire avant d'ajouter la fiche.
+- **Modèle Gestion de stock** : un champ calculé « Valeur », un chiffre clé qui additionne la valeur du stock et une recherche dans le tableau. Le **modèle Formulaire de contact** vérifie ses champs avant l'envoi.
+- L'assistant IA connaît les formules, la vérification, la recherche, le filtre, le tri, les pages qui reçoivent une valeur et l'action « Attendre ».
+
+### Modifié
+- Renommer une variable met aussi à jour les formules, la recherche, la valeur reçue par une page et la valeur envoyée par « Aller sur une page ».
+- Tests : 142 tests unitaires et 31 tests de bout en bout.
+
 ## [2.6.0] : 2026-10-11
 
 Une vraie base de données dans le projet : la première vague du plan des 200 améliorations.

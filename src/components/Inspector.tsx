@@ -67,11 +67,27 @@ export function Inspector() {
 
 const NO_TOKENS: { token: string; hint: string }[] = []
 
-/** Un tableau relié à une collection n'a pas besoin des colonnes et lignes écrites à la main, et inversement. */
+const VIEW_KEYS = new Set(['search', 'filterField', 'filterOp', 'filterValue', 'sortField', 'sortDir'])
+
+/**
+ * Seulement les réglages utiles : un tableau relié à une collection n'a pas besoin des lignes écrites
+ * à la main (et inversement) ; le filtre et le tri demandent une collection, leurs détails un champ choisi.
+ */
 function fieldShown(node: BrickNode, key: string, variables: Variable[]): boolean {
-  if (node.type !== 'table') return true
-  const bound = isCollection(variables.find((v) => v.name === node.props.source))
-  return bound ? key !== 'columns' && key !== 'rows' : key !== 'rowDelete' && key !== 'empty'
+  if (key === 'min' || key === 'max') return node.props.inputType === 'number'
+  if (key === 'minLength') return node.props.inputType !== 'number' && node.props.inputType !== 'date'
+  if (node.type !== 'table' && node.type !== 'repeat') return true
+  const source = variables.find((v) => v.name === node.props.source)
+  const bound = isCollection(source)
+  if (node.type === 'table' && !VIEW_KEYS.has(key)) return bound ? key !== 'columns' && key !== 'rows' : key !== 'rowDelete' && key !== 'empty'
+  if (key === 'search') return node.type === 'repeat' ? !!source : bound
+  if (key === 'filterField' || key === 'sortField') return bound
+  if (key === 'filterOp' || key === 'filterValue') {
+    if (!bound || !node.props.filterField) return false
+    return key === 'filterOp' || !['checked', 'unchecked'].includes(String(node.props.filterOp))
+  }
+  if (key === 'sortDir') return bound && !!node.props.sortField
+  return true
 }
 
 function NoSelection() {
@@ -461,9 +477,11 @@ function PlaceRows({ node }: { node: BrickNode }) {
 function ContentField({ field: f, node, onChange }: { field: FieldDef; node: BrickNode; onChange: (v: string | number | boolean) => void }) {
   const value = node.props[f.key]
   const inRepeat = useContext(ScopeTokens).length > 0
+  const source = useEditor((s) => s.project.variables.find((v) => v.name === node.props.source))
+  const sourceFields = source && isCollection(source) ? fieldsOf(source) : []
   const tip = inRepeat
     ? 'Astuce : {{element}} affiche l’élément de la liste, {{element.nom}} un de ses champs, {{position}} son numéro.'
-    : 'Astuce : {{nom}} affiche la valeur d’une variable.'
+    : 'Astuce : {{nom}} affiche la valeur d’une variable, {{prix * quantite}} ou {{somme(produits.prix)}} un calcul.'
   if (f.kind === 'boolean') {
     return <Row label={f.label}>{() => <Switch checked={!!value} onChange={onChange} label={value ? 'Oui' : 'Non'} />}</Row>
   }
@@ -477,6 +495,8 @@ function ContentField({ field: f, node, onChange }: { field: FieldDef; node: Bri
             return <NumberInput id={id} value={Number(value) || undefined} unit="" min={1} max={12} onChange={(v) => onChange(v ?? 1)} />
           case 'variable':
             return <VariableSelect id={id} value={String(value ?? '') || undefined} onChange={onChange} kinds={f.kinds} />
+          case 'field':
+            return <SelectInput id={id} value={String(value ?? '')} placeholder="Aucun" options={sourceFields.map((x) => ({ value: x.name, label: x.label }))} onChange={onChange} />
           case 'icon':
             return <IconInput id={id} value={String(value ?? '')} onChange={onChange} />
           case 'page':

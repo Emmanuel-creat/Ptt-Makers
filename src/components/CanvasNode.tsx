@@ -4,10 +4,10 @@ import { SVG_ATTRS, iconNode } from '../model/icons'
 import { PLACEHOLDER_IMAGE, brickClass } from '../codegen/baseCss'
 import { safeImageSrc, videoSource } from '../codegen/escape'
 import { proHtml, tabbarIcons } from '../codegen/proBricks'
-import { isListLike } from '../model/collections'
+import { applyView, isListLike, viewOptions } from '../model/collections'
 import { effectiveStyle, reactStyle } from '../codegen/style'
 import type { BrickNode, Variable } from '../model/types'
-import { interpolate, parseTemplate, resolveToken, type RepeatScope } from '../model/variables'
+import { evaluateTemplateExpr, interpolate, parseTemplate, resolveToken, type RepeatScope } from '../model/variables'
 import { useEditor } from '../store/editor'
 import { useWorkspace, type Device } from '../store/workspace'
 
@@ -28,6 +28,14 @@ function DynamicText({ text, variables, scope }: { text: string; variables: Vari
     <>
       {parts.map((p, i) => {
         if (p.kind === 'text') return p.value
+        if (p.kind === 'expr') {
+          const result = evaluateTemplateExpr(p.expr, variables, scope ?? undefined)
+          return (
+            <mark key={i} className={`pm-var-mark is-expr ${result == null ? 'is-unknown' : ''}`} title={`Formule « ${p.src} »`}>
+              {result ?? `{{${p.src}}}`}
+            </mark>
+          )
+        }
         const value = resolveToken(p.name, variables, scope ?? undefined)
         const isScope = scope && (p.name === 'position' || p.name.startsWith('element'))
         const known = value != null && value !== ''
@@ -154,13 +162,14 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
     case 'repeat': {
       if (frame) return <div {...common}>{children}</div>
       const source = variables.find((v) => v.name === p.source && isListLike(v))
-      const items = source && Array.isArray(source.initial) ? source.initial : []
+      const all = source && Array.isArray(source.initial) ? (source.initial as unknown[]) : []
+      const items = source ? applyView(all, source.fields, viewOptions(p, variables, (t) => interpolate(t, variables))) : []
       // Sans élément de départ (ex. données d'API), on montre quand même le modèle une fois.
       const shown: unknown[] = items.length ? items.slice(0, MAX_CANVAS_COPIES) : [undefined]
       return (
         <div {...common} data-ptt-repeat={source ? `${items.length} élément(s) · ${source.name}` : 'Choisis une liste'}>
           {shown.map((element, i) => (
-            <RepeatContext.Provider key={i} value={{ element, position: i + 1, copy: i > 0 }}>
+            <RepeatContext.Provider key={i} value={{ element, position: i + 1, copy: i > 0, fields: source?.fields }}>
               <div className="repeat-item">{children}</div>
             </RepeatContext.Provider>
           ))}
@@ -213,11 +222,11 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
         <label {...common}>
           <span>{String(p.label ?? '')}</span>
           {node.type === 'input' && (
-            <input type={String(p.inputType || 'text')} placeholder={String(p.placeholder ?? '')} value={value} readOnly tabIndex={-1} />
+            <input type={String(p.inputType || 'text')} placeholder={String(p.placeholder ?? '')} value={value} required={Boolean(p.required)} readOnly tabIndex={-1} />
           )}
-          {node.type === 'textarea' && <textarea placeholder={String(p.placeholder ?? '')} value={value} readOnly tabIndex={-1} />}
+          {node.type === 'textarea' && <textarea placeholder={String(p.placeholder ?? '')} value={value} required={Boolean(p.required)} readOnly tabIndex={-1} />}
           {node.type === 'select' && (
-            <select value={options.includes(value) ? value : options[0]} tabIndex={-1} onChange={() => {}}>
+            <select value={options.includes(value) ? value : options[0]} required={Boolean(p.required)} tabIndex={-1} onChange={() => {}}>
               {options.map((o) => (
                 <option key={o}>{o}</option>
               ))}
@@ -229,7 +238,7 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
     case 'checkbox':
       return (
         <label {...common}>
-          <input type="checkbox" checked={Boolean(bound(p.bind)?.initial)} readOnly tabIndex={-1} />
+          <input type="checkbox" checked={Boolean(bound(p.bind)?.initial)} required={Boolean(p.required)} readOnly tabIndex={-1} />
           <span>{String(p.label ?? '')}</span>
         </label>
       )
