@@ -2,6 +2,20 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.1.0] : 2026-10-11
+
+Placer une brique où on veut : la page peut devenir une grille aimantée.
+
+### Ajouté
+- **Disposition « Sur une grille »** (Propriétés de la page, Mise en page) : la page devient une grille de 12 colonnes et de rangées de 40 px. Une brique glissée se pose sur la case la plus proche, par exemple un bouton de menu tout en haut à gauche.
+- Pendant un glisser-déposer, les lignes de la grille ressortent et un cadre montre la case où la brique va se poser, avec son numéro de colonne et de rangée.
+- **Poignée de taille** en bas à droite de la brique sélectionnée, et réglages **Colonne, Rangée, Largeur (colonnes), Hauteur (rangées)** dans les propriétés.
+- Raccourcis : `Alt + ↑ / ↓` monte ou descend la brique d'une rangée, `Alt + ← / →` la décale d'une colonne.
+- En passant sur la grille, chaque brique garde à peu près sa hauteur ; en revenant « En pile », elles s'empilent à nouveau.
+- Sur mobile (moins de 600 px), les briques de la grille s'empilent dans l'ordre de lecture (de haut en bas, de gauche à droite), dans l'éditeur comme dans le code exporté.
+- Le code généré utilise CSS Grid (`grid-column`, `grid-row`), et l'assistant IA sait créer et modifier des pages en grille.
+- Tests : 84 tests unitaires et 21 tests de bout en bout.
+
 ## [2.0.0] : 2026-10-11
 
 **Ptt-Makers Pro** : un assistant IA construit des applications complètes avec les mêmes briques que toi.

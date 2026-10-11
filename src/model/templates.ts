@@ -1,7 +1,8 @@
 import { BRICKS } from './bricks'
 import { mapActions } from './actions'
+import { fixPlacements } from './freeGrid'
 import { makeNode, type Nodes } from './tree'
-import type { Action, BrickStyle, BrickType, Project, PropValue, Variable } from './types'
+import type { Action, BrickStyle, BrickType, GridPlace, Project, PropValue, Variable } from './types'
 
 /** Description compacte d'un arbre de briques pour écrire les modèles. */
 export interface Spec {
@@ -14,6 +15,8 @@ export interface Spec {
   showIf?: string
   /** Les cibles peuvent s'écrire « @ref » pour viser une autre brique du modèle. */
   onClick?: Action[]
+  /** Case sur une page en grille. */
+  place?: GridPlace
   children?: Spec[]
 }
 
@@ -27,6 +30,8 @@ export interface PageSpec {
   style?: BrickStyle
   /** Actions lancées quand la page s'affiche. */
   onLoad?: Action[]
+  /** Briques posées librement sur une grille plutôt qu'empilées. */
+  grid?: boolean
   children: Spec[]
 }
 
@@ -42,6 +47,7 @@ export function buildApp(name: string, pages: PageSpec[], variables: Variable[] 
     node.parent = parentId
     node.hidden = spec.hidden
     node.showIf = spec.showIf
+    if (spec.place) node.place = spec.place
     nodes = { ...nodes, [node.id]: node, [parentId]: { ...nodes[parentId], children: [...nodes[parentId].children, node.id] } }
     if (spec.ref) refs.set(spec.ref, node.id)
     if (spec.onClick) pending.push({ id: node.id, key: 'onClick', actions: spec.onClick })
@@ -49,7 +55,9 @@ export function buildApp(name: string, pages: PageSpec[], variables: Variable[] 
   }
 
   pages.forEach((page, i) => {
-    const made = makeNode(nodes, 'page', { props: { title: page.title ?? (i === 0 ? name : page.name) }, style: page.style, name: page.name })
+    const props: Record<string, PropValue> = { title: page.title ?? (i === 0 ? name : page.name) }
+    if (page.grid) props.layout = 'grille'
+    const made = makeNode(nodes, 'page', { props, style: page.style, name: page.name })
     const id = i === 0 ? ROOT_ID : made.id
     nodes = { ...nodes, [id]: { ...made, id } }
     pageIds.push(id)
@@ -72,7 +80,7 @@ export function buildApp(name: string, pages: PageSpec[], variables: Variable[] 
       nodes[node.id] = { ...node, props: { ...node.props, page: resolve(node.props.page) } }
     }
   }
-  return { version: 1, name, rootId: ROOT_ID, pages: pageIds, nodes, variables }
+  return { version: 1, name, rootId: ROOT_ID, pages: pageIds, nodes: fixPlacements(nodes), variables }
 }
 
 export function buildProject(

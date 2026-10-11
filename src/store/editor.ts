@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { isContainer } from '../model/bricks'
+import { clampPlace, defaultSize, fixPlacements, isFreeGrid, setFreeGrid } from '../model/freeGrid'
 import { renameVariableInNodes } from '../model/refactor'
 import { createDefaultProject } from '../model/templates'
 import {
@@ -27,7 +28,7 @@ import {
   canDrop,
   type Nodes,
 } from '../model/tree'
-import type { Action, BrickNode, BrickStyle, BrickType, DropTarget, Project, ProjectTheme, PropValue, ResponsiveScope, StyleOverride, Variable } from '../model/types'
+import type { Action, BrickNode, BrickStyle, BrickType, DropTarget, GridPlace, Project, ProjectTheme, PropValue, ResponsiveScope, StyleOverride, Variable } from '../model/types'
 
 const HISTORY_LIMIT = 120
 /** Les modifications successives d'un même champ sont regroupées dans une seule étape d'annulation. */
@@ -66,7 +67,7 @@ interface EditorState {
   setDragging: (d: Dragging) => void
   setDropTarget: (t: DropTarget | null) => void
   drop: (target: DropTarget) => void
-  move: (id: string, parentId: string, index: number) => void
+  move: (id: string, parentId: string, index: number, cell?: DropTarget['cell']) => void
   moveBy: (id: string, delta: -1 | 1) => void
   remove: (id: string) => void
   duplicate: (id: string) => void
@@ -76,12 +77,16 @@ interface EditorState {
   updateProps: (id: string, patch: Record<string, PropValue>) => void
   /** Modifie le style de base (« all ») ou celui d'un format plus petit. */
   updateStyle: (id: string, patch: Partial<StyleOverride>, scope?: 'all' | ResponsiveScope) => void
+  /** Page en grille : change la case ou la taille d'une brique. */
+  setPlace: (id: string, patch: Partial<GridPlace>) => void
+  /** Passe une page en placement libre sur la grille, ou la remet en pile. */
+  setLayout: (pageId: string, grid: boolean, measuredRows?: Record<string, number>) => void
   updateNode: (id: string, patch: Partial<Pick<BrickNode, 'name' | 'hidden' | 'showIf'>>) => void
   setActions: (id: string, actions: Action[], field?: 'onClick' | 'onLoad') => void
 
   updateTheme: (patch: Partial<ProjectTheme>) => void
   saveComponent: (id: string, name?: string) => void
-  insertComponent: (componentId: string, at?: { parentId: string; index: number }) => void
+  insertComponent: (componentId: string, at?: { parentId: string; index: number; cell?: DropTarget['cell'] }) => void
   removeComponent: (componentId: string) => void
 
   setPage: (id: string) => void
@@ -147,6 +152,8 @@ export const useEditor = create<EditorState>((set, get) => {
     const { project, past, lastEdit } = get()
     const patch = change(project)
     if (!patch) return
+    // Les briques d'une page en grille gardent toujours une case valide.
+    if (patch.nodes) patch.nodes = fixPlacements(patch.nodes)
     const now = Date.now()
     const merge = coalesceKey && lastEdit?.key === coalesceKey && now - lastEdit.at < COALESCE_MS
     set({
@@ -157,11 +164,14 @@ export const useEditor = create<EditorState>((set, get) => {
     })
   }
 
-  const insertAt = (type: BrickType, parentId: string, index: number) => {
+  const insertAt = (type: BrickType, parentId: string, index: number, cell?: DropTarget['cell']) => {
     let newId = ''
     commit((p) => {
       const brick = makeBrick(p.nodes, type)
       newId = brick.rootId
+      if (cell && isFreeGrid(p.nodes[parentId])) {
+        brick.nodes[newId] = { ...brick.nodes[newId], place: clampPlace({ ...cell, ...defaultSize(type) }) }
+      }
       return { nodes: insertSubtree(p.nodes, brick.nodes, brick.rootId, parentId, index) }
     })
     set({ selectedId: newId })
@@ -236,7 +246,13 @@ export const useEditor = create<EditorState>((set, get) => {
     setDragging: (dragging) => set({ dragging, dropTarget: dragging ? get().dropTarget : null }),
     setDropTarget: (dropTarget) => {
       const cur = get().dropTarget
-      if (cur?.id === dropTarget?.id && cur?.position === dropTarget?.position) return
+      if (
+        cur?.id === dropTarget?.id &&
+        cur?.position === dropTarget?.position &&
+        cur?.cell?.col === dropTarget?.cell?.col &&
+        cur?.cell?.row === dropTarget?.cell?.row
+      )
+        return
       set({ dropTarget })
     },
 
@@ -247,14 +263,20 @@ export const useEditor = create<EditorState>((set, get) => {
       const dragId = dragging.kind === 'move' ? dragging.id : null
       if (!canDrop(project.nodes, dragId, target)) return
       const spot = resolveDrop(project.nodes, target)!
-      if (dragging.kind === 'new') insertAt(dragging.type, spot.parentId, spot.index)
-      else if (dragging.kind === 'component') get().insertComponent(dragging.id, spot)
-      else get().move(dragging.id, spot.parentId, spot.index)
+      if (dragging.kind === 'new') insertAt(dragging.type, spot.parentId, spot.index, target.cell)
+      else if (dragging.kind === 'component') get().insertComponent(dragging.id, { ...spot, cell: target.cell })
+      else get().move(dragging.id, spot.parentId, spot.index, target.cell)
     },
 
-    move: (id, parentId, index) => {
+    move: (id, parentId, index, cell) => {
       commit((p) => {
-        const next = moveNode(p.nodes, id, parentId, index)
+        let next = moveNode(p.nodes, id, parentId, index)
+        if (cell && isFreeGrid(next[parentId])) {
+          const node = next[id]
+          // Même parent : la brique garde sa taille ; sinon, elle prend la taille de départ de son type.
+          const size = node.place ?? defaultSize(node.type)
+          next = { ...next, [id]: { ...node, place: clampPlace({ ...cell, w: size.w, h: size.h }) } }
+        }
         return next === p.nodes ? null : { nodes: next }
       })
       set({ selectedId: id })
@@ -262,6 +284,13 @@ export const useEditor = create<EditorState>((set, get) => {
 
     moveBy: (id, delta) =>
       commit((p) => {
+        const node = p.nodes[id]
+        // Sur une page en grille, monter ou descendre déplace la brique d'une rangée.
+        if (node?.place) {
+          const row = node.place.row + delta
+          if (row < 1) return null
+          return { nodes: { ...p.nodes, [id]: { ...node, place: { ...node.place, row } } } }
+        }
         const next = moveSibling(p.nodes, id, delta)
         return next === p.nodes ? null : { nodes: next }
       }),
@@ -342,6 +371,21 @@ export const useEditor = create<EditorState>((set, get) => {
         return { nodes: { ...p.nodes, [id]: next } }
       }, `style:${scope}:${id}:${Object.keys(patch).join(',')}`),
 
+    setPlace: (id, patch) =>
+      commit((p) => {
+        const node = p.nodes[id]
+        if (!node?.place) return null
+        const place = clampPlace({ ...node.place, ...patch }, node.place)
+        const same = (Object.keys(place) as (keyof GridPlace)[]).every((k) => place[k] === node.place![k])
+        return same ? null : { nodes: { ...p.nodes, [id]: { ...node, place } } }
+      }, `place:${id}:${Object.keys(patch).join(',')}`),
+
+    setLayout: (pageId, grid, measuredRows) =>
+      commit((p) => {
+        const next = setFreeGrid(p.nodes, pageId, grid, measuredRows)
+        return next === p.nodes ? null : { nodes: next }
+      }),
+
     updateTheme: (patch) =>
       commit((p) => {
         const theme: ProjectTheme = { ...p.theme, ...patch }
@@ -382,6 +426,10 @@ export const useEditor = create<EditorState>((set, get) => {
         newId = clone.rootId
         // Le bloc inséré garde le nom du composant (sans « (copie) »).
         clone.nodes[newId] = { ...clone.nodes[newId], name: component.name }
+        if (spot.cell && isFreeGrid(p.nodes[spot.parentId])) {
+          const size = clone.nodes[newId].place ?? defaultSize(clone.nodes[newId].type)
+          clone.nodes[newId].place = clampPlace({ ...spot.cell, w: size.w, h: size.h })
+        }
         return { nodes: insertSubtree(p.nodes, clone.nodes, clone.rootId, spot.parentId, spot.index) }
       })
       set({ selectedId: newId })

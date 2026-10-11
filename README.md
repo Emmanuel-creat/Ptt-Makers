@@ -23,12 +23,15 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 - 📱 **Réglages par format** : un style différent, ou une brique masquée, sur tablette ou sur mobile.
 - 🗂️ **Mes projets** : plusieurs projets enregistrés dans le navigateur, et un **lien de partage** qui contient tout le projet.
 - 🏆 **Défis guidés** : des objectifs en quelques étapes qui se cochent toutes seules.
+- 🧲 **Placement libre sur une grille** : passe une page « Sur une grille » et pose chaque brique où tu veux (un bouton de menu en haut à gauche, une image à droite…), elle s'aimante sur la case la plus proche.
 - ✨ **Version Pro, assistant IA** : décris une application, il la construit avec les briques ; il modifie ton projet sur demande et explique le code. Avec ta clé Anthropic ou un [serveur relais](serveur-ia/README.md).
 - 👀 **Aperçu interactif** en temps réel, isolé dans une iframe.
 - 💻 **Code en direct** (HTML / CSS / JS) commenté en français, coloré, avec **surlignage de la brique sélectionnée**.
 - 🧭 **Espace de travail personnalisable** : panneaux redimensionnables et repliables, aperçu à droite ou en bas, thème clair / sombre / système.
 - 🎓 **Mode débutant** : visite guidée, explications et astuces partout.
 - ↩️ Annuler / rétablir, raccourcis clavier, sauvegarde automatique, 8 modèles de départ (dont une liste de tâches, un annuaire relié à une API et un site de plusieurs pages), export HTML, **composant React ou Vue**, ou projet `.json`.
+
+![Une page en grille : le bouton de menu est posé en haut à gauche, l'image en haut à droite](docs/captures/grille.png)
 
 ![L'assistant IA de la version Pro](docs/captures/assistant-ia.png)
 

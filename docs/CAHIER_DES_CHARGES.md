@@ -102,6 +102,10 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F38** Expliquer le code généré, réponse affichée au fil de l'eau.
 - **F39** Connexion par clé personnelle (gardée dans le navigateur) ou par un serveur relais déployable gratuitement (Cloudflare Worker) qui garde la clé.
 
+### 4.11 Placement libre (version 2.1)
+- **F40** Une page peut passer « Sur une grille » (12 colonnes, rangées de 40 px) : chaque brique déposée se pose sur la case la plus proche du pointeur, avec un aperçu de la case pendant le glisser-déposer.
+- **F41** Déplacer et redimensionner une brique sur la grille : glisser-déposer, poignée de taille, champs colonne / rangée / largeur / hauteur, raccourcis clavier ; sur mobile, les briques s'empilent dans l'ordre de lecture.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -126,4 +130,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 7. Un bloc enregistré dans Mes composants se place à nouveau en un clic ; une brique masquée sur mobile disparaît de l'aperçu mobile seulement ; choisir un modèle garde l'ancien projet dans Mes projets.
 8. Le défi « Ma première page » se coche au fil des ajouts ; un lien de partage ouvert dans un autre navigateur affiche le même projet ; l'export React s'affiche et fonctionne dans React.
 9. Avec une réponse d'API simulée, l'assistant ouvre un projet qui fonctionne dans l'aperçu, et une modification s'annule avec Ctrl+Z.
-10. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+10. Sur une page en grille, un bouton déposé dans le coin en haut à gauche occupe la colonne 1, rangée 1, dans l'éditeur, dans l'aperçu et dans le code exporté ; en format mobile, les briques s'empilent.
+11. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

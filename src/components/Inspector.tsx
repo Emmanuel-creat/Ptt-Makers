@@ -6,6 +6,7 @@ import {
   ArrowRightToLine,
   Copy,
   FileText,
+  Grid3x3,
   LayoutPanelLeft,
   MousePointerClick,
   Monitor,
@@ -15,13 +16,15 @@ import {
   Sparkles,
   Tablet,
   Rocket,
+  Rows3,
   Trash2,
   Type,
   Zap,
 } from 'lucide-react'
 import { useContext } from 'react'
 import { BRICKS, CATEGORIES, type FieldDef } from '../model/bricks'
-import type { BrickNode, BrickStyle, ProjectTheme, StyleOverride } from '../model/types'
+import { GRID_COLUMNS, GRID_ROW, isFreeGrid } from '../model/freeGrid'
+import type { BrickNode, BrickStyle, GridPlace, ProjectTheme, StyleOverride } from '../model/types'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 import { repeatOf } from '../model/tree'
@@ -136,7 +139,9 @@ function NodeInspector({ node }: { node: BrickNode }) {
         <ScopeBar node={node} />
 
         <Section title="Mise en page" icon={<LayoutPanelLeft size={15} />}>
-          {def.container && node.type !== 'grid' && (
+          {isRoot && scope === 'all' && <LayoutRow node={node} />}
+          {node.place && scope === 'all' && <PlaceRows node={node} />}
+          {def.container && node.type !== 'grid' && !isFreeGrid(node) && (
             <>
               <Row label="Direction">
                 {() => (
@@ -355,6 +360,77 @@ function NodeInspector({ node }: { node: BrickNode }) {
         )}
       </div>
     </div>
+  )
+}
+
+/** Page : briques empilées (comme un document) ou posées librement sur une grille. */
+function LayoutRow({ node }: { node: BrickNode }) {
+  const beginner = useWorkspace((s) => s.beginner)
+  const grid = isFreeGrid(node)
+  const change = (value: 'pile' | 'grille') => {
+    const on = value === 'grille'
+    // Chaque brique garde à peu près sa hauteur actuelle en passant sur la grille.
+    const rows: Record<string, number> = {}
+    if (on) {
+      const pageEl = document.querySelector(`.pm-frame [data-ptt-id="${CSS.escape(node.id)}"]`)
+      const gap = node.style.gap ?? 0
+      for (const c of node.children) {
+        const el = pageEl?.querySelector(`[data-ptt-id="${CSS.escape(c)}"]`)
+        const h = el?.getBoundingClientRect().height
+        if (h) rows[c] = Math.max(1, Math.round((h + gap) / (GRID_ROW + gap)))
+      }
+    }
+    useEditor.getState().setLayout(node.id, on, rows)
+  }
+  return (
+    <Row
+      label="Disposition"
+      help={
+        grid
+          ? 'Glisse une brique où tu veux : elle se pose sur la case la plus proche. La poignée en bas à droite change sa taille. Sur mobile, les briques s’empilent.'
+          : beginner
+            ? 'Sur une grille, tu poses chaque brique où tu veux (en haut à gauche, au centre…).'
+            : undefined
+      }
+    >
+      {() => (
+        <Segmented
+          label="Disposition"
+          value={grid ? 'grille' : 'pile'}
+          onChange={change}
+          options={[
+            { value: 'pile', label: 'En pile', icon: <Rows3 size={15} /> },
+            { value: 'grille', label: 'Sur une grille', icon: <Grid3x3 size={15} /> },
+          ]}
+        />
+      )}
+    </Row>
+  )
+}
+
+/** Brique posée sur une page en grille : sa case et sa taille, en colonnes et en rangées. */
+function PlaceRows({ node }: { node: BrickNode }) {
+  const place = node.place!
+  const setPlace = (patch: Partial<GridPlace>) => useEditor.getState().setPlace(node.id, patch)
+  return (
+    <>
+      <div className="pm-row-pair">
+        <Row label="Colonne">
+          {(id) => <NumberInput id={id} value={place.col} unit="" min={1} max={GRID_COLUMNS} onChange={(col) => col && setPlace({ col })} />}
+        </Row>
+        <Row label="Rangée">
+          {(id) => <NumberInput id={id} value={place.row} unit="" min={1} max={500} onChange={(row) => row && setPlace({ row })} />}
+        </Row>
+      </div>
+      <div className="pm-row-pair">
+        <Row label="Largeur (colonnes)">
+          {(id) => <NumberInput id={id} value={place.w} unit="" min={1} max={GRID_COLUMNS} onChange={(w) => w && setPlace({ w })} />}
+        </Row>
+        <Row label="Hauteur (rangées)">
+          {(id) => <NumberInput id={id} value={place.h} unit="" min={1} max={60} onChange={(h) => h && setPlace({ h })} />}
+        </Row>
+      </div>
+    </>
   )
 }
 

@@ -1,4 +1,5 @@
 import { BRICKS, type FieldDef } from '../model/bricks'
+import { clampPlace, isFreeGrid } from '../model/freeGrid'
 import { buildApp, type PageSpec, type Spec } from '../model/templates'
 import type { Action, BrickNode, BrickStyle, BrickType, ConditionOp, Project, PropValue, Variable, VariableKind } from '../model/types'
 
@@ -43,6 +44,8 @@ export interface AiBrick {
   hidden: boolean
   showIf: string
   onClick: AiAction[]
+  /** Case sur une page en grille (tout à 0 si la page est en pile). */
+  place: { col: number; row: number; w: number; h: number }
 }
 
 export interface AiPage {
@@ -51,6 +54,7 @@ export interface AiPage {
   title: string
   style: AiKeyValue[]
   onLoad: AiAction[]
+  layout: 'pile' | 'grille'
 }
 
 export interface AiVariable {
@@ -147,7 +151,10 @@ export const PROJECT_SCHEMA = obj({
   summary: str,
   theme: obj({ primary: str, radius: { type: 'number' }, font: { type: 'string', enum: ['inter', 'system', 'arrondie', 'serif', 'mono', ''] } }),
   variables: { type: 'array', items: obj({ name: str, kind: { type: 'string', enum: ['text', 'number', 'boolean', 'list'] }, initial: str }) },
-  pages: { type: 'array', items: obj({ ref: str, name: str, title: str, style: keyValues(STYLE_KEYS), onLoad: { type: 'array', items: action } }) },
+  pages: {
+    type: 'array',
+    items: obj({ ref: str, name: str, title: str, style: keyValues(STYLE_KEYS), onLoad: { type: 'array', items: action }, layout: { type: 'string', enum: ['pile', 'grille'] } }),
+  },
   bricks: {
     type: 'array',
     items: obj({
@@ -160,6 +167,7 @@ export const PROJECT_SCHEMA = obj({
       hidden: { type: 'boolean' },
       showIf: str,
       onClick: { type: 'array', items: action },
+      place: obj({ col: { type: 'integer' }, row: { type: 'integer' }, w: { type: 'integer' }, h: { type: 'integer' } }),
     }),
   },
 })
@@ -294,6 +302,7 @@ export function aiToProject(ai: AiProject): Project {
       hidden: b.hidden || undefined,
       showIf: b.showIf || undefined,
       onClick: toActions(b.onClick),
+      place: b.place && b.place.col > 0 && b.place.row > 0 && b.place.w > 0 && b.place.h > 0 ? clampPlace(b.place) : undefined,
       children: [],
     }
     specs.set(b.ref, spec)
@@ -310,12 +319,13 @@ export function aiToProject(ai: AiProject): Project {
     }
   }
 
-  const pages: PageSpec[] = (ai.pages.length ? ai.pages : [{ ref: firstPage, name: 'Accueil', title: ai.name, style: [], onLoad: [] }]).map((p) => ({
+  const pages: PageSpec[] = (ai.pages.length ? ai.pages : [{ ref: firstPage, name: 'Accueil', title: ai.name, style: [], onLoad: [], layout: 'pile' as const }]).map((p) => ({
     ref: p.ref,
     name: p.name || 'Page',
     title: p.title || undefined,
     style: toStyle(p.style),
     onLoad: toActions(p.onLoad),
+    grid: p.layout === 'grille' || undefined,
     children: children.get(p.ref) ?? [],
   }))
   const variables = ai.variables.map(toVariable).filter((v): v is Variable => !!v)
@@ -379,6 +389,7 @@ export function projectToAi(p: Project): AiProject {
         hidden: !!c.hidden,
         showIf: c.showIf ?? '',
         onClick: (c.onClick ?? []).map(fromAction),
+        place: c.place ? { ...c.place } : { col: 0, row: 0, w: 0, h: 0 },
       })
       walk(c)
     }
@@ -386,7 +397,14 @@ export function projectToAi(p: Project): AiProject {
   const pages = p.pages.map((id) => {
     const page = p.nodes[id]
     walk(page)
-    return { ref: id, name: page.name, title: String(page.props.title ?? ''), style: kv(page.style as Record<string, unknown>), onLoad: (page.onLoad ?? []).map(fromAction) }
+    return {
+      ref: id,
+      name: page.name,
+      title: String(page.props.title ?? ''),
+      style: kv(page.style as Record<string, unknown>),
+      onLoad: (page.onLoad ?? []).map(fromAction),
+      layout: isFreeGrid(page) ? ('grille' as const) : ('pile' as const),
+    }
   })
   return {
     name: p.name,

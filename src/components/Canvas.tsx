@@ -2,12 +2,14 @@ import { ArrowDown, ArrowUp, ChevronRight, Copy, CornerLeftUp, LayoutTemplate, M
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { themeEntries } from '../codegen/style'
 import { BRICKS, isContainer } from '../model/bricks'
-import { canDrop, getPath } from '../model/tree'
+import { clampPlace, defaultSize, isFreeGrid } from '../model/freeGrid'
+import { canDrop, getPath, isDescendant } from '../model/tree'
 import type { DropPosition, DropTarget } from '../model/types'
 import { useEditor } from '../store/editor'
 import { DEVICE_WIDTH, useWorkspace } from '../store/workspace'
 import { BrickIcon } from './BrickIcon'
 import { CanvasNode, INLINE_EDITABLE } from './CanvasNode'
+import { cellAt, measureGrid, placeRect, visibleRows, type GridMetrics } from './gridMetrics'
 import { IconButton } from './ui'
 import { ChallengePanel } from './ChallengePanel'
 import { PagesBar } from './PagesBar'
@@ -16,6 +18,55 @@ type Rect = { top: number; left: number; width: number; height: number; horizont
 
 const closestNode = (el: EventTarget | null): HTMLElement | null =>
   el instanceof Element ? (el.closest('[data-ptt-id]') as HTMLElement | null) : null
+
+const pageElement = (root: ParentNode | null | undefined, pageId: string) =>
+  (root?.querySelector(`[data-ptt-id="${CSS.escape(pageId)}"]`) as HTMLElement | null) ?? null
+
+/** Écart (en cases) entre le pointeur et le coin haut gauche de la brique qu'on déplace sur la grille. */
+let grab = { col: 0, row: 0 }
+
+/** Taille de la brique en cours de glisser-déposer sur une page en grille. */
+function draggedSize(): { w: number; h: number } | null {
+  const { dragging, project } = useEditor.getState()
+  if (!dragging) return null
+  if (dragging.kind === 'new') return defaultSize(dragging.type)
+  if (dragging.kind === 'move') {
+    const n = project.nodes[dragging.id]
+    return n ? (n.place ?? defaultSize(n.type)) : null
+  }
+  const c = project.components?.find((x) => x.id === dragging.id)
+  const root = c?.nodes[c.rootId]
+  return root ? (root.place ?? defaultSize(root.type)) : null
+}
+
+/**
+ * Page en grille : faut-il poser la brique sur une case plutôt que dans une autre brique ?
+ * Oui au-dessus de la page, d'une brique simple posée sur la grille, ou de la brique déplacée elle-même ;
+ * au-dessus d'un conteneur posé sur la grille, seulement près de ses bords (le centre sert à entrer dedans).
+ */
+function gridCellTarget(pageId: string, el: HTMLElement | null, x: number, y: number): DropTarget | null {
+  const { project, dragging } = useEditor.getState()
+  const page = project.nodes[pageId]
+  // Sur mobile, les briques de la grille sont empilées : on dépose comme dans une page en pile.
+  if (!isFreeGrid(page) || !dragging || useWorkspace.getState().device === 'mobile') return null
+  const id = el?.dataset.pttId
+  const node = id ? project.nodes[id] : null
+  const dragId = dragging.kind === 'move' ? dragging.id : null
+  if (node && node.id !== pageId) {
+    const own = dragId && isDescendant(project.nodes, node.id, dragId)
+    if (!own) {
+      if (node.parent !== pageId) return null
+      if (isContainer(node.type) && el && computeDrop(el, x, y, false)?.position === 'inside') return null
+    }
+  }
+  const pageEl = pageElement(el?.ownerDocument ?? document, pageId)
+  if (!pageEl) return null
+  const size = draggedSize() ?? { w: 4, h: 2 }
+  const cell = cellAt(measureGrid(pageEl), x, y)
+  const offset = dragging.kind === 'move' ? grab : { col: 0, row: 0 }
+  const place = clampPlace({ col: cell.col - offset.col, row: cell.row - offset.row, w: size.w, h: size.h })
+  return { id: pageId, position: 'inside', cell: { col: place.col, row: place.row } }
+}
 
 /** Zone de création : rendu éditable du projet. */
 export function Canvas() {
@@ -82,6 +133,13 @@ export function Canvas() {
     e.stopPropagation()
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', `ptt-move:${el.dataset.pttId}`)
+    // Sur la grille, on garde l'endroit où la brique a été attrapée.
+    const place = useEditor.getState().project.nodes[el.dataset.pttId!]?.place
+    const pageEl = pageElement(e.currentTarget, rootId)
+    if (place && pageEl) {
+      const cell = cellAt(measureGrid(pageEl), e.clientX, e.clientY)
+      grab = { col: Math.max(0, cell.col - place.col), row: Math.max(0, cell.row - place.row) }
+    } else grab = { col: 0, row: 0 }
     useEditor.getState().setDragging({ kind: 'move', id: el.dataset.pttId! })
   }
 
@@ -89,6 +147,13 @@ export function Canvas() {
     const { dragging, project, setDropTarget } = useEditor.getState()
     if (!dragging) return
     const el = closestNode(e.target)
+    const cellTarget = gridCellTarget(rootId, el, e.clientX, e.clientY)
+    if (cellTarget) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = dragging.kind === 'new' ? 'copy' : 'move'
+      setDropTarget(cellTarget)
+      return
+    }
     const target = el ? computeDrop(el, e.clientX, e.clientY, project.nodes[el.dataset.pttId!]?.parent == null) : { id: rootId, position: 'inside' as const }
     const dragId = dragging.kind === 'move' ? dragging.id : null
     if (!target || !canDrop(project.nodes, dragId, target) || (dragId && target.id === dragId)) {
@@ -124,7 +189,7 @@ export function Canvas() {
           const { dragging, setDropTarget } = useEditor.getState()
           if (!dragging) return
           e.preventDefault()
-          setDropTarget({ id: rootId, position: 'inside' })
+          setDropTarget(gridCellTarget(rootId, null, e.clientX, e.clientY) ?? { id: rootId, position: 'inside' })
         }}
         onDrop={onDrop}
       >
@@ -221,8 +286,13 @@ function Overlays({ wrapRef }: { wrapRef: React.RefObject<HTMLDivElement | null>
   const selNode = selectedId ? nodes[selectedId] : null
   const hovNode = hoveredId ? nodes[hoveredId] : null
 
+  const pageId = useEditor((s) => s.currentPage)
+  const device = useWorkspace((s) => s.device)
+  const freeGrid = useEditor((s) => isFreeGrid(s.project.nodes[s.currentPage])) && device !== 'mobile'
+
   return (
     <div className="pm-overlays" aria-hidden={dragging ? true : undefined}>
+      {freeGrid && <GridGuides wrapRef={wrapRef} pageId={pageId} active={!!dragging} target={dropTarget} />}
       {hov && hovNode && !dragging && (
         <div className="pm-ov-hover" style={box(hov)} data-cat={BRICKS[hovNode.type].category}>
           <span className="pm-ov-tag">{hovNode.name}</span>
@@ -235,11 +305,106 @@ function Overlays({ wrapRef }: { wrapRef: React.RefObject<HTMLDivElement | null>
             {selNode.name}
           </span>
           {selNode.parent && !editingId && <SelectionToolbar id={selNode.id} />}
+          {selNode.place && device !== 'mobile' && !editingId && <ResizeHandle id={selNode.id} pageId={pageId} wrapRef={wrapRef} />}
         </div>
       )}
-      {drop && dropTarget && dragging && <DropIndicator rect={drop} target={dropTarget} />}
+      {drop && dropTarget && dragging && !dropTarget.cell && <DropIndicator rect={drop} target={dropTarget} />}
     </div>
   )
+}
+
+/** Mesure de la grille d'une page, en coordonnées du cadre de la zone de création. */
+function useGridMetrics(wrapRef: React.RefObject<HTMLDivElement | null>, pageId: string) {
+  const project = useEditor((s) => s.project)
+  const device = useWorkspace((s) => s.device)
+  const [m, setM] = useState<{ grid: GridMetrics; origin: { left: number; top: number } } | null>(null)
+  const measure = useCallback(() => {
+    const wrap = wrapRef.current
+    const pageEl = pageElement(wrap, pageId)
+    if (!wrap || !pageEl) return setM(null)
+    const w = wrap.getBoundingClientRect()
+    setM({ grid: measureGrid(pageEl), origin: { left: w.left, top: w.top } })
+  }, [wrapRef, pageId])
+  useLayoutEffect(measure, [measure, project, device])
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrap)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [measure, wrapRef])
+  return m
+}
+
+/** Lignes de la grille (plus visibles pendant un glisser-déposer) et emplacement où la brique va se poser. */
+function GridGuides({
+  wrapRef,
+  pageId,
+  active,
+  target,
+}: {
+  wrapRef: React.RefObject<HTMLDivElement | null>
+  pageId: string
+  active: boolean
+  target: DropTarget | null
+}) {
+  const m = useGridMetrics(wrapRef, pageId)
+  if (!m || !m.grid.cols.length) return null
+  const { grid, origin } = m
+  const top = grid.top - origin.top
+  const height = grid.bottom - grid.top
+  const rows = visibleRows(grid)
+  const size = active && target?.cell ? draggedSize() : null
+  const ghost = size && target?.cell ? placeRect(grid, clampPlace({ ...target.cell, w: size.w, h: size.h })) : null
+  return (
+    <div className={`pm-grid-guides ${active ? 'is-active' : ''}`} data-testid="grille">
+      {grid.cols.map((c, i) => (
+        <span key={`c${i}`} className="pm-grid-col" style={{ left: c.start - origin.left, width: c.size, top, height }} />
+      ))}
+      {Array.from({ length: rows }, (_, i) => {
+        const r = placeRect(grid, { col: 1, row: i + 1, w: 1, h: 1 })
+        return <span key={`r${i}`} className="pm-grid-row" style={{ top: r.top - origin.top + r.height, left: grid.cols[0].start - origin.left, width: grid.cols[grid.cols.length - 1].start + grid.cols[grid.cols.length - 1].size - grid.cols[0].start }} />
+      })}
+      {ghost && target?.cell && (
+        <div className="pm-grid-ghost" style={{ left: ghost.left - origin.left, top: ghost.top - origin.top, width: ghost.width, height: ghost.height }}>
+          <span className="pm-ov-tag">
+            Colonne {target.cell.col}, rangée {target.cell.row}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Poignée en bas à droite de la brique sélectionnée : agrandir ou réduire sa case sur la grille. */
+function ResizeHandle({ id, pageId, wrapRef }: { id: string; pageId: string; wrapRef: React.RefObject<HTMLDivElement | null> }) {
+  const onPointerDown = (e: React.PointerEvent<HTMLSpanElement>) => {
+    const pageEl = pageElement(wrapRef.current, pageId)
+    if (!pageEl) return
+    e.preventDefault()
+    e.stopPropagation()
+    const handle = e.currentTarget
+    handle.setPointerCapture?.(e.pointerId)
+    const move = (ev: PointerEvent) => {
+      const place = useEditor.getState().project.nodes[id]?.place
+      if (!place) return
+      const cell = cellAt(measureGrid(pageEl), ev.clientX, ev.clientY)
+      useEditor.getState().setPlace(id, { w: Math.max(1, cell.col - place.col + 1), h: Math.max(1, cell.row - place.row + 1) })
+    }
+    const up = () => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', up)
+      handle.removeEventListener('pointercancel', up)
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', up)
+    handle.addEventListener('pointercancel', up)
+  }
+  return <span className="pm-ov-resize" title="Glisser pour changer la taille sur la grille" onPointerDown={onPointerDown} onMouseDown={(e) => e.stopPropagation()} />
 }
 
 const box = (r: Rect) => ({ top: r.top, left: r.left, width: r.width, height: r.height })
@@ -276,10 +441,10 @@ function SelectionToolbar({ id }: { id: string }) {
       <IconButton label="Sélectionner le parent" shortcut="Échap" tipSide="top" onClick={stop(() => select(node.parent))}>
         <CornerLeftUp size={14} />
       </IconButton>
-      <IconButton label="Monter" shortcut="Alt+↑" tipSide="top" disabled={i <= 0} onClick={stop(() => moveBy(id, -1))}>
+      <IconButton label="Monter" shortcut="Alt+↑" tipSide="top" disabled={node.place ? node.place.row <= 1 : i <= 0} onClick={stop(() => moveBy(id, -1))}>
         <ArrowUp size={14} />
       </IconButton>
-      <IconButton label="Descendre" shortcut="Alt+↓" tipSide="top" disabled={i >= siblings.length - 1} onClick={stop(() => moveBy(id, 1))}>
+      <IconButton label="Descendre" shortcut="Alt+↓" tipSide="top" disabled={!node.place && i >= siblings.length - 1} onClick={stop(() => moveBy(id, 1))}>
         <ArrowDown size={14} />
       </IconButton>
       <IconButton label="Dupliquer" shortcut="Ctrl+D" tipSide="top" onClick={stop(() => duplicate(id))}>

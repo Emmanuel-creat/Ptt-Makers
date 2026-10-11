@@ -45,6 +45,10 @@ export function useShortcuts() {
       } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && sel) {
         e.preventDefault()
         ed.moveBy(sel.id, e.key === 'ArrowUp' ? -1 : 1)
+      } else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && sel?.place) {
+        // Page en grille : décaler la brique d'une colonne.
+        e.preventDefault()
+        ed.setPlace(sel.id, { col: sel.place.col + (e.key === 'ArrowLeft' ? -1 : 1) })
       } else if (e.key === 'Escape' && sel) {
         ed.select(sel.parent)
       } else if (e.key === 'Enter' && sel && INLINE_EDITABLE.has(sel.type) && !(document.activeElement instanceof HTMLButtonElement)) {

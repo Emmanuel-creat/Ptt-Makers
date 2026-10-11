@@ -31,6 +31,22 @@ Les bords entre zones se **redimensionnent** (glisser, ou flèches du clavier ; 
 - **Déplacer** : glisse-la dans la zone de création ou dans les **calques** ; ou utilise les flèches de la barre flottante.
 - **Renommer** : double-clic dans les calques, ou dans l'en-tête du panneau Propriétés.
 
+### Placer une brique où on veut (page en grille)
+
+Par défaut, les briques d'une page s'empilent les unes sous les autres. Pour les poser librement :
+
+1. Sélectionne la page (bouton « Réglages de la page », ou clic dans un coin vide).
+2. Dans **Mise en page**, choisis la disposition **Sur une grille** (icône quadrillée).
+3. La page affiche 12 colonnes et des rangées de 40 px. Glisse une brique à l'endroit voulu : un cadre montre la case où elle va se poser (« Colonne 1, rangée 1 » pour le coin en haut à gauche), et elle s'aimante dessus.
+
+- **Déplacer** : glisse la brique ailleurs sur la grille, elle garde sa taille. `Alt + ↑ / ↓` la monte ou la descend d'une rangée, `Alt + ← / →` la décale d'une colonne.
+- **Changer la taille** : tire la petite poignée carrée en bas à droite de la brique sélectionnée, ou règle « Largeur (colonnes) » et « Hauteur (rangées) » dans les propriétés.
+- **Mettre une brique dans une autre** : au-dessus d'une carte ou d'une section posée sur la grille, dépose au centre pour entrer dedans ; près des bords, la brique se pose sur la grille.
+- **Sur mobile**, la grille serait trop étroite : les briques s'empilent dans l'ordre de lecture (de haut en bas, puis de gauche à droite).
+- Pour revenir en arrière, choisis **En pile** : les briques s'empilent à nouveau.
+
+![Une page en grille avec un bouton de menu en haut à gauche](captures/grille.png)
+
 ![Barre de menu, onglets, accordéon et icône dans la zone de création](captures/briques-avancees.png)
 
 ### Les briques avancées
@@ -143,7 +159,8 @@ Les lignes de la brique sélectionnée sont **surlignées**, et un point violet 
 | `Suppr` | Supprimer la brique |
 | `Ctrl/⌘ + D` | Dupliquer |
 | `Ctrl/⌘ + C` · `Ctrl/⌘ + V` | Copier · Coller dans la sélection |
-| `Alt + ↑` · `Alt + ↓` | Monter · Descendre |
+| `Alt + ↑` · `Alt + ↓` | Monter · Descendre (d'une rangée sur une page en grille) |
+| `Alt + ←` · `Alt + →` | Page en grille : décaler d'une colonne |
 | `Échap` | Sélectionner le parent |
 | `Entrée` | Modifier le texte sur place |
 | `?` | Aide |
