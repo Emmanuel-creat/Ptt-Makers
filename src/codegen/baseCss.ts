@@ -142,6 +142,11 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 }
 .page .check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .page .check input { width: 18px; height: 18px; accent-color: var(--couleur, #6c5ce7); }
+.page .field:has(> :required) > span:first-child::after, .page .check:has(> :required) > span::after { content: " *" / ""; color: var(--danger, #d63b4a); }
+.page .field-error { color: var(--danger, #d63b4a); font-size: 0.82rem; font-weight: 500; }
+.page .check .field-error { flex-basis: 100%; }
+.page .check:has(.field-error) { flex-wrap: wrap; }
+.page .field.is-invalid input, .page .field.is-invalid textarea, .page .field.is-invalid select { border-color: var(--danger, #d63b4a); }
 
 /* Onglets */
 .page .tabs, .page .accordion { display: flex; flex-direction: column; min-width: 0; }

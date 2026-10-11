@@ -1,7 +1,9 @@
 import { FileUp, LayoutTemplate, Lightbulb, Plus, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { DEFAULT_FIELDS, FIELD_TYPE_LABEL, addField, emptyRecord, fieldsOf, importCsv, recordsOf, removeField, toRecords, updateField } from '../model/collections'
+import { DEFAULT_FIELDS, FIELD_TYPE_LABEL, addField, emptyRecord, fieldsOf, formatField, importCsv, recordsOf, removeField, toRecords, updateField } from '../model/collections'
 import { countVariableUses } from '../model/refactor'
+import { parseExpr, readRecordField } from '../model/expressions'
+import { shownField } from '../codegen/proBricks'
 import type { CollectionField, DataRecord, FieldType, Variable, VariableKind } from '../model/types'
 import { RESERVED_NAMES, VAR_NAME_RE, coerce, convertValue, defaultValue, toVariableName, valueToText } from '../model/variables'
 import { useEditor } from '../store/editor'
@@ -267,7 +269,10 @@ function CollectionEditor({ variable: v }: { variable: Variable }) {
                 <tr key={i}>
                   {fields.map((f) => (
                     <td key={f.name}>
-                      <RecordInput field={f} value={r[f.name]} position={i + 1} onChange={(value) => setRecord(i, { ...r, [f.name]: value })} />
+                      <RecordInput
+                        field={f}
+                        value={f.type === 'formula' ? formatField(readRecordField(r, f.name, fields), shownField(f).type) : r[f.name]}
+                        position={i + 1} onChange={(value) => setRecord(i, { ...r, [f.name]: value })} />
                     </td>
                   ))}
                   <td>
@@ -326,10 +331,12 @@ function FieldRow({
 }: {
   field: CollectionField
   canRemove: boolean
-  onChange: (patch: Partial<Pick<CollectionField, 'label' | 'type'>>) => void
+  onChange: (patch: Partial<Pick<CollectionField, 'label' | 'type' | 'formula'>>) => void
   onRemove: () => void
 }) {
   const [label, setLabel] = useState(f.label)
+  const [formula, setFormula] = useState(f.formula ?? '')
+  const formulaError = f.type === 'formula' && formula.trim() !== '' && !parseExpr(formula)
   return (
     <li className="pm-coll-field">
       <input
@@ -359,6 +366,21 @@ function FieldRow({
       >
         <Trash2 size={13} />
       </button>
+      {f.type === 'formula' && (
+        <div className="pm-coll-formula">
+          <input
+            className={`pm-input ${formulaError ? 'is-invalid' : ''}`}
+            aria-label={`Formule du champ ${f.label}`}
+            placeholder="ex. prix * quantite"
+            value={formula}
+            onChange={(e) => {
+              setFormula(e.target.value)
+              if (!e.target.value.trim() || parseExpr(e.target.value)) onChange({ formula: e.target.value })
+            }}
+          />
+          {formulaError && <p className="pm-field-error">Formule incomplète</p>}
+        </div>
+      )}
     </li>
   )
 }
@@ -403,6 +425,7 @@ function RecordInput({
   onChange: (v: string | number | boolean) => void
 }) {
   const label = `${f.label} de la fiche ${position}`
+  if (f.type === 'formula') return <output className="pm-coll-computed" aria-label={label}>{String(value ?? '')}</output>
   if (f.type === 'boolean') return <input type="checkbox" aria-label={label} checked={value === true} onChange={(e) => onChange(e.target.checked)} />
   if (f.type === 'number')
     return (

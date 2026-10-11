@@ -1,11 +1,12 @@
 import { BRICKS } from '../model/bricks'
 import { iconSvg } from '../model/icons'
-import { fieldsOf, isCollection, isListLike } from '../model/collections'
-import type { Action, BrickNode, Project, Variable } from '../model/types'
+import { fieldsOf, isCollection, isListLike, normalize, type FilterOp } from '../model/collections'
+import { compileExpr, compileRecordField, exprHelpers, type CompileEnv } from '../model/expressions'
+import type { Action, BrickNode, CollectionField, Project, Variable } from '../model/types'
 import { interpolate, parseTemplate, toVariableName } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
 import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
-import { proHtml, tableSource, tabbarIcons } from './proBricks'
+import { proHtml, shownField, tableSource, tabbarIcons } from './proBricks'
 import { BREAKPOINTS, overrideEntries, styleEntries, themeEntries, themeFontsUrl } from './style'
 
 export type LineRange = [start: number, end: number]
@@ -104,6 +105,32 @@ const lines = (s: unknown) =>
     .split('\n')
     .map((x) => x.trim())
     .filter(Boolean)
+
+const INPUT_TYPES = ['text', 'email', 'number', 'date', 'password']
+
+/** Les règles d'un champ de formulaire, en attributs HTML (required, minlength, min, max). */
+function validationAttrs(node: BrickNode): { list: [string, string | true | null][]; checked: boolean } {
+  const p = node.props
+  const type = String(p.inputType || 'text')
+  const out: [string, string | true | null][] = []
+  if (p.required) out.push(['required', true])
+  const minLength = Number(p.minLength) || 0
+  if (minLength > 0 && (node.type === 'textarea' || (node.type === 'input' && type !== 'number' && type !== 'date'))) out.push(['minlength', String(minLength)])
+  if (node.type === 'input' && type === 'number') {
+    for (const k of ['min', 'max'] as const) {
+      const n = Number(String(p[k] ?? '').replace(',', '.'))
+      if (String(p[k] ?? '').trim() && Number.isFinite(n)) out.push([k, String(n)])
+    }
+  }
+  // Une adresse e-mail est toujours vérifiée, même facultative.
+  if (!out.length && !(node.type === 'input' && type === 'email')) return { list: out, checked: false }
+  out.push(['data-erreur', String(p.errorText ?? '').trim() || null])
+  return { list: out, checked: true }
+}
+
+/** La zone (cachée au départ) où s'affiche l'erreur d'un champ. */
+const errorHtml = (node: BrickNode, repeated: boolean) =>
+  `<small${attrs([['class', 'field-error'], ['id', repeated ? null : `${node.id}-erreur`], ['role', 'alert'], ['hidden', true]])}></small>`
 
 function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
   const { project } = g
@@ -264,13 +291,19 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
       const bound = variables.find((v) => v.name === p.bind)
       const value = bound ? String(bound.initial) : ''
       out.push(`${indent}<label${attrs(base)}>`)
-      out.push(`${inner}<span>${escapeHtml(String(p.label ?? ''))}</span>`)
+      const rules = validationAttrs(node)
+      // Avec un message d'erreur dans le libellé, le nom du champ reste son libellé seul.
+      const named = rules.checked && !repeated
+      out.push(`${inner}<span${attrs([['id', named ? `${node.id}-libelle` : null]])}>${escapeHtml(String(p.label ?? ''))}</span>`)
       const fieldAttrs: [string, string | true | null][] = [
         ['id', repeated ? null : `${node.id}-champ`],
         ['placeholder', node.type === 'select' ? null : String(p.placeholder ?? '')],
+        ...rules.list,
+        ['aria-labelledby', named ? `${node.id}-libelle` : null],
+        ['aria-describedby', named ? `${node.id}-erreur` : null],
       ]
       if (node.type === 'input') {
-        const type = ['text', 'email', 'number', 'date', 'password'].includes(String(p.inputType)) ? String(p.inputType) : 'text'
+        const type = INPUT_TYPES.includes(String(p.inputType)) ? String(p.inputType) : 'text'
         out.push(`${inner}<input${attrs([['type', type], ...fieldAttrs, ['value', value]])}>`)
       } else if (node.type === 'textarea') {
         out.push(`${inner}<textarea${attrs(fieldAttrs)}>${escapeHtml(value)}</textarea>`)
@@ -281,14 +314,26 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
         }
         out.push(`${inner}</select>`)
       }
+      if (rules.checked) out.push(`${inner}${errorHtml(node, repeated)}`)
       out.push(`${indent}</label>`)
       break
     }
     case 'checkbox': {
       const bound = variables.find((v) => v.name === p.bind)
       out.push(`${indent}<label${attrs(base)}>`)
-      out.push(`${inner}<input type="checkbox"${attrs([['id', repeated ? null : `${node.id}-champ`], ['checked', bound?.initial ? true : null]])}>`)
-      out.push(`${inner}<span>${escapeHtml(String(p.label ?? ''))}</span>`)
+      const rules = validationAttrs(node)
+      const named = rules.checked && !repeated
+      out.push(
+        `${inner}<input type="checkbox"${attrs([
+          ['id', repeated ? null : `${node.id}-champ`],
+          ['checked', bound?.initial ? true : null],
+          ...rules.list,
+          ['aria-labelledby', named ? `${node.id}-libelle` : null],
+          ['aria-describedby', named ? `${node.id}-erreur` : null],
+        ])}>`,
+      )
+      out.push(`${inner}<span${attrs([['id', named ? `${node.id}-libelle` : null]])}>${escapeHtml(String(p.label ?? ''))}</span>`)
+      if (rules.checked) out.push(`${inner}${errorHtml(node, repeated)}`)
       out.push(`${indent}</label>`)
       break
     }
@@ -406,8 +451,41 @@ function jsValue(v: Variable['initial']): string {
 /** {{element}}, {{element.nom}} et {{position}} : valables seulement dans une répétition. */
 const isScopeToken = (name: string) => name === 'element' || name === 'position' || name.startsWith('element.')
 
+/** element.prix → « element?.prix » ; un champ calculé de la collection parcourue devient sa formule. */
+function elementAccess(name: string, fields?: CollectionField[]): string {
+  const [, first, ...rest] = name.split('.')
+  if (first && fields?.some((f) => f.name === first && f.type === 'formula') && !rest.length) return compileRecordField('element', first, fields)
+  return name.replace(/\.([A-Za-z0-9_]+)/g, (_, k: string) => (/^\d/.test(k) ? `?.[${k}]` : `?.${k}`))
+}
+
+/** Comment une formule lit les variables, et l'élément d'une répétition. */
+function exprCompileEnv(variables: Variable[], inRepeat: boolean, fields?: CollectionField[]): CompileEnv {
+  const find = (n: string) => variables.find((v) => v.name === n)
+  return {
+    ref: (path) => {
+      const name = path.join('.')
+      if (inRepeat && isScopeToken(name)) return name === 'position' || name === 'element' ? name : elementAccess(name, fields)
+      const v = find(path[0])
+      if (!v || path.length > 1) return null
+      return isListLike(v) ? `etat.${v.name}.length` : `etat.${v.name}`
+    },
+    list: (path) => {
+      const v = find(path[0])
+      if (!v || !isListLike(v) || path.length > 2) return null
+      if (path.length === 1) return { list: `etat.${v.name}`, read: (x) => x }
+      return { list: `etat.${v.name}`, read: (x) => compileRecordField(x, path[1], v.fields) }
+    },
+    isNumber: (path) => {
+      if (inRepeat && path[0] === 'position') return true
+      if (inRepeat && path[0] === 'element' && path.length === 2) return fields?.find((f) => f.name === path[1])?.type === 'number'
+      const v = find(path[0])
+      return !!v && path.length === 1 && (v.kind === 'number' || isListLike(v))
+    },
+  }
+}
+
 /** « Bonjour {{prenom}} » → `Bonjour ${etat.prenom}` */
-function jsTemplate(text: string, variables: Variable[], inRepeat = false): string {
+function jsTemplate(text: string, variables: Variable[], inRepeat = false, fields?: CollectionField[]): string {
   const body = parseTemplate(text)
     .map((part) => {
       if (part.kind === 'var') {
@@ -416,9 +494,14 @@ function jsTemplate(text: string, variables: Variable[], inRepeat = false): stri
         if (inRepeat && isScopeToken(part.name)) {
           if (part.name === 'position') return '${position}'
           if (part.name === 'element') return '${element}'
-          return `\${${part.name.replace(/\.([A-Za-z0-9_]+)/g, (_, k: string) => (/^\d/.test(k) ? `?.[${k}]` : `?.${k}`))} ?? ""}`
+          const access = elementAccess(part.name, fields)
+          return access.startsWith('(') ? `\${enTexte${access}}` : `\${${access} ?? ""}`
         }
         return escapeTemplate(`{{${part.name}}}`)
+      }
+      if (part.kind === 'expr') {
+        const js = compileExpr(part.expr, exprCompileEnv(variables, inRepeat, fields))
+        return js == null ? escapeTemplate(`{{${part.src}}}`) : `\${enTexte(${js})}`
       }
       return escapeTemplate(part.value)
     })
@@ -427,9 +510,76 @@ function jsTemplate(text: string, variables: Variable[], inRepeat = false): stri
 }
 
 /** Le texte contient-il des {{…}} que le script doit remplacer ? */
-function needsTemplate(text: unknown, variables: Variable[], inRepeat: boolean): boolean {
+function needsTemplate(text: unknown, variables: Variable[], inRepeat: boolean, fields?: CollectionField[]): boolean {
   if (typeof text !== 'string') return false
-  return parseTemplate(text).some((p) => p.kind === 'var' && (variables.some((v) => v.name === p.name) || (inRepeat && isScopeToken(p.name))))
+  return parseTemplate(text).some(
+    (p) =>
+      (p.kind === 'var' && (variables.some((v) => v.name === p.name) || (inRepeat && isScopeToken(p.name)))) ||
+      (p.kind === 'expr' && compileExpr(p.expr, exprCompileEnv(variables, inRepeat, fields)) != null),
+  )
+}
+
+/**
+ * Les réglages « recherche, filtre, tri » d'une répétition ou d'un tableau, en JavaScript :
+ * un objet passé à vue(). null quand la brique montre la liste telle quelle.
+ */
+function viewJs(n: BrickNode, variables: Variable[], fields: CollectionField[] | undefined, indent: string): string | null {
+  const p = n.props
+  const entries: string[] = []
+  const search = variables.find((v) => v.name === p.search && !isListLike(v))
+  const read = (field: string) => compileRecordField('x', field, fields)
+  if (search) {
+    entries.push(`recherche: etat.${search.name}`)
+    const computed = (fields ?? []).filter((f) => f.type === 'formula')
+    const shown = (f: CollectionField) => {
+      const js = read(f.name)
+      return js.startsWith('(') ? `enTexte${js}` : `enTexte(${js})`
+    }
+    if (fields) entries.push(`texte: (x) => [${[...computed.map(shown), '...Object.values(x)'].join(', ')}].join(" ")`)
+  }
+  const field = String(p.filterField ?? '')
+  if (field && fields?.some((f) => f.name === field)) {
+    const op = String(p.filterOp || 'eq') as FilterOp
+    const type = fields.find((f) => f.name === field)?.type
+    const raw = String(p.filterValue ?? '')
+    const value = jsTemplate(raw, variables)
+    const isStatic = !needsTemplate(raw, variables, false)
+    const numeric = type === 'number' || type === 'formula'
+    const num = isStatic ? String(Number(raw.replace(',', '.')) || 0) : `Number(String(${value}).replace(",", "."))`
+    const text = isStatic ? jsString(normalize(raw)) : `normaliser(${value})`
+    let test: string | null = null
+    switch (op) {
+      case 'checked':
+        test = `${read(field)} === true`
+        break
+      case 'unchecked':
+        test = `${read(field)} !== true`
+        break
+      case 'contains':
+        test = `normaliser(${read(field)}).includes(${text})`
+        break
+      case 'gt':
+      case 'lt': {
+        const sign = op === 'gt' ? '>' : '<'
+        test = numeric ? `Number(${read(field)}) ${sign} ${num}` : `comparer(${read(field)}, ${isStatic ? jsString(raw) : value}) ${sign} 0`
+        break
+      }
+      default: {
+        const sign = op === 'neq' ? '!==' : '==='
+        test = type === 'number' ? `Number(${read(field)}) ${sign} ${num}` : `normaliser(${read(field)}) ${sign} ${text}`
+      }
+    }
+    const needsValue = op !== 'checked' && op !== 'unchecked'
+    if (needsValue && isStatic && !raw.trim()) test = null
+    if (test) entries.push(needsValue && !isStatic ? `filtre: ${value} === "" ? null : (x) => ${test}` : `filtre: (x) => ${test}`)
+  }
+  const sortField = String(p.sortField ?? '')
+  if (sortField && (fields ? fields.some((f) => f.name === sortField) : false)) {
+    entries.push(`tri: (x) => ${read(sortField)}`)
+    if (p.sortDir === 'desc') entries.push('inverse: true')
+  }
+  if (!entries.length) return null
+  return `{\n${entries.map((e) => `${indent}  ${e},`).join('\n')}\n${indent}}`
 }
 
 const CONDITION_LABEL: Record<Extract<Action, { type: 'if' }>['op'], string> = {
@@ -465,7 +615,11 @@ export function describeAction(a: Action, project: Project): string {
     case 'openUrl':
       return 'ouvrir un lien'
     case 'navigate':
-      return `page « ${name(a.page)} »`
+      return `page « ${name(a.page)} »${a.value?.trim() ? ' avec une valeur' : ''}`
+    case 'validate':
+      return `vérifier « ${name(a.target)} »`
+    case 'wait':
+      return `attendre ${formatDelay(a.ms)}`
     case 'listAdd':
       return `ajouter à ${a.variable}`
     case 'listRemove':
@@ -481,9 +635,29 @@ export function describeAction(a: Action, project: Project): string {
   }
 }
 
+/** 1500 → « 1,5 s », 300 → « 300 ms ». */
+function formatDelay(ms: number): string {
+  const n = Math.max(0, Number(ms) || 0)
+  return n >= 1000 ? `${String(Math.round(n / 100) / 10).replace('.', ',')} s` : `${n} ms`
+}
+
+/** Les actions doivent-elles attendre (chargement, pause) ? Leur fonction devient alors « async ». */
+export function needsAsync(actions: Action[]): boolean {
+  return actions.some((a) => a.type === 'fetch' || a.type === 'wait' || (a.type === 'if' && (needsAsync(a.then) || needsAsync(a.else))))
+}
+
+/** Une vérification de formulaire arrête les actions avec « return » : il faut être dans une fonction. */
+function needsFunction(actions: Action[]): boolean {
+  return actions.some((a) => a.type === 'validate' || (a.type === 'if' && (needsFunction(a.then) || needsFunction(a.else))))
+}
+
 /** Où se trouve l'action : dans une copie de répétition ou non. */
 interface ActionCtx {
   repeat: string | null
+  /** Champs de la collection parcourue par la répétition (champs calculés). */
+  fields?: CollectionField[]
+  /** La répétition montre une vue (filtrée ou triée) : on retrouve l'élément par lui-même, pas par sa position. */
+  byElement?: boolean
 }
 
 const indentLines = (ls: string[]) => ls.map((l) => `  ${l}`)
@@ -531,7 +705,7 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
   const vars = project.variables
   const find = (n: string) => vars.find((v) => v.name === n)
   const inRepeat = ctx.repeat != null
-  const tpl = (s: string) => jsTemplate(s, vars, inRepeat)
+  const tpl = (s: string) => jsTemplate(s, vars, inRepeat, ctx.fields)
   const missingVar = (n: string) => ({ lines: [`// Action ignorée : la variable « ${n || '?'} » n'existe pas.`], changesState: false })
   const ignored = (why: string) => ({ lines: [`// Action ignorée : ${why}`], changesState: false })
   const el = (id: string) => {
@@ -589,7 +763,16 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
     case 'navigate': {
       if (!project.pages.includes(a.page)) return ignored('la page visée n’existe plus.')
       if (project.pages.length < 2) return ignored('le projet n’a qu’une seule page.')
-      return { lines: [`allerA(${jsString(a.page)});`], changesState: false }
+      const value = a.value?.trim() ? tpl(a.value.trim()) : null
+      return { lines: [`allerA(${jsString(a.page)}${value ? `, ${value}` : ''});`], changesState: false }
+    }
+    case 'validate': {
+      if (!project.nodes[a.target]) return ignored('la brique à vérifier n’existe plus.')
+      return { lines: [`if (!verifier(${el(a.target)})) return;`], changesState: false }
+    }
+    case 'wait': {
+      const ms = Math.max(0, Math.round(Number(a.ms) || 0))
+      return { lines: [`await new Promise((suite) => setTimeout(suite, ${ms}));`], changesState: false }
     }
     case 'listAdd': {
       const v = find(a.variable)
@@ -601,7 +784,8 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
       if (!v || !isListLike(v)) return missingVar(a.variable)
       if (a.which === 'current') {
         if (!inRepeat) return ignored('« l’élément de cette copie » ne marche que dans une répétition.')
-        return { lines: [`etat.${v.name}.splice(position - 1, 1);`], changesState: true }
+        const index = ctx.byElement ? `etat.${v.name}.indexOf(element)` : 'position - 1'
+        return { lines: [`etat.${v.name}.splice(${index}, 1);`], changesState: true }
       }
       return { lines: [`etat.${v.name}.${a.which === 'first' ? 'shift' : 'pop'}();`], changesState: true }
     }
@@ -613,17 +797,17 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
     case 'if': {
       const v = find(a.variable)
       if (!v) return missingVar(a.variable)
-      const thenR = a.then.map((x) => actionLines(x, g, ctx))
-      const elseR = a.else.map((x) => actionLines(x, g, ctx))
+      const thenR = blockLines(a.then, g, ctx)
+      const elseR = blockLines(a.else, g, ctx)
       const out = [`if (${conditionExpr(a, v)}) {`]
-      out.push(...indentLines(thenR.flatMap((r) => r.lines)))
-      if (!thenR.length) out.push('  // Rien à faire')
-      if (elseR.length) {
+      out.push(...indentLines(thenR.lines))
+      if (!thenR.lines.length) out.push('  // Rien à faire')
+      if (elseR.lines.length) {
         out.push('} else {')
-        out.push(...indentLines(elseR.flatMap((r) => r.lines)))
+        out.push(...indentLines(elseR.lines))
       }
       out.push('}')
-      return { lines: out, changesState: [...thenR, ...elseR].some((r) => r.changesState) }
+      return { lines: out, changesState: thenR.changesState || elseR.changesState }
     }
     case 'fetch': {
       const v = find(a.variable)
@@ -640,16 +824,18 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
             : v.kind === 'boolean'
               ? 'Boolean(valeur)'
               : 'typeof valeur === "object" ? JSON.stringify(valeur) : String(valeur ?? "")'
+      // await : les actions suivantes attendent que les données soient arrivées.
       return {
         lines: [
-          `fetch(${tpl(a.url.trim())})`,
-          '  .then((reponse) => reponse.json())',
-          '  .then((donnees) => {',
-          `    const valeur = ${read};`,
-          `    etat.${v.name} = ${convert};`,
-          '    afficher();',
-          '  })',
-          '  .catch((erreur) => console.error("Chargement impossible :", erreur));',
+          'try {',
+          `  const reponse = await fetch(${tpl(a.url.trim())});`,
+          '  const donnees = await reponse.json();',
+          `  const valeur = ${read};`,
+          `  etat.${v.name} = ${convert};`,
+          '  afficher();',
+          '} catch (erreur) {',
+          '  console.error("Chargement impossible :", erreur);',
+          '}',
         ],
         changesState: false,
       }
@@ -658,7 +844,7 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
       const v = find(a.variable)
       if (!isCollection(v)) return missingVar(a.variable)
       const lines = [`etat.${v.name}.push({`]
-      for (const f of fieldsOf(v)) {
+      for (const f of fieldsOf(v).filter((x) => x.type !== 'formula')) {
         const raw = a.values?.[f.name] ?? ''
         const text = tpl(raw)
         let value = text
@@ -672,14 +858,28 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
   }
 }
 
-function emitActionsBlock(out: Emitter, g: Gen, actions: Action[], ctx: ActionCtx, indent: string) {
+/** Une suite d'actions ; avant une pause ou un chargement, la page est mise à jour pour montrer ce qui a déjà changé. */
+function blockLines(actions: Action[], g: Gen, ctx: ActionCtx): { lines: string[]; changesState: boolean } {
+  const lines: string[] = []
+  let pending = false
   let changes = false
   for (const a of actions) {
+    if ((a.type === 'wait' || a.type === 'fetch') && pending) {
+      lines.push('afficher();')
+      pending = false
+    }
     const r = actionLines(a, g, ctx)
+    pending ||= r.changesState
     changes ||= r.changesState
-    for (const l of r.lines) out.push(`${indent}${l}`)
+    lines.push(...r.lines)
   }
-  if (changes) out.push(`${indent}afficher();`)
+  return { lines, changesState: changes }
+}
+
+function emitActionsBlock(out: Emitter, g: Gen, actions: Action[], ctx: ActionCtx, indent: string) {
+  const r = blockLines(actions, g, ctx)
+  for (const l of r.lines) out.push(`${indent}${l}`)
+  if (r.changesState) out.push(`${indent}afficher();`)
 }
 
 /** Propriétés dont le texte peut contenir des {{…}} : [clé, propriété DOM]. */
@@ -692,6 +892,7 @@ function dynamicProps(n: BrickNode): [string, string, string?][] {
       return [
         ['label', 'querySelector(".stat-label").textContent'],
         ['value', 'querySelector(".stat-value").textContent'],
+        ...(String(n.props.delta ?? '').trim() ? [['delta', 'querySelector(".stat-delta").textContent'] as [string, string]] : []),
       ]
     case 'progress':
       return [
@@ -811,9 +1012,15 @@ function emitJs(g: Gen): string {
   for (const n of boundTables) {
     const v = tableSource(n.props, variables)!
     const start = out.line + 1
-    const champs = fieldsOf(v).map((f) => `[${jsString(f.name)}, ${jsString(f.type)}]`)
+    const fields = fieldsOf(v)
+    const champs = fields.map((f) =>
+      f.type === 'formula'
+        ? `[${jsString(f.name)}, ${jsString(shownField(f).type)}, (ligne) => ${compileRecordField('ligne', f.name, fields)}]`
+        : `[${jsString(f.name)}, ${jsString(f.type)}]`,
+    )
     out.push(`  // ${oneLine(n.name)} : une ligne par fiche de etat.${v.name}`)
-    out.push(`  rendreTableau(${jsString(n.id)}, etat.${v.name}, [${champs.join(', ')}], ${n.props.rowDelete ? 'true' : 'false'});`)
+    const view = viewJs(n, variables, fields, '  ')
+    out.push(`  rendreTableau(${jsString(n.id)}, etat.${v.name}, [${champs.join(', ')}], ${n.props.rowDelete ? 'true' : 'false'}${view ? `, ${view}` : ''});`)
     setRange(g.map, n.id, 'js', [start, out.line])
   }
   if (persisted.length) out.push('  sauvegarder();')
@@ -822,14 +1029,15 @@ function emitJs(g: Gen): string {
   if (boundTables.length) {
     out.push('')
     out.push('// Remplit un tableau avec les fiches d’une collection')
-    out.push('function rendreTableau(id, lignes, champs, suppression) {')
+    out.push('function rendreTableau(id, liste, champs, suppression, reglages) {')
     out.push('  const conteneur = document.getElementById(id);')
+    out.push('  const lignes = reglages ? vue(liste, reglages) : liste;')
     out.push('  conteneur.querySelector("tbody").replaceChildren(')
     out.push('    ...lignes.map((ligne) => {')
     out.push('      const tr = document.createElement("tr");')
-    out.push('      for (const [nom, type] of champs) {')
+    out.push('      for (const [nom, type, calcul] of champs) {')
     out.push('        const td = document.createElement("td");')
-    out.push('        td.append(cellule(ligne[nom], type));')
+    out.push('        td.append(cellule(calcul ? calcul(ligne) : ligne[nom], type));')
     out.push('        tr.append(td);')
     out.push('      }')
     out.push('      if (suppression) {')
@@ -839,7 +1047,7 @@ function emitJs(g: Gen): string {
     out.push('        bouton.className = "table-delete";')
     out.push('        bouton.textContent = "Supprimer";')
     out.push('        bouton.addEventListener("click", () => {')
-    out.push('          lignes.splice(lignes.indexOf(ligne), 1);')
+    out.push('          liste.splice(liste.indexOf(ligne), 1);')
     out.push('          afficher();')
     out.push('        });')
     out.push('        td.append(bouton);')
@@ -878,7 +1086,7 @@ function emitJs(g: Gen): string {
     out.push('  if (valeur === undefined || valeur === null || valeur === "") return "";')
     out.push('  if (type === "number") {')
     out.push('    const nombre = Number(valeur);')
-    out.push('    if (!Number.isFinite(nombre)) return String(valeur);')
+    out.push('    if (!Number.isFinite(nombre)) return Number.isNaN(nombre) ? String(valeur) : "";')
     out.push('    return String(Math.round(nombre * 100) / 100).replace(".", ",").replace(/\\B(?=(\\d{3})+(?!\\d))/g, " ");')
     out.push('  }')
     out.push('  if (type === "boolean") return valeur === true || valeur === "true" ? "Oui" : "Non";')
@@ -944,7 +1152,7 @@ function emitJs(g: Gen): string {
     for (const n of clickable) {
       const start = out.line + 1
       out.push(`// ${commentName(n)} : ${n.onClick.map((a) => describeAction(a, project)).join(', ')}`)
-      out.push(`document.getElementById(${jsString(n.id)}).addEventListener("click", () => {`)
+      out.push(`document.getElementById(${jsString(n.id)}).addEventListener("click", ${needsAsync(n.onClick) ? 'async ' : ''}() => {`)
       emitActionsBlock(out, g, n.onClick, { repeat: null }, '  ')
       out.push('});')
       setRange(g.map, n.id, 'js', [start, out.line])
@@ -956,14 +1164,34 @@ function emitJs(g: Gen): string {
     out.push(`const PAGES = [${project.pages.map(jsString).join(', ')}];`)
     out.push(`const PAGE_DEPART = ${jsString(project.rootId)};`)
     out.push('')
-    out.push('function allerA(page) {')
-    out.push('  if (location.hash === "#" + page) afficherPage();')
-    out.push('  else location.hash = page;')
+    const receivers = project.pages
+      .map((id) => project.nodes[id])
+      .map((p) => [p, variables.find((v) => v.name === p?.props.paramVar && (v.kind === 'text' || v.kind === 'number'))] as const)
+      .filter(([p, v]) => p && v)
+    if (receivers.length) {
+      out.push('// Une page peut recevoir une valeur : #fiche/Café ouvre la page « fiche » avec « Café »')
+      out.push('const VALEURS_RECUES = {')
+      for (const [p, v] of receivers) {
+        out.push(`  ${jsString(p!.id)}: (valeur) => (etat.${v!.name} = ${v!.kind === 'number' ? 'Number(valeur) || 0' : 'valeur'}),`)
+      }
+      out.push('};')
+      out.push('')
+    }
+    out.push('function allerA(page, valeur) {')
+    out.push('  const adresse = valeur === undefined || valeur === "" ? page : page + "/" + encodeURIComponent(valeur);')
+    out.push('  if (location.hash === "#" + adresse) afficherPage();')
+    out.push('  else location.hash = adresse;')
     out.push('}')
     out.push('')
     out.push('function afficherPage() {')
-    out.push('  const demandee = location.hash.slice(1);')
+    out.push('  const [demandee, ...reste] = location.hash.slice(1).split("/");')
     out.push('  const page = PAGES.includes(demandee) ? demandee : PAGE_DEPART;')
+    if (receivers.length) {
+      out.push('  if (reste.length && VALEURS_RECUES[page]) {')
+      out.push('    VALEURS_RECUES[page](decodeURIComponent(reste.join("/")));')
+      out.push('    afficher();')
+      out.push('  }')
+    }
     out.push('  for (const id of PAGES) document.getElementById(id).hidden = id !== page;')
     out.push('  window.scrollTo(0, 0);')
     if (hasNavbar || hasTabbar) {
@@ -991,7 +1219,7 @@ function emitJs(g: Gen): string {
       for (const p of loads) {
         const start = out.line + 1
         out.push(`  // ${oneLine(p.name)}`)
-        out.push(`  ${jsString(p.id)}: () => {`)
+        out.push(`  ${jsString(p.id)}: ${needsAsync(p.onLoad!) ? 'async ' : ''}() => {`)
         emitActionsBlock(out, g, p.onLoad!, { repeat: null }, '    ')
         out.push('  },')
         setRange(g.map, p.id, 'js', [start, out.line])
@@ -1125,8 +1353,94 @@ function emitJs(g: Gen): string {
     const p = loads[0]
     title('Au chargement de la page')
     const start = out.line + 1
-    emitActionsBlock(out, g, p.onLoad!, { repeat: null }, '')
+    const asyncLoad = needsAsync(p.onLoad!)
+    if (asyncLoad || needsFunction(p.onLoad!)) {
+      out.push(`(${asyncLoad ? 'async ' : ''}() => {`)
+      emitActionsBlock(out, g, p.onLoad!, { repeat: null }, '  ')
+      out.push('})();')
+    } else emitActionsBlock(out, g, p.onLoad!, { repeat: null }, '')
     setRange(g.map, p.id, 'js', [start, out.line])
+  }
+  if (/\bverifier\(/.test(out.toString())) {
+    title('Vérification des formulaires : chaque champ suit ses règles, la première erreur reçoit le curseur')
+    out.push('function verifier(zone) {')
+    out.push('  const champs = zone.matches("input, textarea, select") ? [zone] : [...zone.querySelectorAll("input, textarea, select")];')
+    out.push('  let premier = null;')
+    out.push('  for (const champ of champs) {')
+    out.push('    if (!montrerErreur(champ) && !premier) premier = champ;')
+    out.push('    if (!champ.dataset.suivi) {')
+    out.push('      // Une fois signalée, l’erreur disparaît dès que le champ est corrigé.')
+    out.push('      champ.dataset.suivi = "oui";')
+    out.push('      champ.addEventListener(champ.type === "checkbox" || champ.tagName === "SELECT" ? "change" : "input", () => montrerErreur(champ));')
+    out.push('    }')
+    out.push('  }')
+    out.push('  premier?.focus();')
+    out.push('  return !premier;')
+    out.push('}')
+    out.push('')
+    out.push('function montrerErreur(champ) {')
+    out.push('  const message = erreurDe(champ);')
+    out.push('  const boite = champ.closest("label");')
+    out.push('  const zone = boite?.querySelector(".field-error");')
+    out.push('  boite?.classList.toggle("is-invalid", Boolean(message));')
+    out.push('  champ.setAttribute("aria-invalid", String(Boolean(message)));')
+    out.push('  if (zone) {')
+    out.push('    zone.textContent = message;')
+    out.push('    zone.hidden = !message;')
+    out.push('  }')
+    out.push('  return !message;')
+    out.push('}')
+    out.push('')
+    out.push('function erreurDe(champ) {')
+    out.push('  const perso = champ.dataset.erreur;')
+    out.push('  if (champ.type === "checkbox") return champ.required && !champ.checked ? perso || "Coche cette case pour continuer." : "";')
+    out.push('  const valeur = champ.value.trim();')
+    out.push('  if (!valeur) return champ.required ? perso || "Ce champ est obligatoire." : "";')
+    out.push('  if (champ.minLength > 0 && valeur.length < champ.minLength) return perso || `Écris au moins ${champ.minLength} caractères.`;')
+    out.push('  if (champ.type === "email" && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(valeur)) return perso || "Cette adresse e-mail n’est pas valide.";')
+    out.push('  if (champ.type === "number") {')
+    out.push('    const nombre = Number(valeur.replace(",", "."));')
+    out.push('    if (Number.isNaN(nombre)) return perso || "Écris un nombre.";')
+    out.push('    if (champ.min !== "" && nombre < Number(champ.min)) return perso || `Le nombre doit être au moins ${champ.min}.`;')
+    out.push('    if (champ.max !== "" && nombre > Number(champ.max)) return perso || `Le nombre doit être au plus ${champ.max}.`;')
+    out.push('  }')
+    out.push('  return "";')
+    out.push('}')
+  }
+  if (/\bvue\(etat\.|rendreTableau\([^\n]*, \{$/m.test(out.toString())) {
+    title('Recherche, filtre et tri : la liste elle-même ne change pas, seul l’affichage suit les réglages')
+    out.push('function vue(liste, reglages) {')
+    out.push('  let elements = liste;')
+    out.push('  if (reglages.recherche) {')
+    out.push('    const mot = normaliser(reglages.recherche);')
+    out.push('    elements = elements.filter((x) => normaliser(reglages.texte ? reglages.texte(x) : x).includes(mot));')
+    out.push('  }')
+    out.push('  if (reglages.filtre) elements = elements.filter(reglages.filtre);')
+    out.push('  if (reglages.tri) {')
+    out.push('    const sens = reglages.inverse ? -1 : 1;')
+    out.push('    elements = [...elements].sort((a, b) => comparer(reglages.tri(a), reglages.tri(b)) * sens);')
+    out.push('  }')
+    out.push('  return elements;')
+    out.push('}')
+  }
+  const usesVue = /\b(vue|normaliser|comparer)\(/.test(out.toString())
+  if (usesVue) {
+    out.push('')
+    out.push('// « Épicerie » et « epicerie » sont le même mot pour la recherche')
+    out.push('function normaliser(valeur) {')
+    out.push('  return String(valeur ?? "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();')
+    out.push('}')
+    out.push('')
+    out.push('// Deux nombres se comparent comme des nombres, le reste dans l’ordre alphabétique')
+    out.push('function comparer(a, b) {')
+    out.push('  if (typeof a === "number" && typeof b === "number") return a - b;')
+    out.push('  return String(a ?? "").localeCompare(String(b ?? ""), "fr", { numeric: true });')
+    out.push('}')
+  }
+  const helpers = exprHelpers(out.toString())
+  if (helpers.length) {
+    title('Outils de calcul pour les formules')
+    for (const l of helpers) out.push(l)
   }
   return out.toString()
 }
@@ -1145,18 +1459,20 @@ function emitRepeat(out: Emitter, g: Gen, r: BrickNode, order: BrickNode[], show
   const q = (n: BrickNode) => `copie.querySelector(${jsString(`.${n.id}`)})`
   const empty = String(r.props.empty ?? '').trim()
   out.push(`  // ${oneLine(r.name)} : une copie par élément de etat.${source.name}`)
-  out.push(`  rendreListe(${jsString(r.id)}, etat.${source.name}, (copie, element, position) => {`)
+  const view = viewJs(r, variables, source.fields, '  ')
+  const list = view ? `vue(etat.${source.name}, ${view})` : `etat.${source.name}`
+  out.push(`  rendreListe(${jsString(r.id)}, ${list}, (copie, element, position) => {`)
   for (const n of members) {
     for (const [k, prop, after = ''] of dynamicProps(n)) {
-      if (needsTemplate(n.props[k], variables, true)) out.push(`    ${q(n)}.${prop} = ${jsTemplate(String(n.props[k]) + after, variables, true)};`)
+      if (needsTemplate(n.props[k], variables, true, source.fields)) out.push(`    ${q(n)}.${prop} = ${jsTemplate(String(n.props[k]) + after, variables, true, source.fields)};`)
     }
     if (n.showIf && variables.some((v) => v.name === n.showIf)) out.push(`    ${q(n)}.hidden = ${showIfExpr(n.showIf)};`)
   }
   for (const n of members.filter((m) => m.onClick.length)) {
     const s = out.line + 1
     out.push(`    // ${commentName(n)} : ${n.onClick.map((a) => describeAction(a, g.project)).join(', ')}`)
-    out.push(`    ${q(n)}.addEventListener("click", () => {`)
-    emitActionsBlock(out, g, n.onClick, { repeat: r.id }, '      ')
+    out.push(`    ${q(n)}.addEventListener("click", ${needsAsync(n.onClick) ? 'async ' : ''}() => {`)
+    emitActionsBlock(out, g, n.onClick, { repeat: r.id, fields: source.fields, byElement: !!view }, '      ')
     out.push('    });')
     setRange(g.map, n.id, 'js', [s, out.line])
   }

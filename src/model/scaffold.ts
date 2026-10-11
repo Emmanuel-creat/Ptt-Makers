@@ -5,8 +5,8 @@ import { RESERVED_NAMES, defaultValue } from './variables'
 
 /**
  * « Créer un formulaire et un tableau » pour une collection : un champ de saisie par champ
- * (chacun relié à une nouvelle variable), un bouton qui ajoute la fiche puis vide les champs,
- * et un tableau relié à la collection avec un bouton « Supprimer » par ligne.
+ * (chacun relié à une nouvelle variable), un bouton qui vérifie le formulaire, ajoute la fiche puis vide les champs,
+ * une barre de recherche et un tableau relié à la collection avec un bouton « Supprimer » par ligne.
  */
 export function scaffoldCollection(project: Project, name: string, parentId: string): { variables: Variable[]; nodes: Nodes; rootId: string } | null {
   const v = project.variables.find((x) => x.name === name)
@@ -25,7 +25,7 @@ export function scaffoldCollection(project: Project, name: string, parentId: str
   const values: Record<string, string> = {}
   const resets: Action[] = []
   const inputs: { type: BrickType; props: Record<string, PropValue> }[] = []
-  for (const f of fieldsOf(v)) {
+  for (const f of fieldsOf(v).filter((x) => x.type !== 'formula')) {
     const kind: VariableKind = f.type === 'number' ? 'number' : f.type === 'boolean' ? 'boolean' : 'text'
     const varName = unique(`${v.name}_${f.name}`)
     variables.push({ name: varName, kind, initial: defaultValue(kind) })
@@ -35,7 +35,9 @@ export function scaffoldCollection(project: Project, name: string, parentId: str
     else {
       const inputType = f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'
       const placeholder = f.type === 'image' || f.type === 'link' ? 'https://…' : f.type === 'number' ? '0' : f.label
-      inputs.push({ type: 'input', props: { label: f.label, placeholder, inputType, bind: varName } })
+      // Le premier champ texte est obligatoire : une fiche sans nom n'a pas de sens.
+      const required = !inputs.some((i) => i.props.required) && f.type === 'text'
+      inputs.push({ type: 'input', props: { label: f.label, placeholder, inputType, bind: varName, ...(required ? { required: true } : {}) } })
     }
   }
 
@@ -59,10 +61,14 @@ export function scaffoldCollection(project: Project, name: string, parentId: str
   const holder = inputs.length > 2 ? make('grid', card.id, { name: 'Champs du formulaire', props: { columns: 2 }, style: { gap: 12 } }).id : card.id
   for (const input of inputs) make(input.type, holder, { props: input.props, name: `Champ ${String(input.props.label)}` })
   const button = make('button', card.id, { name: `Ajouter à ${v.name}`, props: { text: 'Ajouter', variant: 'primary' } })
-  sub[button.id] = { ...sub[button.id], onClick: [{ type: 'addRecord', variable: v.name, values }, ...resets] }
+  sub[button.id] = { ...sub[button.id], onClick: [{ type: 'validate', target: card.id }, { type: 'addRecord', variable: v.name, values }, ...resets] }
+  // La recherche filtre le tableau sans toucher aux données.
+  const search = unique(`recherche_${v.name}`)
+  variables.push({ name: search, kind: 'text', initial: '' })
+  make('input', section.id, { name: `Recherche ${v.name}`, props: { label: 'Rechercher', placeholder: 'Un mot, une catégorie…', inputType: 'text', bind: search } })
   make('table', section.id, {
     name: `Tableau ${v.name}`,
-    props: { source: v.name, rowDelete: true, sortable: true, striped: true, empty: `Aucune fiche dans ${v.name} pour le moment.` },
+    props: { source: v.name, rowDelete: true, sortable: true, striped: true, empty: `Aucune fiche dans ${v.name} pour le moment.`, search },
   })
 
   return { variables, nodes: insertSubtree(project.nodes, sub, section.id, parentId, parent.children.length), rootId: section.id }

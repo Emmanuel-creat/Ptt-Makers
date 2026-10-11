@@ -143,6 +143,14 @@ L'action **Si… alors… sinon…** teste une variable (vraie, fausse, égale �
 
 > Exemple : *Si nouvelle n'est pas vide, alors ajouter `{{nouvelle}}` à taches et vider nouvelle, sinon afficher « Écris d'abord une tâche ».* C'est le bouton « Ajouter » du modèle **Liste de tâches**.
 
+### Vérifier un formulaire
+Chaque champ (texte, zone de texte, menu, case à cocher) a des **règles** dans ses propriétés : **Obligatoire**, **Nombre minimal de caractères**, **Nombre minimum** et **maximum** (pour un champ de type Nombre) et un **Message d'erreur** à toi. Un champ de type E-mail vérifie toujours l'adresse. Un champ obligatoire porte une petite étoile.
+
+Mets l'action **Vérifier un formulaire** en premier sur le bouton d'envoi et choisis la brique qui contient les champs (la carte du formulaire, le plus souvent). Au clic, chaque erreur s'affiche sous son champ, le curseur va sur la première, et **les actions suivantes ne sont pas faites** tant qu'une règle n'est pas respectée. L'erreur disparaît dès que le champ est corrigé. Le modèle **Formulaire de contact** le montre.
+
+### Attendre
+L'action **Attendre** fait une pause (en millisecondes : 1000 pour une seconde) avant l'action suivante. La page montre ce qui a déjà changé avant la pause : pratique pour un message « Enregistrement… » qui laisse place à « C'est fait ! ».
+
 ## Les listes
 
 1. Dans *Variables*, crée une variable de type **Liste**. Ses éléments de départ s'écrivent un par ligne.
@@ -174,6 +182,27 @@ Dans l'aperçu et l'application exportée, le bouton ajoute la fiche puis vide l
 - une **Répétition** peut parcourir une collection : « Insérer une variable » propose alors directement `{{element.nom}}`, `{{element.prix}}`… ;
 - **Retirer un élément** et **Vider une liste** marchent aussi sur une collection.
 
+### Les formules
+Un champ de type **Formule** se calcule à partir des autres champs de la fiche, comme dans un tableur : `quantite * prix`, `prix * 1,2`… Il n'est pas saisi : le formulaire ne le demande pas et le tableau l'affiche tout seul. Une formule fausse est signalée en rouge.
+
+Un **texte** peut aussi afficher un calcul entre `{{ }}` :
+
+- les opérations `+ - * / %` et les parenthèses : `{{prix * quantite}}` ;
+- `&` pour coller des textes : `{{"Bonjour " & prenom}}` ;
+- `somme`, `moyenne`, `min`, `max` et `nombre` sur une liste ou un champ de collection : `{{somme(produits.valeur)}} €`, `{{moyenne(notes)}}` ;
+- `arrondi(valeur, chiffres)` : `{{arrondi(total / 3, 2)}}`.
+
+Les nombres s'affichent à la française (1 176,6) et une division par zéro n'affiche rien.
+
+### Rechercher, filtrer, trier
+Un **Tableau** ou une **Répétition** relié à une collection a, dans ses propriétés :
+
+- **Recherche** : une variable texte, reliée à un champ de saisie. Seules les fiches qui contiennent le texte restent affichées, sans tenir compte des accents ni des majuscules (« epicerie » trouve « Épicerie »).
+- **Filtrer sur le champ**, une **condition** (égal, différent, contient, plus grand, plus petit, coché, pas coché) et une **valeur**, qui peut suivre une variable : `{{categorie_choisie}}`. Une valeur vide montre tout.
+- **Trier par** un champ, en ordre croissant ou décroissant.
+
+La collection elle-même ne change pas : seul l'affichage suit. « Créer un formulaire et un tableau » ajoute déjà une barre de recherche au-dessus du tableau.
+
 Coche **Garder dans le navigateur** sur une variable pour que l'application générée la retrouve après un rechargement de la page (elle est enregistrée dans le navigateur de la personne qui utilise l'application). Le modèle **Gestion de stock** montre tout cela.
 
 ## Plusieurs pages
@@ -181,6 +210,8 @@ Coche **Garder dans le navigateur** sur une variable pour que l'application gén
 Les **onglets au-dessus de la zone de création** listent les pages. Le bouton **+ Page** en ajoute une ; le bouton **⋯** permet de la renommer, la dupliquer, la déplacer, en faire la page d'accueil (icône Maison <img src="icones/accueil.svg" width="16" height="16" alt="">) ou la supprimer. Double-clique un onglet pour le renommer.
 
 Pour passer d'une page à l'autre : l'action **Aller sur une page**, ou un **Lien** dont le champ *Vers une page du projet* est rempli. L'aperçu s'ouvre sur la page en cours d'édition. Dans le code exporté, toutes les pages sont dans `index.html` et l'adresse se termine par `#nom-de-la-page`.
+
+**Envoyer une valeur à une page** : l'action *Aller sur une page* a un champ **en envoyant** (ex. `{{element.nom}}` sur un bouton placé dans une répétition). Dans les réglages de la page d'arrivée, choisis la **Valeur reçue dans la variable** : la valeur y est rangée à l'ouverture, et la page peut afficher `{{produit_choisi}}` ou filtrer une collection dessus. L'adresse devient `#fiche/Café`, et elle marche aussi si on la partage.
 
 ## Charger des données (API)
 
@@ -191,6 +222,8 @@ Sélectionne une page (*Réglages de la page*) puis la section **Au chargement d
 - un **chemin** facultatif pour ne garder qu'une partie de la réponse (ex. `results` ou `data.items`).
 
 Dans une répétition, `{{element.name}}` ou `{{element.address.city}}` affiche un champ de chaque élément. Le modèle **Annuaire (API)** montre tout cela avec une API de démonstration.
+
+Les actions **s'enchaînent** : après *Charger des données*, l'action suivante attend que les données soient arrivées. Tu peux donc écrire *Donner « Chargement… » à etape, Charger des données dans meteo, Donner « Prêt » à etape*. Si l'adresse ne répond pas, l'erreur est notée dans la console du navigateur et les actions continuent.
 
 ## L'assistant IA (version Pro)
 

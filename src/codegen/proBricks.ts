@@ -1,4 +1,5 @@
-import { fieldsOf, formatField, isCollection, recordsOf } from '../model/collections'
+import { applyView, fieldsOf, formatField, isCollection, recordsOf, viewOptions } from '../model/collections'
+import { formulaIsNumber, readRecordField } from '../model/expressions'
 import { iconSvg } from '../model/icons'
 import type { BrickType, CollectionField, DataRecord, PropValue, Variable } from '../model/types'
 import { escapeHtml, safeHref, safeImageSrc } from './escape'
@@ -78,6 +79,9 @@ export function recordCellHtml(value: unknown, field: CollectionField): string {
   return escapeHtml(formatField(value, field.type))
 }
 
+/** Un champ calculé s'affiche comme un nombre ou comme un texte, selon sa formule. */
+export const shownField = (f: CollectionField): CollectionField => (f.type === 'formula' ? { ...f, type: formulaIsNumber(f) ? 'number' : 'text' } : f)
+
 /** Tableau relié à une collection : une colonne par champ, une ligne par fiche. */
 export function collectionTableHtml(p: Props, fields: CollectionField[], records: DataRecord[]): string[] {
   const out = ['<table>', '  <thead>', '    <tr>']
@@ -88,7 +92,7 @@ export function collectionTableHtml(p: Props, fields: CollectionField[], records
   if (p.rowDelete) out.push('      <th scope="col"><span class="table-actions-title">Actions</span></th>')
   out.push('    </tr>', '  </thead>', '  <tbody>')
   for (const r of records) {
-    const tds = fields.map((f) => `<td>${recordCellHtml(r[f.name], f)}</td>`)
+    const tds = fields.map((f) => `<td>${recordCellHtml(readRecordField(r, f.name, fields), shownField(f))}</td>`)
     if (p.rowDelete) tds.push('<td><button type="button" class="table-delete">Supprimer</button></td>')
     out.push(`    <tr>${tds.join('')}</tr>`)
   }
@@ -331,7 +335,9 @@ export function proHtml(type: BrickType, p: Props, fill: Fill, variables: Variab
   switch (type) {
     case 'table': {
       const source = tableSource(p, variables)
-      return source ? collectionTableHtml(p, fieldsOf(source), recordsOf(source)) : tableHtml(p, fill)
+      if (!source) return tableHtml(p, fill)
+      const fields = fieldsOf(source)
+      return collectionTableHtml(p, fields, applyView(recordsOf(source), fields, viewOptions(p, variables, fill)) as DataRecord[])
     }
     case 'chart':
       return chartHtml(p)

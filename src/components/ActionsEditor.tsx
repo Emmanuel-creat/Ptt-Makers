@@ -24,12 +24,14 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   openUrl: 'Ouvrir un lien',
   fetch: 'Charger des données (API)',
   addRecord: 'Ajouter une fiche à une collection',
+  validate: 'Vérifier un formulaire',
+  wait: 'Attendre',
 }
 
 const ACTION_GROUPS: { label: string; types: ActionType[] }[] = [
   { label: 'Variables', types: ['set', 'add', 'toggleVar'] },
   { label: 'Listes et collections', types: ['listAdd', 'addRecord', 'listRemove', 'listClear'] },
-  { label: 'Logique', types: ['if'] },
+  { label: 'Logique', types: ['if', 'validate', 'wait'] },
   { label: 'Pages et briques', types: ['navigate', 'show', 'hide', 'toggle', 'scrollTo'] },
   { label: 'Autres', types: ['alert', 'openUrl', 'fetch'] },
 ]
@@ -54,6 +56,8 @@ interface Ctx {
   inRepeat: boolean
   firstVar: (kinds?: VariableKind[]) => string
   firstPage: string
+  /** La brique qui contient celle-ci : le formulaire à vérifier, le plus souvent. */
+  parentId: string
 }
 
 function defaultAction(type: ActionType, ctx: Ctx): Action {
@@ -82,6 +86,10 @@ function defaultAction(type: ActionType, ctx: Ctx): Action {
       return { type, url: 'https://' }
     case 'fetch':
       return { type, url: 'https://', variable: ctx.firstVar(['list']), path: '' }
+    case 'validate':
+      return { type, target: ctx.parentId }
+    case 'wait':
+      return { type, ms: 1000 }
     default:
       return { type, target: ctx.selfId }
   }
@@ -93,12 +101,14 @@ export function ActionsEditor({ id, field = 'onClick' }: { id: string; field?: '
   const variables = useEditor((s) => s.project.variables)
   const pages = useEditor((s) => s.project.pages)
   const inRepeat = useEditor((s) => repeatOf(s.project.nodes, id) != null)
+  const parentId = useEditor((s) => s.project.nodes[id]?.parent ?? id)
   const setActions = useEditor((s) => s.setActions)
   const ctx: Ctx = {
     selfId: id,
     inRepeat,
     firstVar: (kinds) => (kinds ? variables.find((v) => kinds.includes(v.kind)) : variables[0])?.name ?? '',
     firstPage: pages.find((p) => p !== id) ?? pages[0],
+    parentId,
   }
   const onChange = (next: Action[]) => setActions(id, next, field)
   const firstKind = variables.find((v) => v.kind === 'number') ? 'add' : variables.length ? 'set' : 'alert'
@@ -224,7 +234,38 @@ function ActionFields({ action: a, onChange, ctx }: { action: Action; onChange: 
     case 'if':
       return <IfFields action={a} onChange={onChange} ctx={ctx} />
     case 'navigate':
-      return <PageSelect value={a.page} onChange={(page) => onChange({ ...a, page })} />
+      return (
+        <>
+          <PageSelect value={a.page} onChange={(page) => onChange({ ...a, page })} />
+          <div className="pm-inline">
+            <span>en envoyant</span>
+            <TextInput
+              value={a.value ?? ''}
+              dynamic
+              placeholder={ctx.inRepeat ? '(facultatif) {{element.nom}}' : '(facultatif) {{choix}}'}
+              onChange={(value) => onChange({ ...a, value })}
+            />
+          </div>
+          {a.value?.trim() && <p className="pm-row-help">La page reçoit cette valeur dans la variable choisie dans ses propriétés (« Valeur reçue dans la variable »).</p>}
+        </>
+      )
+    case 'validate':
+      return (
+        <>
+          <TargetSelect value={a.target} onChange={(target) => onChange({ ...a, target })} />
+          <p className="pm-row-help">
+            Vérifie les champs de cette brique (obligatoire, longueur, e-mail, nombre). S’il y a une erreur, elle s’affiche sous le champ et les actions
+            suivantes ne sont pas faites.
+          </p>
+        </>
+      )
+    case 'wait':
+      return (
+        <div className="pm-inline">
+          <NumberInput value={a.ms} unit="ms" min={0} max={600000} placeholder="1000" onChange={(v) => onChange({ ...a, ms: v ?? 0 })} />
+          <span className="pm-muted">puis les actions suivantes</span>
+        </div>
+      )
     case 'show':
     case 'hide':
     case 'toggle':
@@ -257,7 +298,7 @@ function ActionFields({ action: a, onChange, ctx }: { action: Action; onChange: 
 
 function AddRecordFields({ action: a, onChange }: { action: Extract<Action, { type: 'addRecord' }>; onChange: (a: Action) => void }) {
   const variable = useEditor((s) => s.project.variables.find((v) => v.name === a.variable))
-  const fields = variable && isCollection(variable) ? fieldsOf(variable) : []
+  const fields = variable && isCollection(variable) ? fieldsOf(variable).filter((f) => f.type !== 'formula') : []
   return (
     <>
       <VariableSelect value={a.variable} kinds={['collection']} placeholder="Choisir une collection…" onChange={(v) => onChange({ ...a, variable: v })} />

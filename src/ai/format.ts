@@ -94,6 +94,8 @@ const ACTION_TYPES: Action['type'][] = [
   'addRecord',
   'if',
   'fetch',
+  'validate',
+  'wait',
 ]
 const BRICK_TYPES = (Object.keys(BRICKS) as BrickType[]).filter((t) => t !== 'page')
 const STYLE_KEYS: (keyof BrickStyle)[] = [
@@ -253,7 +255,11 @@ function toAction(a: AiBaseAction | AiAction): Action | null {
     case 'openUrl':
       return { type: 'openUrl', url: a.url }
     case 'navigate':
-      return { type: 'navigate', page: at(a.page) }
+      return a.value ? { type: 'navigate', page: at(a.page), value: a.value } : { type: 'navigate', page: at(a.page) }
+    case 'validate':
+      return { type: 'validate', target: at(a.target) }
+    case 'wait':
+      return { type: 'wait', ms: Number.isFinite(a.amount) && a.amount > 0 ? a.amount : 1000 }
     case 'listAdd':
       return { type: 'listAdd', variable: a.variable, value: a.value }
     case 'listRemove':
@@ -319,7 +325,7 @@ function toVariable(v: AiVariable): Variable | null {
           )
         : []
       const fields = given.length
-        ? given.map((f) => ({ name: f.name, label: String(f.label || f.name), type: f.type }))
+        ? given.map((f) => ({ name: f.name, label: String(f.label || f.name), type: f.type, ...(f.type === 'formula' ? { formula: String(f.formula ?? '') } : {}) }))
         : records.length
           ? inferFields(records)
           : DEFAULT_FIELDS
@@ -421,6 +427,10 @@ function fromAction(a: Action): AiAction {
   if (a.type === 'addRecord') {
     delete (full as Partial<AiAction> & { values?: unknown }).values
     full.value = JSON.stringify(a.values ?? {})
+  }
+  if (a.type === 'wait') {
+    delete (full as Partial<AiAction> & { ms?: unknown }).ms
+    full.amount = a.ms
   }
   if (a.type === 'if') {
     full.then = a.then.map((x) => ({ ...fromAction(x), type: x.type as AiBaseAction['type'] }))
