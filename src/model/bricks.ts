@@ -1,0 +1,366 @@
+import type { BrickStyle, BrickType, Category, PropValue } from './types'
+
+export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url'
+
+export interface FieldDef {
+  key: string
+  label: string
+  kind: FieldKind
+  options?: { value: string; label: string }[]
+  placeholder?: string
+  help?: string
+  /** Le texte accepte les variables {{nom}}. */
+  dynamic?: boolean
+}
+
+export interface BrickDef {
+  type: BrickType
+  label: string
+  category: Category
+  /** Nom de l'icône lucide (voir components/BrickIcon). */
+  icon: string
+  description: string
+  /** Peut contenir d'autres briques. */
+  container: boolean
+  /** Préfixe des identifiants générés (ex. « bouton » → bouton-1). */
+  idPrefix: string
+  fields: FieldDef[]
+  defaultProps: Record<string, PropValue>
+  defaultStyle: BrickStyle
+}
+
+export interface CategoryDef {
+  id: Category
+  label: string
+  description: string
+}
+
+export const CATEGORIES: CategoryDef[] = [
+  { id: 'structure', label: 'Structure', description: 'Organisent la page et regroupent les autres briques.' },
+  { id: 'texte', label: 'Texte', description: 'Affichent des titres, paragraphes, liens et listes.' },
+  { id: 'interaction', label: 'Interaction', description: "Réagissent aux actions de l'utilisateur." },
+  { id: 'medias', label: 'Médias', description: 'Images et éléments de mise en forme.' },
+]
+
+export const BRICKS: Record<BrickType, BrickDef> = {
+  page: {
+    type: 'page',
+    label: 'Page',
+    category: 'structure',
+    icon: 'file',
+    description: 'La page entière. Tout le projet est construit à l’intérieur.',
+    container: true,
+    idPrefix: 'page',
+    fields: [{ key: 'title', label: "Titre de l'onglet", kind: 'text' }],
+    defaultProps: { title: 'Mon projet' },
+    defaultStyle: { direction: 'column', gap: 16, padding: 24, background: '#ffffff', color: '#1b1d29' },
+  },
+  section: {
+    type: 'section',
+    label: 'Section',
+    category: 'structure',
+    icon: 'square',
+    description: 'Un grand bloc de page qui empile son contenu verticalement.',
+    container: true,
+    idPrefix: 'section',
+    fields: [],
+    defaultProps: {},
+    defaultStyle: { direction: 'column', gap: 12, padding: 24, borderRadius: 12 },
+  },
+  row: {
+    type: 'row',
+    label: 'Ligne',
+    category: 'structure',
+    icon: 'columns',
+    description: 'Place les briques côte à côte, de gauche à droite.',
+    container: true,
+    idPrefix: 'ligne',
+    fields: [],
+    defaultProps: {},
+    defaultStyle: { direction: 'row', gap: 12, align: 'center', wrap: true },
+  },
+  stack: {
+    type: 'stack',
+    label: 'Colonne',
+    category: 'structure',
+    icon: 'rows',
+    description: 'Empile les briques les unes sous les autres.',
+    container: true,
+    idPrefix: 'colonne',
+    fields: [],
+    defaultProps: {},
+    defaultStyle: { direction: 'column', gap: 8 },
+  },
+  grid: {
+    type: 'grid',
+    label: 'Grille',
+    category: 'structure',
+    icon: 'grid',
+    description: 'Range les briques dans une grille de colonnes égales.',
+    container: true,
+    idPrefix: 'grille',
+    fields: [{ key: 'columns', label: 'Nombre de colonnes', kind: 'number' }],
+    defaultProps: { columns: 3 },
+    defaultStyle: { gap: 16 },
+  },
+  card: {
+    type: 'card',
+    label: 'Carte',
+    category: 'structure',
+    icon: 'card',
+    description: 'Un encadré avec fond, bordure arrondie et ombre légère.',
+    container: true,
+    idPrefix: 'carte',
+    fields: [],
+    defaultProps: {},
+    defaultStyle: {
+      direction: 'column',
+      gap: 8,
+      padding: 20,
+      background: '#ffffff',
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: '#e4e6ef',
+      shadow: 'sm',
+    },
+  },
+  heading: {
+    type: 'heading',
+    label: 'Titre',
+    category: 'texte',
+    icon: 'heading',
+    description: 'Un titre pour introduire une partie de la page.',
+    container: false,
+    idPrefix: 'titre',
+    fields: [
+      { key: 'text', label: 'Texte', kind: 'text', dynamic: true },
+      {
+        key: 'level',
+        label: 'Niveau',
+        kind: 'select',
+        options: [
+          { value: '1', label: 'Titre principal (H1)' },
+          { value: '2', label: 'Sous-titre (H2)' },
+          { value: '3', label: 'Petit titre (H3)' },
+        ],
+      },
+    ],
+    defaultProps: { text: 'Un titre accrocheur', level: '2' },
+    defaultStyle: {},
+  },
+  text: {
+    type: 'text',
+    label: 'Paragraphe',
+    category: 'texte',
+    icon: 'text',
+    description: 'Un bloc de texte courant.',
+    container: false,
+    idPrefix: 'texte',
+    fields: [{ key: 'text', label: 'Texte', kind: 'textarea', dynamic: true }],
+    defaultProps: { text: 'Écris ici ton texte. Tu peux afficher une variable avec {{nom}}.' },
+    defaultStyle: {},
+  },
+  link: {
+    type: 'link',
+    label: 'Lien',
+    category: 'texte',
+    icon: 'link',
+    description: 'Un texte cliquable qui mène vers une autre adresse.',
+    container: false,
+    idPrefix: 'lien',
+    fields: [
+      { key: 'text', label: 'Texte', kind: 'text', dynamic: true },
+      { key: 'href', label: 'Adresse', kind: 'url', placeholder: 'https://…' },
+      { key: 'newTab', label: 'Ouvrir dans un nouvel onglet', kind: 'boolean' },
+    ],
+    defaultProps: { text: 'En savoir plus', href: 'https://example.com', newTab: true },
+    defaultStyle: {},
+  },
+  badge: {
+    type: 'badge',
+    label: 'Étiquette',
+    category: 'texte',
+    icon: 'tag',
+    description: 'Un petit mot mis en valeur (nouveau, promo, statut…).',
+    container: false,
+    idPrefix: 'etiquette',
+    fields: [{ key: 'text', label: 'Texte', kind: 'text', dynamic: true }],
+    defaultProps: { text: 'Nouveau' },
+    defaultStyle: {},
+  },
+  list: {
+    type: 'list',
+    label: 'Liste',
+    category: 'texte',
+    icon: 'list',
+    description: 'Une liste à puces ou numérotée. Un élément par ligne.',
+    container: false,
+    idPrefix: 'liste',
+    fields: [
+      { key: 'items', label: 'Éléments (un par ligne)', kind: 'textarea' },
+      { key: 'ordered', label: 'Liste numérotée', kind: 'boolean' },
+    ],
+    defaultProps: { items: 'Premier point\nDeuxième point\nTroisième point', ordered: false },
+    defaultStyle: {},
+  },
+  button: {
+    type: 'button',
+    label: 'Bouton',
+    category: 'interaction',
+    icon: 'button',
+    description: 'Un bouton qui déclenche des actions quand on clique dessus.',
+    container: false,
+    idPrefix: 'bouton',
+    fields: [
+      { key: 'text', label: 'Texte', kind: 'text', dynamic: true },
+      {
+        key: 'variant',
+        label: 'Apparence',
+        kind: 'select',
+        options: [
+          { value: 'primary', label: 'Principal' },
+          { value: 'secondary', label: 'Secondaire' },
+          { value: 'ghost', label: 'Discret' },
+        ],
+      },
+    ],
+    defaultProps: { text: 'Cliquer ici', variant: 'primary' },
+    defaultStyle: {},
+  },
+  input: {
+    type: 'input',
+    label: 'Champ texte',
+    category: 'interaction',
+    icon: 'input',
+    description: 'Une case où l’utilisateur peut écrire. Relie-la à une variable.',
+    container: false,
+    idPrefix: 'champ',
+    fields: [
+      { key: 'label', label: 'Libellé', kind: 'text' },
+      { key: 'placeholder', label: 'Texte indicatif', kind: 'text' },
+      {
+        key: 'inputType',
+        label: 'Type',
+        kind: 'select',
+        options: [
+          { value: 'text', label: 'Texte' },
+          { value: 'email', label: 'E-mail' },
+          { value: 'number', label: 'Nombre' },
+          { value: 'password', label: 'Mot de passe' },
+        ],
+      },
+      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable', help: 'Ce qui est écrit met à jour la variable.' },
+    ],
+    defaultProps: { label: 'Ton prénom', placeholder: 'Ex. Camille', inputType: 'text', bind: '' },
+    defaultStyle: {},
+  },
+  textarea: {
+    type: 'textarea',
+    label: 'Zone de texte',
+    category: 'interaction',
+    icon: 'textarea',
+    description: 'Un grand champ pour écrire plusieurs lignes.',
+    container: false,
+    idPrefix: 'zone',
+    fields: [
+      { key: 'label', label: 'Libellé', kind: 'text' },
+      { key: 'placeholder', label: 'Texte indicatif', kind: 'text' },
+      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable' },
+    ],
+    defaultProps: { label: 'Message', placeholder: 'Écris ton message…', bind: '' },
+    defaultStyle: {},
+  },
+  checkbox: {
+    type: 'checkbox',
+    label: 'Case à cocher',
+    category: 'interaction',
+    icon: 'checkbox',
+    description: 'Une case oui/non. Idéale avec une variable vrai/faux.',
+    container: false,
+    idPrefix: 'case',
+    fields: [
+      { key: 'label', label: 'Libellé', kind: 'text' },
+      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable' },
+    ],
+    defaultProps: { label: "J'accepte les conditions", bind: '' },
+    defaultStyle: {},
+  },
+  select: {
+    type: 'select',
+    label: 'Menu déroulant',
+    category: 'interaction',
+    icon: 'select',
+    description: 'Une liste de choix. Un choix par ligne.',
+    container: false,
+    idPrefix: 'menu',
+    fields: [
+      { key: 'label', label: 'Libellé', kind: 'text' },
+      { key: 'options', label: 'Choix (un par ligne)', kind: 'textarea' },
+      { key: 'bind', label: 'Enregistrer dans la variable', kind: 'variable' },
+    ],
+    defaultProps: { label: 'Ton choix', options: 'Option A\nOption B\nOption C', bind: '' },
+    defaultStyle: {},
+  },
+  image: {
+    type: 'image',
+    label: 'Image',
+    category: 'medias',
+    icon: 'image',
+    description: 'Affiche une image à partir de son adresse.',
+    container: false,
+    idPrefix: 'image',
+    fields: [
+      { key: 'src', label: "Adresse de l'image", kind: 'url', placeholder: 'https://…' },
+      { key: 'alt', label: 'Description (accessibilité)', kind: 'text', help: 'Lue par les lecteurs d’écran.' },
+    ],
+    defaultProps: { src: '', alt: 'Illustration' },
+    defaultStyle: { width: '100%', borderRadius: 12 },
+  },
+  divider: {
+    type: 'divider',
+    label: 'Séparateur',
+    category: 'medias',
+    icon: 'divider',
+    description: 'Une ligne horizontale pour séparer deux parties.',
+    container: false,
+    idPrefix: 'separateur',
+    fields: [],
+    defaultProps: {},
+    defaultStyle: {},
+  },
+  spacer: {
+    type: 'spacer',
+    label: 'Espace',
+    category: 'medias',
+    icon: 'spacer',
+    description: 'Un espace vide pour aérer la mise en page.',
+    container: false,
+    idPrefix: 'espace',
+    fields: [],
+    defaultProps: {},
+    defaultStyle: { height: '32px' },
+  },
+}
+
+export const PALETTE_ORDER: BrickType[] = [
+  'section',
+  'row',
+  'stack',
+  'grid',
+  'card',
+  'heading',
+  'text',
+  'link',
+  'badge',
+  'list',
+  'button',
+  'input',
+  'textarea',
+  'checkbox',
+  'select',
+  'image',
+  'divider',
+  'spacer',
+]
+
+export const isContainer = (type: BrickType) => BRICKS[type].container

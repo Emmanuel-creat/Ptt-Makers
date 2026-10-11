@@ -1,0 +1,115 @@
+/* ==========================================================================
+   Ptt-Makers · Jetons de design (couleurs, typographie, rayons, ombres)
+   ========================================================================== */
+
+:root {
+  --pm-font: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --pm-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --pm-radius-lg: 14px;
+  --pm-radius: 10px;
+  --pm-radius-sm: 7px;
+  --pm-topbar-h: 56px;
+
+  /* Familles de briques : chaque famille a sa couleur, partout dans l'interface. */
+  --cat-structure: #6c5ce7;
+  --cat-texte: #0b9bd8;
+  --cat-interaction: #0fa678;
+  --cat-medias: #e8900c;
+
+  --pm-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --pm-bg: #f3f4f8;
+  --pm-surface: #ffffff;
+  --pm-surface-2: #f7f8fb;
+  --pm-surface-3: #eef0f6;
+  --pm-hover: #f0f1f7;
+  --pm-border: #e3e6ee;
+  --pm-border-strong: #cdd2df;
+  --pm-text: #191b26;
+  --pm-text-2: #474c60;
+  --pm-muted: #6f758b;
+  --pm-brand: #6c5ce7;
+  --pm-brand-hover: #5a4ad6;
+  --pm-brand-soft: #efecff;
+  --pm-brand-text: #4f3fd0;
+  --pm-on-brand: #ffffff;
+  --pm-focus: rgba(108, 92, 231, 0.42);
+  --pm-danger: #d93d42;
+  --pm-danger-soft: #fdeced;
+  --pm-success: #0f9c74;
+  --pm-canvas: #e8eaf1;
+  --pm-canvas-dot: #d3d7e3;
+  --pm-overlay: rgba(17, 19, 28, 0.42);
+  --pm-shadow-1: 0 1px 2px rgba(20, 24, 40, 0.06), 0 1px 3px rgba(20, 24, 40, 0.06);
+  --pm-shadow-2: 0 10px 30px rgba(20, 24, 40, 0.12), 0 2px 6px rgba(20, 24, 40, 0.06);
+  --pm-shadow-3: 0 24px 60px rgba(20, 24, 40, 0.22);
+
+  --code-bg: #fbfbfe;
+  --code-line: #f3f1ff;
+  --code-gutter: #a0a6b8;
+  --tok-comment: #8a8fa3;
+  --tok-string: #0f8a5f;
+  --tok-number: #c2410c;
+  --tok-keyword: #7c3aed;
+  --tok-fn: #0369a1;
+  --tok-var: #b45309;
+  --tok-tag: #be185d;
+  --tok-attr: #7c3aed;
+  --tok-prop: #0369a1;
+  --tok-selector: #be185d;
+  --tok-punct: #6b7280;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --pm-bg: #0d0f15;
+  --pm-surface: #151821;
+  --pm-surface-2: #1a1e29;
+  --pm-surface-3: #222736;
+  --pm-hover: #1f2431;
+  --pm-border: #262b3a;
+  --pm-border-strong: #353b4f;
+  --pm-text: #e9ebf4;
+  --pm-text-2: #b5bacb;
+  --pm-muted: #8a91a8;
+  --pm-brand: #8a7bff;
+  --pm-brand-hover: #9d90ff;
+  --pm-brand-soft: rgba(138, 123, 255, 0.16);
+  --pm-brand-text: #b0a6ff;
+  --pm-on-brand: #ffffff;
+  --pm-focus: rgba(138, 123, 255, 0.5);
+  --pm-danger: #ff6b70;
+  --pm-danger-soft: rgba(255, 107, 112, 0.14);
+  --pm-success: #34d3a4;
+  --pm-canvas: #0a0c11;
+  --pm-canvas-dot: #1d2130;
+  --pm-overlay: rgba(0, 0, 0, 0.6);
+  --pm-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --pm-shadow-2: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --pm-shadow-3: 0 28px 70px rgba(0, 0, 0, 0.6);
+
+  --cat-structure: #8a7bff;
+  --cat-texte: #38bdf8;
+  --cat-interaction: #34d399;
+  --cat-medias: #fbbf24;
+
+  --code-bg: #10131b;
+  --code-line: rgba(138, 123, 255, 0.14);
+  --code-gutter: #4d5468;
+  --tok-comment: #6b7390;
+  --tok-string: #7ee2b8;
+  --tok-number: #fdba74;
+  --tok-keyword: #c4b5fd;
+  --tok-fn: #7dd3fc;
+  --tok-var: #fcd34d;
+  --tok-tag: #f9a8d4;
+  --tok-attr: #c4b5fd;
+  --tok-prop: #7dd3fc;
+  --tok-selector: #f9a8d4;
+  --tok-punct: #8b93a7;
+}
