@@ -32,6 +32,14 @@ export function Canvas() {
     return () => ro.disconnect()
   }, [])
 
+  // Amène la brique sélectionnée à l'écran (ajout par clic, sélection dans les calques…).
+  const selectedId = useEditor((s) => s.selectedId)
+  useEffect(() => {
+    if (!selectedId) return
+    const el = wrapRef.current?.querySelector(`[data-ptt-id="${CSS.escape(selectedId)}"]`)
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selectedId])
+
   const onClick = (e: React.MouseEvent) => {
     const el = closestNode(e.target)
     if (!el) return

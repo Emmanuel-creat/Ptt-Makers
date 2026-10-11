@@ -107,3 +107,21 @@ test('modifier un texte directement dans la zone de création', async ({ page })
   await page.keyboard.press('Enter')
   await expect(page.getByLabel('Texte', { exact: true })).toHaveValue('Écrit sur place')
 })
+
+test.describe('sur mobile', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('une zone à la fois, avec la barre d’onglets en bas', async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await page.getByRole('button', { name: 'Outils' }).click()
+    await page.locator('.pm-tile', { hasText: 'Titre' }).click()
+    // Après l'ajout, on revient automatiquement à la zone de création.
+    await expect(page.locator('.pm-frame [data-ptt-id="titre-6"]')).toBeVisible()
+    await page.getByRole('button', { name: 'Propriétés' }).click()
+    await page.getByLabel('Texte', { exact: true }).fill('Créé sur mobile')
+    await page.getByRole('button', { name: 'Aperçu' }).click()
+    await expect(preview(page).locator('#titre-6')).toHaveText('Créé sur mobile')
+  })
+})

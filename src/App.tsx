@@ -1,31 +1,34 @@
-import { Blocks, Braces, Layers as LayersIcon, PanelBottomClose, PanelLeftClose, PanelRightClose, SlidersHorizontal } from 'lucide-react'
+import { PanelBottomClose, PanelRightClose, SlidersHorizontal } from 'lucide-react'
+import { ToolsPanel } from './components/ToolsPanel'
 import { Canvas } from './components/Canvas'
 import { Dialogs } from './components/Dialogs'
 import { Dock } from './components/Dock'
 import { Inspector } from './components/Inspector'
-import { Layers } from './components/Layers'
 import { Onboarding } from './components/Onboarding'
-import { Palette } from './components/Palette'
 import { Splitter } from './components/Splitter'
 import { Toast } from './components/Toast'
 import { PanelToggle, TopBar } from './components/TopBar'
 import { IconButton } from './components/ui'
-import { VariablesPanel } from './components/VariablesPanel'
 import { useShortcuts, useTheme } from './hooks/useShortcuts'
-import { useEditor } from './store/editor'
-import { DEFAULT_LAYOUT, useWorkspace, type LeftTab } from './store/workspace'
-
-const LEFT_TABS: { id: LeftTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'bricks', label: 'Briques', icon: <Blocks size={15} /> },
-  { id: 'layers', label: 'Calques', icon: <LayersIcon size={15} /> },
-  { id: 'variables', label: 'Variables', icon: <Braces size={15} /> },
-]
+import { MobileLayout } from './components/MobileLayout'
+import { useIsMobile } from './hooks/useIsMobile'
+import { DEFAULT_LAYOUT, useWorkspace } from './store/workspace'
 
 export default function App() {
   useTheme()
   useShortcuts()
   const ws = useWorkspace()
-  const varCount = useEditor((s) => s.project.variables.length)
+  const mobile = useIsMobile()
+  if (mobile) {
+    return (
+      <div className="pm-app is-mobile">
+        <TopBar compact />
+        <MobileLayout />
+        <Dialogs />
+        <Toast />
+      </div>
+    )
+  }
   const dockRight = ws.dockPosition === 'right'
 
   const dock = (
@@ -63,32 +66,7 @@ export default function App() {
         ) : (
           <>
             <aside className="pm-panel pm-left" style={{ width: ws.leftWidth }} data-tour="bricks" aria-label="Outils">
-              <div className="pm-panel-head">
-                <div className="pm-tabs" role="tablist" aria-label="Outils">
-                  {LEFT_TABS.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={ws.leftTab === t.id}
-                      className="pm-tab"
-                      onClick={() => ws.set({ leftTab: t.id })}
-                    >
-                      {t.icon}
-                      {t.label}
-                      {t.id === 'variables' && varCount > 0 && <span className="pm-count">{varCount}</span>}
-                    </button>
-                  ))}
-                </div>
-                <IconButton label="Replier le panneau" tipSide="right" onClick={() => ws.set({ leftCollapsed: true })}>
-                  <PanelLeftClose size={16} />
-                </IconButton>
-              </div>
-              <div className="pm-panel-body">
-                {ws.leftTab === 'bricks' && <Palette />}
-                {ws.leftTab === 'layers' && <Layers />}
-                {ws.leftTab === 'variables' && <VariablesPanel />}
-              </div>
+              <ToolsPanel onCollapse={() => ws.set({ leftCollapsed: true })} />
             </aside>
             <Splitter
               axis="x"
