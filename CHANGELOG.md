@@ -2,6 +2,21 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.2.0] : 2026-10-11
+
+Des sites plus riches et mieux rangés : six nouvelles briques, un thème, des blocs réutilisables, des réglages par écran et plusieurs projets.
+
+### Ajouté
+- **Nouvelles briques** : Onglets, Accordéon (questions-réponses), Fenêtre (modale à ouvrir par une action), Barre de menu (liens vers toutes les pages, page affichée mise en avant), Vidéo (YouTube ou fichier `.mp4`/`.webm`) et Icône (emoji). Les briques à contenu arrivent avec un exemple prêt à modifier.
+- **Thème du projet** (réglages de la page) : couleur principale, arrondi et police, appliqués aux boutons, liens, onglets et champs.
+- **Mes composants** : un bouton enregistre la brique sélectionnée et son contenu ; le bloc apparaît dans la bibliothèque, à glisser ou ajouter d'un clic autant de fois que voulu.
+- **Réglages par format** : dans les propriétés, « Style pour » tous les écrans, la tablette ou le mobile, et « Masquer sur ce format ». Le CSS exporté contient les `@media` correspondants.
+- **Mes projets** : plusieurs projets enregistrés dans le navigateur (ouvrir, dupliquer, supprimer). Un modèle ou un import crée un nouveau projet au lieu d'écraser l'actuel. `Ctrl/⌘ + S` enregistre tout de suite.
+- Tests : 50 tests unitaires et 15 tests de bout en bout.
+
+### Modifié
+- L'ancien projet unique est repris automatiquement comme premier projet de « Mes projets ».
+
 ## [1.1.0] : 2026-10-11
 
 Ptt-Makers sait maintenant créer de vraies petites applications : plusieurs pages, des listes, de la logique et des données venues d'Internet.

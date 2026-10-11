@@ -1,6 +1,6 @@
 import type { BrickStyle, BrickType, Category, PropValue, VariableKind } from './types'
 
-export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url' | 'page'
+export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'variable' | 'url' | 'page' | 'emoji'
 
 export interface FieldDef {
   key: string
@@ -13,6 +13,15 @@ export interface FieldDef {
   dynamic?: boolean
   /** Champ « variable » : types de variables acceptés. */
   kinds?: VariableKind[]
+}
+
+/** Contenu de départ ajouté avec une brique (ex. deux onglets dans « Onglets »). */
+export interface StarterSpec {
+  type: BrickType
+  name?: string
+  props?: Record<string, PropValue>
+  style?: BrickStyle
+  children?: StarterSpec[]
 }
 
 export interface BrickDef {
@@ -29,6 +38,7 @@ export interface BrickDef {
   fields: FieldDef[]
   defaultProps: Record<string, PropValue>
   defaultStyle: BrickStyle
+  starter?: StarterSpec[]
 }
 
 export interface CategoryDef {
@@ -141,6 +151,66 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     ],
     defaultProps: { source: '', columns: 1, empty: '' },
     defaultStyle: { direction: 'column', gap: 10 },
+  },
+  tabs: {
+    type: 'tabs',
+    label: 'Onglets',
+    category: 'structure',
+    icon: 'tabs',
+    description: 'Range le contenu en onglets. Chaque brique placée dedans devient un onglet, son nom en est le titre.',
+    container: true,
+    idPrefix: 'onglets',
+    fields: [],
+    defaultProps: {},
+    defaultStyle: { gap: 12 },
+    starter: [
+      { type: 'stack', name: 'Premier onglet', children: [{ type: 'text', props: { text: 'Contenu du premier onglet.' } }] },
+      { type: 'stack', name: 'Deuxième onglet', children: [{ type: 'text', props: { text: 'Contenu du deuxième onglet.' } }] },
+    ],
+  },
+  accordion: {
+    type: 'accordion',
+    label: 'Accordéon',
+    category: 'structure',
+    icon: 'accordion',
+    description: 'Des volets qui s’ouvrent et se ferment (FAQ…). Chaque brique placée dedans est un volet, son nom en est le titre.',
+    container: true,
+    idPrefix: 'accordeon',
+    fields: [{ key: 'firstOpen', label: 'Premier volet ouvert au départ', kind: 'boolean' }],
+    defaultProps: { firstOpen: true },
+    defaultStyle: { gap: 8 },
+    starter: [
+      { type: 'stack', name: 'Comment ça marche ?', children: [{ type: 'text', props: { text: 'Une réponse claire et courte.' } }] },
+      { type: 'stack', name: 'Est-ce gratuit ?', children: [{ type: 'text', props: { text: 'Oui, entièrement.' } }] },
+    ],
+  },
+  modal: {
+    type: 'modal',
+    label: 'Fenêtre',
+    category: 'structure',
+    icon: 'modal',
+    description: 'Une fenêtre qui s’ouvre par-dessus la page avec l’action « Afficher une brique ». Cachée au départ.',
+    container: true,
+    idPrefix: 'fenetre',
+    fields: [{ key: 'label', label: 'Titre pour les lecteurs d’écran', kind: 'text' }],
+    defaultProps: { label: 'Fenêtre' },
+    defaultStyle: { direction: 'column', gap: 12, padding: 28, background: '#ffffff', borderRadius: 16, maxWidth: '480px' },
+    starter: [
+      { type: 'heading', props: { text: 'Bonne nouvelle !', level: '2' } },
+      { type: 'text', props: { text: 'Écris ici le message de ta fenêtre.' } },
+    ],
+  },
+  navbar: {
+    type: 'navbar',
+    label: 'Barre de menu',
+    category: 'structure',
+    icon: 'navbar',
+    description: 'Une barre de navigation avec un lien vers chaque page du projet, mise à jour automatiquement.',
+    container: false,
+    idPrefix: 'menu-nav',
+    fields: [{ key: 'brand', label: 'Nom affiché à gauche', kind: 'text', dynamic: true }],
+    defaultProps: { brand: 'Mon site' },
+    defaultStyle: { padding: 16, gap: 16, background: '#1b1d29', color: '#ffffff' },
   },
   heading: {
     type: 'heading',
@@ -335,6 +405,36 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     defaultProps: { src: '', alt: 'Illustration' },
     defaultStyle: { width: '100%', borderRadius: 12 },
   },
+  video: {
+    type: 'video',
+    label: 'Vidéo',
+    category: 'medias',
+    icon: 'video',
+    description: 'Une vidéo YouTube ou un fichier vidéo (.mp4, .webm).',
+    container: false,
+    idPrefix: 'video',
+    fields: [
+      { key: 'src', label: 'Adresse de la vidéo', kind: 'url', placeholder: 'https://www.youtube.com/watch?v=…', help: 'Lien YouTube ou adresse d’un fichier .mp4 / .webm.' },
+      { key: 'title', label: 'Titre (accessibilité)', kind: 'text' },
+    ],
+    defaultProps: { src: '', title: 'Vidéo' },
+    defaultStyle: { width: '100%', borderRadius: 12 },
+  },
+  icon: {
+    type: 'icon',
+    label: 'Icône',
+    category: 'medias',
+    icon: 'smile',
+    description: 'Un pictogramme (emoji) à la taille de ton choix.',
+    container: false,
+    idPrefix: 'icone',
+    fields: [
+      { key: 'symbol', label: 'Icône', kind: 'emoji' },
+      { key: 'label', label: 'Signification (accessibilité)', kind: 'text', help: 'Laisse vide si l’icône est décorative.' },
+    ],
+    defaultProps: { symbol: '⭐', label: '' },
+    defaultStyle: { fontSize: 40 },
+  },
   divider: {
     type: 'divider',
     label: 'Séparateur',
@@ -368,6 +468,10 @@ export const PALETTE_ORDER: BrickType[] = [
   'grid',
   'card',
   'repeat',
+  'tabs',
+  'accordion',
+  'modal',
+  'navbar',
   'heading',
   'text',
   'link',
@@ -379,6 +483,8 @@ export const PALETTE_ORDER: BrickType[] = [
   'checkbox',
   'select',
   'image',
+  'video',
+  'icon',
   'divider',
   'spacer',
 ]

@@ -1,6 +1,7 @@
 import {
   CircleHelp,
   Download,
+  FolderOpen,
   GraduationCap,
   LayoutTemplate,
   Monitor,
@@ -74,7 +75,7 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
         <Segmented
           label="Format d'affichage"
           value={ws.device}
-          onChange={(device) => ws.set({ device })}
+          onChange={(device) => ws.set({ device, styleScope: device === 'desktop' ? 'all' : ws.styleScope === 'all' ? 'all' : device })}
           options={[
             { value: 'mobile', label: 'Mobile', icon: <Smartphone size={16} /> },
             { value: 'tablet', label: 'Tablette', icon: <Tablet size={16} /> },
@@ -132,6 +133,9 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
           <CircleHelp size={17} />
         </IconButton>
         <div className="pm-topbar-sep" />
+        <button type="button" className="pm-btn pm-btn-secondary" onClick={() => ws.set({ dialog: 'projects' })}>
+          <FolderOpen size={16} /> <span className="pm-hide-sm">Mes projets</span>
+        </button>
         <button type="button" className="pm-btn pm-btn-secondary" onClick={() => ws.set({ dialog: 'templates' })}>
           <LayoutTemplate size={16} /> <span className="pm-hide-sm">Modèles</span>
         </button>

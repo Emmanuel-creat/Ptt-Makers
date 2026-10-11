@@ -12,13 +12,16 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 
 ## Ce que tu peux faire
 
-- 🧱 **19 briques** en 4 familles colorées (structure, texte, interaction, médias), à glisser ou à ajouter d'un clic.
+- 🧱 **25 briques** en 4 familles colorées (structure, texte, interaction, médias), dont des onglets, un accordéon, une fenêtre, une barre de menu et une vidéo, à glisser ou à ajouter d'un clic.
 - 🖱️ **Zone de création** fidèle au résultat : sélection, glisser-déposer avec indicateur, barre d'actions flottante, édition du texte sur place, formats mobile / tablette / ordinateur.
 - 🎛️ **Propriétés** claires : contenu, mise en page, apparence, typographie, interactions.
 - ⚡ **Interactions sans code** : variables, textes dynamiques `{{nom}}`, champs reliés, affichage conditionnel, actions au clic.
 - 📄 **Plusieurs pages** avec navigation, dans un seul fichier exporté.
 - 🔁 **Listes dynamiques** : une brique Répétition affiche une copie par élément (tâches, fiches, produits…).
 - 🧠 **Logique** : actions « Si… alors… sinon… » et **données d'API** chargées à l'ouverture d'une page.
+- 🎨 **Thème du projet** (couleur, arrondi, police) et **Mes composants** : enregistre un bloc pour le réutiliser partout.
+- 📱 **Réglages par format** : un style différent, ou une brique masquée, sur tablette ou sur mobile.
+- 🗂️ **Mes projets** : plusieurs projets enregistrés dans le navigateur.
 - 👀 **Aperçu interactif** en temps réel, isolé dans une iframe.
 - 💻 **Code en direct** (HTML / CSS / JS) commenté en français, coloré, avec **surlignage de la brique sélectionnée**.
 - 🧭 **Espace de travail personnalisable** : panneaux redimensionnables et repliables, aperçu à droite ou en bas, thème clair / sombre / système.

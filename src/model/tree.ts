@@ -1,5 +1,5 @@
 import { mapActions } from './actions'
-import { BRICKS, isContainer } from './bricks'
+import { BRICKS, isContainer, type StarterSpec } from './bricks'
 import type { Action, BrickNode, BrickType, DropTarget, PropValue, BrickStyle } from './types'
 
 export type Nodes = Record<string, BrickNode>
@@ -199,4 +199,20 @@ export function repeatOf(nodes: Nodes, id: string): string | null {
     cur = nodes[cur]?.parent ?? null
   }
   return null
+}
+
+/** Crée une brique avec son contenu de départ (ex. deux volets pour un accordéon). */
+export function makeBrick(nodes: Nodes, type: BrickType): { nodes: Nodes; rootId: string } {
+  let all: Nodes = { ...nodes }
+  const sub: Nodes = {}
+  const create = (spec: StarterSpec, parent: string | null): string => {
+    const node = makeNode(all, spec.type, { props: spec.props, style: spec.style, name: spec.name })
+    node.parent = parent
+    all = { ...all, [node.id]: node }
+    sub[node.id] = node
+    node.children = (spec.children ?? []).map((c) => create(c, node.id))
+    return node.id
+  }
+  const rootId = create({ type, children: BRICKS[type].starter }, null)
+  return { nodes: sub, rootId }
 }

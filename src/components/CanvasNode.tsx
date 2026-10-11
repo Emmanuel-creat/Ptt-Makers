@@ -1,11 +1,12 @@
 import { createContext, memo, useContext, type ReactNode } from 'react'
 import { BRICKS } from '../model/bricks'
 import { PLACEHOLDER_IMAGE, brickClass } from '../codegen/baseCss'
-import { safeImageSrc } from '../codegen/escape'
-import { reactStyle } from '../codegen/style'
+import { safeImageSrc, videoSource } from '../codegen/escape'
+import { effectiveStyle, reactStyle } from '../codegen/style'
 import type { BrickNode, Variable } from '../model/types'
 import { interpolate, parseTemplate, resolveToken, type RepeatScope } from '../model/variables'
 import { useEditor } from '../store/editor'
+import { useWorkspace, type Device } from '../store/workspace'
 
 /** Copie de répétition en cours de rendu : l'élément affiché et s'il s'agit d'une copie (non modifiable). */
 interface RepeatFrame extends RepeatScope {
@@ -50,8 +51,9 @@ export const CanvasNode = memo(function CanvasNode({ id }: { id: string }) {
   const variables = useEditor((s) => s.project.variables)
   const editing = useEditor((s) => s.editingId === id)
   const frame = useContext(RepeatContext)
+  const device = useWorkspace((s) => s.device)
   if (!node) return null
-  return renderNode(node, variables, editing && !frame?.copy, frame)
+  return renderNode(node, variables, editing && !frame?.copy, frame, device)
 })
 
 /** Texte modifiable directement dans la zone de création (double-clic). */
@@ -98,8 +100,10 @@ function InlineEditor({ node }: { node: BrickNode }) {
 
 export const INLINE_EDITABLE = new Set(['heading', 'text', 'badge', 'button', 'link'])
 
-function renderNode(node: BrickNode, variables: Variable[], editing: boolean, frame: RepeatFrame | null): ReactNode {
+function renderNode(node: BrickNode, variables: Variable[], editing: boolean, frame: RepeatFrame | null, device: Device): ReactNode {
   const p = node.props
+  // Le style vu dépend du format choisi (réglages propres à la tablette et au mobile).
+  const view = effectiveStyle(node, device)
   const def = BRICKS[node.type]
   const condVar = node.showIf ? variables.find((v) => v.name === node.showIf) : undefined
   const conditionalHidden = node.showIf ? !condVar || (Array.isArray(condVar.initial) ? condVar.initial.length === 0 : !condVar.initial) : false
@@ -109,10 +113,10 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
     'data-ptt-id': copy ? undefined : node.id,
     'data-ptt-copy': copy ? 'true' : undefined,
     'data-ptt-label': node.name,
-    'data-ghost': node.hidden || conditionalHidden ? 'true' : undefined,
+    'data-ghost': node.hidden || conditionalHidden || view.hidden ? 'true' : undefined,
     'data-empty': def.container && node.children.length === 0 ? 'true' : undefined,
     className: brickClass(node) || undefined,
-    style: reactStyle(node),
+    style: node.type === 'modal' ? undefined : reactStyle(node, view.style),
     draggable: node.parent && !editing && !copy ? true : undefined,
   }
   const text = (key: string) =>
@@ -212,6 +216,61 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
           <span>{String(p.label ?? '')}</span>
         </label>
       )
+    case 'tabs':
+      return <TabsView common={common} node={node} />
+    case 'accordion':
+      return (
+        <div {...common}>
+          {node.children.map((c, i) => (
+            <AccordionItem key={c} id={c} open={i === 0 && !!p.firstOpen} />
+          ))}
+        </div>
+      )
+    case 'modal':
+      return (
+        <div {...common}>
+          <div className="modal-box" style={reactStyle(node, view.style)}>
+            <span className="modal-close" aria-hidden="true">
+              ×
+            </span>
+            {children}
+          </div>
+        </div>
+      )
+    case 'navbar':
+      return (
+        <nav {...common}>
+          {String(p.brand ?? '').trim() && (
+            <strong className="navbar-brand">
+              <DynamicText text={String(p.brand)} variables={variables} scope={frame} />
+            </strong>
+          )}
+          <NavbarLinks />
+        </nav>
+      )
+    case 'video': {
+      const v = videoSource(String(p.src))
+      if (v?.kind === 'file') return <video {...common} src={v.src} muted preload="metadata" />
+      return (
+        <div {...common} role="img" aria-label={String(p.title || 'Vidéo')}>
+          <span
+            className="pm-video-poster"
+            style={v?.kind === 'youtube' ? { backgroundImage: `url("${v.thumbnail}")` } : undefined}
+            data-empty-video={v ? undefined : 'true'}
+          >
+            <span className="pm-video-play" aria-hidden="true">
+              ▶
+            </span>
+          </span>
+        </div>
+      )
+    }
+    case 'icon':
+      return (
+        <span {...common} aria-hidden="true">
+          {String(p.symbol ?? '')}
+        </span>
+      )
     case 'image':
       return (
         <img
@@ -225,4 +284,61 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
     case 'spacer':
       return <div {...common} />
   }
+}
+
+type Common = Record<string, unknown>
+
+/** Onglets : on voit le panneau qui contient la sélection (ou le premier). Cliquer un titre le sélectionne. */
+function TabsView({ common, node }: { common: Common; node: BrickNode }) {
+  const nodes = useEditor((s) => s.project.nodes)
+  const active = useEditor((s) => {
+    let cur = s.selectedId
+    while (cur && s.project.nodes[cur]?.parent && s.project.nodes[cur].parent !== node.id) cur = s.project.nodes[cur].parent
+    return cur && s.project.nodes[cur]?.parent === node.id ? cur : node.children[0]
+  })
+  return (
+    <div {...common}>
+      <div className="tabs-bar" role="tablist">
+        {node.children.map((c) => (
+          <button key={c} type="button" role="tab" aria-selected={c === active} data-ptt-select={c} tabIndex={-1}>
+            {nodes[c]?.name}
+          </button>
+        ))}
+      </div>
+      {node.children
+        .filter((c) => c === active)
+        .map((c) => (
+          <CanvasNode key={c} id={c} />
+        ))}
+    </div>
+  )
+}
+
+/** Volet d'accordéon : toujours ouvert dans la zone de création pour pouvoir modifier son contenu. */
+function AccordionItem({ id, open }: { id: string; open: boolean }) {
+  const name = useEditor((s) => s.project.nodes[id]?.name)
+  return (
+    <details className="accordion-item" open data-first-open={open || undefined}>
+      <summary data-ptt-select={id} onClick={(e) => e.preventDefault()}>
+        {name}
+      </summary>
+      <CanvasNode id={id} />
+    </details>
+  )
+}
+
+/** Liens de la barre de menu : un par page, celui de la page affichée est mis en valeur. */
+function NavbarLinks() {
+  const pages = useEditor((s) => s.project.pages)
+  const nodes = useEditor((s) => s.project.nodes)
+  const current = useEditor((s) => s.currentPage)
+  return (
+    <div className="navbar-links">
+      {pages.map((id) => (
+        <a key={id} href="#" className={id === current ? 'is-active' : undefined} onClick={(e) => e.preventDefault()} data-ptt-page={id}>
+          {nodes[id]?.name}
+        </a>
+      ))}
+    </div>
+  )
 }

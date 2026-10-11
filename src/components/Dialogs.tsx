@@ -1,8 +1,9 @@
-import { FileCode, FileJson, Files, Upload, X } from 'lucide-react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { Copy, FileCode, FileJson, Files, FolderOpen, Plus, Trash2, Upload, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { bundle, generate } from '../codegen/generate'
 import { TEMPLATES, parseProject } from '../model/templates'
 import { useEditor } from '../store/editor'
+import { listProjects } from '../store/library'
 import { useWorkspace } from '../store/workspace'
 import { downloadFile, slugify } from '../utils/download'
 import { Kbd, MOD } from './ui'
@@ -13,6 +14,7 @@ export function Dialogs() {
   if (dialog === 'templates') return <TemplatesDialog onClose={close} />
   if (dialog === 'shortcuts') return <ShortcutsDialog onClose={close} />
   if (dialog === 'export') return <ExportDialog onClose={close} />
+  if (dialog === 'projects') return <ProjectsDialog onClose={close} />
   return null
 }
 
@@ -63,9 +65,9 @@ function Modal({ title, subtitle, onClose, children, wide }: { title: string; su
 }
 
 function TemplatesDialog({ onClose }: { onClose: () => void }) {
-  const { loadProject, notify } = useEditor.getState()
+  const { createProject, notify } = useEditor.getState()
   return (
-    <Modal title="Choisir un modèle" subtitle="Ton projet actuel sera remplacé. Tu pourras revenir en arrière avec Annuler." onClose={onClose} wide>
+    <Modal title="Choisir un modèle" subtitle="Le modèle s'ouvre dans un nouveau projet. Ton projet actuel reste dans « Mes projets »." onClose={onClose} wide>
       <div className="pm-templates">
         {TEMPLATES.map((t) => (
           <button
@@ -74,8 +76,8 @@ function TemplatesDialog({ onClose }: { onClose: () => void }) {
             className="pm-template"
             style={{ '--accent': t.accent } as React.CSSProperties}
             onClick={() => {
-              loadProject(t.create())
-              notify(`Modèle « ${t.name} » chargé · ${MOD}+Z pour revenir en arrière`)
+              createProject(t.create())
+              notify(`Nouveau projet « ${t.name} » créé`)
               onClose()
             }}
           >
@@ -103,7 +105,7 @@ function TemplateThumb({ id }: { id: string }) {
 
 function ExportDialog({ onClose }: { onClose: () => void }) {
   const project = useEditor((s) => s.project)
-  const { loadProject, notify } = useEditor.getState()
+  const { createProject, notify } = useEditor.getState()
   const fileRef = useRef<HTMLInputElement>(null)
   const base = slugify(project.name)
 
@@ -126,8 +128,8 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     try {
       const data = parseProject(JSON.parse(await file.text()))
       if (!data) throw new Error('format')
-      loadProject(data)
-      notify(`Projet « ${data.name} » importé`)
+      createProject(data)
+      notify(`Projet « ${data.name} » importé dans Mes projets`)
       onClose()
     } catch {
       notify("Ce fichier n'est pas un projet Ptt-Makers valide")
@@ -227,6 +229,78 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
           Revoir la visite guidée
         </button>
       </div>
+    </Modal>
+  )
+}
+
+const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+
+/** « Mes projets » : tous les projets enregistrés dans ce navigateur. */
+function ProjectsDialog({ onClose }: { onClose: () => void }) {
+  const projectId = useEditor((s) => s.projectId)
+  const { openProject, duplicateProject, deleteProject, saveNow } = useEditor.getState()
+  const [, refresh] = useState(0)
+  // La liste est lue dans le stockage du navigateur : on enregistre d'abord le projet ouvert.
+  useState(() => saveNow())
+  const projects = listProjects()
+  const update = () => refresh((n) => n + 1)
+
+  return (
+    <Modal title="Mes projets" subtitle="Tes projets sont enregistrés dans ce navigateur. Exporte-les en .json pour les garder ailleurs." onClose={onClose} wide>
+      <div className="pm-projects-actions">
+        <button type="button" className="pm-btn pm-btn-primary" onClick={() => useWorkspace.getState().set({ dialog: 'templates' })}>
+          <Plus size={16} /> Nouveau projet
+        </button>
+      </div>
+      <ul className="pm-projects">
+        {projects.map((p) => {
+          const current = p.id === projectId
+          return (
+            <li key={p.id} className={`pm-project ${current ? 'is-current' : ''}`}>
+              <button
+                type="button"
+                className="pm-project-open"
+                onClick={() => {
+                  openProject(p.id)
+                  onClose()
+                }}
+              >
+                <FolderOpen size={18} aria-hidden="true" />
+                <span className="pm-project-name">{p.name || 'Sans nom'}</span>
+                <span className="pm-project-meta">
+                  {current ? 'Ouvert · ' : ''}
+                  {p.pages} page{p.pages > 1 ? 's' : ''} · modifié le {dateFormat.format(p.updatedAt)}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="pm-icon-btn"
+                aria-label={`Dupliquer ${p.name}`}
+                data-tip="Dupliquer"
+                onClick={() => {
+                  duplicateProject(p.id)
+                  update()
+                }}
+              >
+                <Copy size={16} />
+              </button>
+              <button
+                type="button"
+                className="pm-icon-btn is-danger"
+                aria-label={`Supprimer ${p.name}`}
+                data-tip="Supprimer"
+                onClick={() => {
+                  if (!confirm(`Supprimer définitivement « ${p.name} » ?`)) return
+                  deleteProject(p.id)
+                  update()
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
+            </li>
+          )
+        })}
+      </ul>
     </Modal>
   )
 }

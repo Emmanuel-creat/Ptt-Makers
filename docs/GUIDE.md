@@ -22,14 +22,34 @@ Les bords entre zones se **redimensionnent** (glisser, ou flèches du clavier ; 
 
 | Famille | Briques |
 |---|---|
-| 🟪 Structure | Section, Ligne (côte à côte), Colonne (empilé), Grille, Carte, Répétition |
+| 🟪 Structure | Section, Ligne (côte à côte), Colonne (empilé), Grille, Carte, Répétition, Onglets, Accordéon, Fenêtre, Barre de menu |
 | 🟦 Texte | Titre, Paragraphe, Lien, Étiquette, Liste |
 | 🟩 Interaction | Bouton, Champ texte, Zone de texte, Case à cocher, Menu déroulant |
-| 🟧 Médias | Image, Séparateur, Espace |
+| 🟧 Médias | Image, Vidéo, Icône, Séparateur, Espace |
 
 - **Ajouter** : glisse une brique vers la zone de création (une ligne violette montre où elle ira), ou **clique** dessus pour l'ajouter dans la brique sélectionnée.
 - **Déplacer** : glisse-la dans la zone de création ou dans les **calques** ; ou utilise les flèches de la barre flottante.
 - **Renommer** : double-clic dans les calques, ou dans l'en-tête du panneau Propriétés.
+
+![Barre de menu, onglets, accordéon et icône dans la zone de création](captures/briques-avancees.png)
+
+### Les briques avancées
+
+- **Onglets** : chaque bloc à l'intérieur est un panneau, et son nom (dans les calques) devient le titre de l'onglet. Dans la zone de création, clique un titre pour modifier son panneau.
+- **Accordéon** : même principe, chaque bloc est une question qui s'ouvre au clic. Le réglage « Premier ouvert » ouvre la première au départ.
+- **Fenêtre** : elle est cachée au départ. Ajoute à un bouton l'action « Afficher une brique » pour l'ouvrir ; la croix ou un clic à côté la referme.
+- **Barre de menu** : elle affiche un lien vers chaque page du projet et met en avant la page affichée.
+- **Vidéo** : colle l'adresse d'une vidéo YouTube ou d'un fichier `.mp4` / `.webm`.
+- **Icône** : choisis un emoji dans la grille ou tape le tien.
+
+### Mes composants
+
+Sélectionne un bloc (une carte, un menu…) et clique sur l'icône 📦 en haut des propriétés : il rejoint la famille **Mes composants** de la bibliothèque. Glisse-le ou clique dessus pour en placer une copie. Le × de la tuile le retire de la bibliothèque, sans toucher aux copies déjà placées.
+
+## Thème et formats
+
+- **Thème du projet** : sélectionne la page, puis ouvre « Thème du projet » dans les propriétés. La couleur principale, l'arrondi et la police s'appliquent aux boutons, liens, onglets et champs de tout le projet.
+- **Style pour un format** : en haut des propriétés, « Style pour » choisit tous les écrans, la tablette (moins de 900 px) ou le mobile (moins de 600 px). Les réglages faits sur tablette ou mobile ne changent que ce format ; le chiffre à côté de l'icône compte ces réglages. « Masquer sur ce format » cache la brique sur ce format seulement (elle reste visible en transparence dans la zone de création).
 
 ## Rendre la page interactive
 
@@ -87,7 +107,8 @@ Les lignes de la brique sélectionnée sont **surlignées**, et un point violet 
 
 ## Enregistrer et exporter
 
-- Ton projet est **sauvegardé automatiquement** dans ton navigateur.
+- Ton projet est **sauvegardé automatiquement** dans ton navigateur (`Ctrl/⌘ + S` enregistre tout de suite).
+- **Mes projets** (en haut à droite) liste tous tes projets : ouvrir, dupliquer, supprimer. Choisir un modèle ou importer un `.json` crée un nouveau projet : l'actuel reste dans la liste.
 - **Exporter** propose : une page HTML autonome, les trois fichiers séparés, ou le projet `.json` (à réimporter plus tard).
 
 ## Raccourcis clavier
@@ -95,6 +116,7 @@ Les lignes de la brique sélectionnée sont **surlignées**, et un point violet 
 | Raccourci | Action |
 |---|---|
 | `Ctrl/⌘ + Z` · `Ctrl/⌘ + Maj + Z` | Annuler · Rétablir |
+| `Ctrl/⌘ + S` | Enregistrer tout de suite |
 | `Suppr` | Supprimer la brique |
 | `Ctrl/⌘ + D` | Dupliquer |
 | `Ctrl/⌘ + C` · `Ctrl/⌘ + V` | Copier · Coller dans la sélection |

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildProject } from '../model/templates'
 import { useEditor } from './editor'
+import { listProjects } from './library'
 
 const reset = () =>
   useEditor.setState({ project: buildProject('Test', {}, []), currentPage: 'page', past: [], future: [], selectedId: null, clipboard: null, lastEdit: null })
@@ -106,5 +107,62 @@ describe('éditeur', () => {
     const a = useEditor.getState().project.nodes[b].onClick[0]
     expect(a.type === 'if' && a.variable).toBe('points')
     expect(a.type === 'if' && a.then[0].type === 'alert' && a.then[0].message).toBe('Score {{points}}')
+  })
+})
+
+describe('style par format, composants et projets', () => {
+  beforeEach(reset)
+
+  it('garde un style propre au mobile et le retire quand il est vide', () => {
+    const { addBrick, updateStyle } = useEditor.getState()
+    const id = addBrick('heading')
+    updateStyle(id, { fontSize: 20 }, 'mobile')
+    updateStyle(id, { hide: true }, 'tablet')
+    let node = useEditor.getState().project.nodes[id]
+    expect(node.responsive).toEqual({ mobile: { fontSize: 20 }, tablet: { hide: true } })
+    expect(node.style.fontSize).not.toBe(20)
+    updateStyle(id, { fontSize: undefined }, 'mobile')
+    updateStyle(id, { hide: false }, 'tablet')
+    node = useEditor.getState().project.nodes[id]
+    expect(node.responsive).toBeUndefined()
+  })
+
+  it('enregistre un bloc dans Mes composants et l’insère avec de nouveaux identifiants', () => {
+    const { addBrick, addBrickNearSelection, saveComponent, select } = useEditor.getState()
+    const card = addBrick('card')
+    addBrickNearSelection('text')
+    saveComponent(card, 'Carte prix')
+    const [component] = useEditor.getState().project.components ?? []
+    expect(component.name).toBe('Carte prix')
+    expect(Object.keys(component.nodes)).toHaveLength(2)
+
+    select(null)
+    useEditor.getState().insertComponent(component.id)
+    const { project, selectedId } = useEditor.getState()
+    expect(selectedId).not.toBe(card)
+    expect(project.nodes[selectedId!].name).toBe('Carte prix')
+    expect(project.nodes[selectedId!].children).toHaveLength(1)
+    expect(project.nodes.page.children).toEqual([card, selectedId])
+
+    useEditor.getState().removeComponent(component.id)
+    expect(useEditor.getState().project.components).toEqual([])
+  })
+
+  it('crée, ouvre et supprime des projets enregistrés dans le navigateur', () => {
+    const first = useEditor.getState().projectId
+    useEditor.getState().renameProject('Premier')
+    useEditor.getState().createProject(buildProject('Second', {}, []))
+    const second = useEditor.getState().projectId
+    expect(second).not.toBe(first)
+    expect(useEditor.getState().project.name).toBe('Second')
+    expect(listProjects().map((m) => m.name)).toEqual(expect.arrayContaining(['Premier', 'Second']))
+
+    useEditor.getState().openProject(first)
+    expect(useEditor.getState().project.name).toBe('Premier')
+    expect(useEditor.getState().past).toEqual([])
+
+    useEditor.getState().deleteProject(first)
+    expect(useEditor.getState().projectId).toBe(second)
+    expect(listProjects().map((m) => m.id)).not.toContain(first)
   })
 })

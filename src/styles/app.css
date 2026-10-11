@@ -2746,3 +2746,202 @@ select.pm-input {
 .pm-branch .pm-btn-dashed {
   align-self: flex-start;
 }
+
+/* ------------------------------------------------------------------ Briques avancées dans l'éditeur */
+
+/* La fenêtre s'affiche dans le flux de la page pour pouvoir la modifier. */
+.pm-frame .page .modal {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  padding: 26px 16px 16px;
+  border-radius: 12px;
+  background: repeating-linear-gradient(135deg, rgba(17, 19, 28, 0.06) 0 8px, rgba(17, 19, 28, 0.1) 8px 16px);
+}
+.pm-frame .page .modal::before {
+  content: 'Fenêtre · cachée au départ, s’ouvre avec « Afficher »';
+  position: absolute;
+  top: 6px;
+  left: 12px;
+  color: #4b5068;
+  font: 600 11px var(--pm-font);
+}
+.pm-frame .page .modal-box {
+  margin: 0 auto;
+}
+.pm-frame .tabs-bar button,
+.pm-frame .accordion-item > summary {
+  cursor: pointer;
+}
+.pm-video-poster {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #11131c center / cover no-repeat;
+}
+.pm-video-poster[data-empty-video] {
+  background: repeating-linear-gradient(135deg, #1b1d29 0 10px, #232637 10px 20px);
+}
+.pm-video-play {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 0, 0, 0.88);
+  color: #fff;
+  font-size: 16px;
+}
+
+/* Format réglé (tous les écrans, tablette, mobile) */
+.pm-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--pm-border);
+}
+.pm-scope .pm-segmented {
+  width: 100%;
+}
+.pm-scope .pm-segmented > * {
+  flex: 1;
+}
+.pm-scope-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--pm-radius-sm);
+  background: color-mix(in srgb, var(--cat-texte) 10%, transparent);
+  color: var(--pm-text-2);
+  font-size: 12px;
+}
+.pm-scope-info p {
+  margin: 0;
+}
+
+/* Icônes */
+.pm-emoji {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pm-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+.pm-emoji-btn {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 17px;
+}
+.pm-emoji-btn:hover {
+  background: var(--pm-hover);
+}
+.pm-emoji-btn[aria-selected='true'] {
+  background: var(--pm-brand-soft);
+  box-shadow: inset 0 0 0 1.5px var(--pm-brand);
+}
+
+/* Mes composants */
+[data-cat='composants'] {
+  --cat: #db2777;
+}
+.pm-tile-wrap {
+  position: relative;
+}
+.pm-tile-wrap .pm-tile {
+  width: 100%;
+}
+.pm-tile-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--pm-surface-3);
+  color: var(--pm-muted);
+}
+.pm-tile-wrap:hover .pm-tile-remove,
+.pm-tile-remove:focus-visible {
+  display: grid;
+}
+
+/* Mes projets */
+.pm-projects-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.pm-projects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pm-project {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 4px;
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius);
+  background: var(--pm-surface);
+}
+.pm-project.is-current {
+  border-color: var(--pm-brand);
+  box-shadow: 0 0 0 3px var(--pm-brand-soft);
+}
+.pm-project-open {
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--pm-radius-sm);
+  background: transparent;
+  color: var(--pm-text);
+  text-align: left;
+}
+.pm-project-open:hover {
+  background: var(--pm-hover);
+}
+.pm-project-open svg {
+  grid-row: span 2;
+  color: var(--pm-brand);
+}
+.pm-project-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pm-project-meta {
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+.pm-scope-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pm-muted);
+}
+.pm-scope-label strong {
+  color: var(--pm-text);
+}

@@ -6,6 +6,10 @@ export type BrickType =
   | 'grid'
   | 'card'
   | 'repeat'
+  | 'tabs'
+  | 'accordion'
+  | 'modal'
+  | 'navbar'
   | 'heading'
   | 'text'
   | 'link'
@@ -17,6 +21,8 @@ export type BrickType =
   | 'checkbox'
   | 'select'
   | 'image'
+  | 'video'
+  | 'icon'
   | 'divider'
   | 'spacer'
 
@@ -51,6 +57,15 @@ export interface BrickStyle {
 }
 
 export type PropValue = string | number | boolean
+
+/** Formats d'écran qui peuvent avoir leurs propres réglages de style. */
+export type ResponsiveScope = 'tablet' | 'mobile'
+
+/** Réglages qui remplacent le style de base sur un format plus petit. */
+export type StyleOverride = Partial<BrickStyle> & {
+  /** Brique cachée sur ce format. */
+  hide?: boolean
+}
 
 /** Comparaisons possibles dans une action « Si ». */
 export type ConditionOp = 'true' | 'false' | 'eq' | 'neq' | 'gt' | 'lt' | 'empty' | 'notEmpty'
@@ -90,6 +105,8 @@ export interface BrickNode {
   onClick: Action[]
   /** Pages uniquement : actions lancées quand la page s'affiche. */
   onLoad?: Action[]
+  /** Style propre à la tablette (largeur ≤ 900 px) et au mobile (≤ 600 px). */
+  responsive?: Partial<Record<ResponsiveScope, StyleOverride>>
   /** Masquée au démarrage (peut être affichée par une action). */
   hidden?: boolean
   /** Affichée seulement si cette variable est « vraie ». */
@@ -107,6 +124,21 @@ export interface Variable {
   initial: VariableValue
 }
 
+/** Thème du projet : couleur principale, arrondis et police, partagés par toutes les pages. */
+export interface ProjectTheme {
+  primary?: string
+  radius?: number
+  font?: 'inter' | 'system' | 'arrondie' | 'serif' | 'mono'
+}
+
+/** Bloc réutilisable enregistré par l'utilisateur (une copie est insérée à chaque utilisation). */
+export interface SavedComponent {
+  id: string
+  name: string
+  rootId: string
+  nodes: Record<string, BrickNode>
+}
+
 export interface Project {
   version: 1
   name: string
@@ -116,6 +148,8 @@ export interface Project {
   pages: string[]
   nodes: Record<string, BrickNode>
   variables: Variable[]
+  theme?: ProjectTheme
+  components?: SavedComponent[]
 }
 
 export type DropPosition = 'before' | 'after' | 'inside'

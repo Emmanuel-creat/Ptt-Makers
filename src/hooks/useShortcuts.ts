@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { INLINE_EDITABLE } from '../components/CanvasNode'
-import { STORAGE_KEY, useEditor } from '../store/editor'
+import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 
 const isTyping = (el: Element | null) =>
@@ -17,11 +17,7 @@ export function useShortcuts() {
 
       if (mod && key === 's') {
         e.preventDefault()
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(ed.project))
-        } catch {
-          /* ignoré */
-        }
+        ed.saveNow()
         ed.notify('Projet enregistré (la sauvegarde est aussi automatique)')
         return
       }

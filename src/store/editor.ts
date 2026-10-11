@@ -1,13 +1,23 @@
 import { create } from 'zustand'
 import { isContainer } from '../model/bricks'
 import { renameVariableInNodes } from '../model/refactor'
-import { createDefaultProject, parseProject } from '../model/templates'
+import { createDefaultProject } from '../model/templates'
+import {
+  currentProjectId,
+  listProjects,
+  migrateLegacy,
+  newProjectId,
+  readProject,
+  removeStoredProject,
+  setCurrentProjectId,
+  writeProject,
+} from './library'
 import {
   cloneSubtree,
   collectSubtree,
   duplicateNode,
-  insertNode,
   insertSubtree,
+  makeBrick,
   makeNode,
   moveNode,
   moveSibling,
@@ -17,19 +27,20 @@ import {
   canDrop,
   type Nodes,
 } from '../model/tree'
-import type { Action, BrickNode, BrickStyle, BrickType, DropTarget, Project, PropValue, Variable } from '../model/types'
+import type { Action, BrickNode, BrickStyle, BrickType, DropTarget, Project, ProjectTheme, PropValue, ResponsiveScope, StyleOverride, Variable } from '../model/types'
 
-export const STORAGE_KEY = 'ptt-makers:projet'
 const HISTORY_LIMIT = 120
 /** Les modifications successives d'un même champ sont regroupées dans une seule étape d'annulation. */
 const COALESCE_MS = 800
 
-type Snapshot = Pick<Project, 'nodes' | 'variables' | 'name' | 'rootId' | 'pages'>
+type Snapshot = Pick<Project, 'nodes' | 'variables' | 'name' | 'rootId' | 'pages' | 'theme' | 'components'>
 
-export type Dragging = { kind: 'new'; type: BrickType } | { kind: 'move'; id: string } | null
+export type Dragging = { kind: 'new'; type: BrickType } | { kind: 'component'; id: string } | { kind: 'move'; id: string } | null
 
 interface EditorState {
   project: Project
+  /** Identifiant du projet dans « Mes projets ». */
+  projectId: string
   /** Page affichée dans la zone de création. */
   currentPage: string
   selectedId: string | null
@@ -63,9 +74,15 @@ interface EditorState {
   paste: () => void
 
   updateProps: (id: string, patch: Record<string, PropValue>) => void
-  updateStyle: (id: string, patch: Partial<BrickStyle>) => void
+  /** Modifie le style de base (« all ») ou celui d'un format plus petit. */
+  updateStyle: (id: string, patch: Partial<StyleOverride>, scope?: 'all' | ResponsiveScope) => void
   updateNode: (id: string, patch: Partial<Pick<BrickNode, 'name' | 'hidden' | 'showIf'>>) => void
   setActions: (id: string, actions: Action[], field?: 'onClick' | 'onLoad') => void
+
+  updateTheme: (patch: Partial<ProjectTheme>) => void
+  saveComponent: (id: string, name?: string) => void
+  insertComponent: (componentId: string, at?: { parentId: string; index: number }) => void
+  removeComponent: (componentId: string) => void
 
   setPage: (id: string) => void
   addPage: (name?: string) => string
@@ -79,27 +96,50 @@ interface EditorState {
   removeVariable: (name: string) => void
 
   renameProject: (name: string) => void
+  /** Remplace le contenu du projet ouvert (annulable). */
   loadProject: (p: Project) => void
+  /** Crée un nouveau projet dans « Mes projets » et l'ouvre. */
+  createProject: (p: Project) => void
+  openProject: (id: string) => void
+  duplicateProject: (id: string) => void
+  deleteProject: (id: string) => void
+  /** Enregistre tout de suite (sinon, la sauvegarde se fait peu après chaque modification). */
+  saveNow: () => void
   undo: () => void
   redo: () => void
 }
 
-function loadInitial(): Project {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = parseProject(JSON.parse(raw))
-      if (parsed) return parsed
+function loadInitial(): { id: string; project: Project } {
+  migrateLegacy()
+  const id = currentProjectId()
+  const project = id ? readProject(id) : null
+  if (id && project) return { id, project }
+  // Projet introuvable : on ouvre le plus récent, sinon on en crée un.
+  for (const meta of listProjects()) {
+    const p = readProject(meta.id)
+    if (p) {
+      setCurrentProjectId(meta.id)
+      return { id: meta.id, project: p }
     }
-  } catch {
-    /* stockage indisponible : on repart du modèle par défaut */
   }
-  return createDefaultProject()
+  const fresh = { id: newProjectId(), project: createDefaultProject() }
+  writeProject(fresh.id, fresh.project)
+  setCurrentProjectId(fresh.id)
+  return fresh
 }
 
-const snapshot = (p: Project): Snapshot => ({ nodes: p.nodes, variables: p.variables, name: p.name, rootId: p.rootId, pages: p.pages })
+const snapshot = (p: Project): Snapshot => ({
+  nodes: p.nodes,
+  variables: p.variables,
+  name: p.name,
+  rootId: p.rootId,
+  pages: p.pages,
+  theme: p.theme,
+  components: p.components,
+})
 
 let toastCounter = 0
+let saveTimer: ReturnType<typeof setTimeout> | undefined
 
 export const useEditor = create<EditorState>((set, get) => {
   /** Applique une modification au projet en l'enregistrant dans l'historique. */
@@ -120,9 +160,9 @@ export const useEditor = create<EditorState>((set, get) => {
   const insertAt = (type: BrickType, parentId: string, index: number) => {
     let newId = ''
     commit((p) => {
-      const node = makeNode(p.nodes, type)
-      newId = node.id
-      return { nodes: insertNode(p.nodes, node, parentId, index) }
+      const brick = makeBrick(p.nodes, type)
+      newId = brick.rootId
+      return { nodes: insertSubtree(p.nodes, brick.nodes, brick.rootId, parentId, index) }
     })
     set({ selectedId: newId })
     return newId
@@ -135,10 +175,27 @@ export const useEditor = create<EditorState>((set, get) => {
     if (selectedId && !project.nodes[selectedId]) set({ selectedId: null })
   }
 
+  /** Ouvre un projet : nouvel historique, rien de sélectionné. */
+  const switchTo = (id: string, project: Project) => {
+    setCurrentProjectId(id)
+    set({
+      project,
+      projectId: id,
+      currentPage: project.rootId,
+      selectedId: null,
+      hoveredId: null,
+      editingId: null,
+      past: [],
+      future: [],
+      lastEdit: null,
+    })
+  }
+
   const initial = loadInitial()
   return {
-    project: initial,
-    currentPage: initial.rootId,
+    project: initial.project,
+    projectId: initial.id,
+    currentPage: initial.project.rootId,
     selectedId: null,
     hoveredId: null,
     past: [],
@@ -191,6 +248,7 @@ export const useEditor = create<EditorState>((set, get) => {
       if (!canDrop(project.nodes, dragId, target)) return
       const spot = resolveDrop(project.nodes, target)!
       if (dragging.kind === 'new') insertAt(dragging.type, spot.parentId, spot.index)
+      else if (dragging.kind === 'component') get().insertComponent(dragging.id, spot)
       else get().move(dragging.id, spot.parentId, spot.index)
     },
 
@@ -265,14 +323,72 @@ export const useEditor = create<EditorState>((set, get) => {
         `props:${id}:${Object.keys(patch).join(',')}`,
       ),
 
-    updateStyle: (id, patch) =>
+    updateStyle: (id, patch, scope = 'all') =>
       commit((p) => {
-        const style = { ...p.nodes[id].style, ...patch }
-        for (const k of Object.keys(patch) as (keyof BrickStyle)[]) {
-          if (patch[k] === undefined || patch[k] === '') delete style[k]
+        const node = p.nodes[id]
+        const current: StyleOverride = scope === 'all' ? node.style : (node.responsive?.[scope] ?? {})
+        const style: StyleOverride = { ...current, ...patch }
+        for (const k of Object.keys(patch) as (keyof StyleOverride)[]) {
+          if (patch[k] === undefined || patch[k] === '' || (k === 'hide' && !patch[k])) delete style[k]
         }
-        return { nodes: { ...p.nodes, [id]: { ...p.nodes[id], style } } }
-      }, `style:${id}:${Object.keys(patch).join(',')}`),
+        if (scope === 'all') {
+          const { hide: _hide, ...base } = style
+          return { nodes: { ...p.nodes, [id]: { ...node, style: base as BrickStyle } } }
+        }
+        const responsive = { ...node.responsive, [scope]: style }
+        if (!Object.keys(style).length) delete responsive[scope]
+        const next: BrickNode = { ...node, responsive }
+        if (!Object.keys(responsive).length) delete next.responsive
+        return { nodes: { ...p.nodes, [id]: next } }
+      }, `style:${scope}:${id}:${Object.keys(patch).join(',')}`),
+
+    updateTheme: (patch) =>
+      commit((p) => {
+        const theme: ProjectTheme = { ...p.theme, ...patch }
+        for (const k of Object.keys(patch) as (keyof ProjectTheme)[]) if (patch[k] === undefined) delete theme[k]
+        return { theme: Object.keys(theme).length ? theme : undefined }
+      }, `theme:${Object.keys(patch).join(',')}`),
+
+    saveComponent: (id, name) => {
+      const { project, notify } = get()
+      const node = project.nodes[id]
+      if (!node?.parent) return
+      const subtree: Nodes = {}
+      for (const d of collectSubtree(project.nodes, id)) subtree[d] = project.nodes[d]
+      const component = {
+        id: `composant-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+        name: name?.trim() || node.name,
+        rootId: id,
+        nodes: structuredClone({ ...subtree, [id]: { ...subtree[id], parent: null } }),
+      }
+      commit((p) => ({ components: [...(p.components ?? []), component] }))
+      notify(`« ${component.name} » ajouté à Mes composants`)
+    },
+
+    insertComponent: (componentId, at) => {
+      const { project, selectedId, currentPage } = get()
+      const component = project.components?.find((c) => c.id === componentId)
+      if (!component) return
+      let spot = at
+      if (!spot) {
+        const sel = selectedId ? project.nodes[selectedId] : null
+        if (sel && isContainer(sel.type)) spot = { parentId: sel.id, index: sel.children.length }
+        else if (sel?.parent) spot = { parentId: sel.parent, index: project.nodes[sel.parent].children.indexOf(sel.id) + 1 }
+        else spot = { parentId: currentPage, index: project.nodes[currentPage].children.length }
+      }
+      let newId = ''
+      commit((p) => {
+        const clone = cloneSubtree(component.nodes, component.rootId, p.nodes)
+        newId = clone.rootId
+        // Le bloc inséré garde le nom du composant (sans « (copie) »).
+        clone.nodes[newId] = { ...clone.nodes[newId], name: component.name }
+        return { nodes: insertSubtree(p.nodes, clone.nodes, clone.rootId, spot.parentId, spot.index) }
+      })
+      set({ selectedId: newId })
+    },
+
+    removeComponent: (componentId) =>
+      commit((p) => ({ components: (p.components ?? []).filter((c) => c.id !== componentId) })),
 
     updateNode: (id, patch) =>
       commit(
@@ -359,6 +475,41 @@ export const useEditor = create<EditorState>((set, get) => {
       set({ selectedId: null, hoveredId: null, currentPage: next.rootId })
     },
 
+    createProject: (p) => {
+      get().saveNow()
+      const id = newProjectId()
+      writeProject(id, p)
+      switchTo(id, p)
+    },
+
+    openProject: (id) => {
+      if (id === get().projectId) return
+      const p = readProject(id)
+      if (!p) return get().notify('Ce projet est introuvable')
+      get().saveNow()
+      switchTo(id, p)
+    },
+
+    duplicateProject: (id) => {
+      get().saveNow()
+      const p = id === get().projectId ? get().project : readProject(id)
+      if (!p) return
+      writeProject(newProjectId(), { ...structuredClone(p), name: `${p.name} (copie)` })
+    },
+
+    deleteProject: (id) => {
+      removeStoredProject(id)
+      if (id !== get().projectId) return
+      const next = listProjects().find((m) => readProject(m.id))
+      if (next) switchTo(next.id, readProject(next.id)!)
+      else get().createProject(createDefaultProject())
+    },
+
+    saveNow: () => {
+      clearTimeout(saveTimer)
+      writeProject(get().projectId, get().project)
+    },
+
     undo: () => {
       const { past, future, project } = get()
       const prev = past[past.length - 1]
@@ -383,15 +534,8 @@ export const useEditor = create<EditorState>((set, get) => {
 })
 
 /* Sauvegarde automatique (avec un léger délai pour ne pas écrire à chaque frappe). */
-let saveTimer: ReturnType<typeof setTimeout> | undefined
 useEditor.subscribe((state, prev) => {
-  if (state.project === prev.project) return
+  if (state.project === prev.project || state.projectId !== prev.projectId) return
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.project))
-    } catch {
-      /* quota dépassé ou stockage bloqué : on ignore */
-    }
-  }, 300)
+  saveTimer = setTimeout(() => writeProject(state.projectId, state.project), 300)
 })

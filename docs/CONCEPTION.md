@@ -1,6 +1,6 @@
 # Ptt-Makers : dossier de conception
 
-> Version 1.1 · 11 octobre 2026 · complète le [cahier des charges](CAHIER_DES_CHARGES.md)
+> Version 1.2 · 11 octobre 2026 · complète le [cahier des charges](CAHIER_DES_CHARGES.md)
 
 ## 1. Choix techniques
 
@@ -73,6 +73,7 @@ interface BrickNode {
   onLoad?: Action[]     // pages : actions au chargement
   hidden?: boolean      // masquée au démarrage
   showIf?: string       // visible si la variable est vraie
+  responsive?: { tablet?: StyleOverride; mobile?: StyleOverride }  // réglages par format
 }
 ```
 
@@ -109,6 +110,20 @@ Une brique **Répétition** devient un `<template>` dans le HTML. Son contenu es
 
 Toutes les pages sont dans `index.html` (`<main class="page">`), seules les autres pages ont l'attribut `hidden`. `afficherPage()` lit l'adresse (`#page-2`) et montre la bonne page ; `allerA()` change l'adresse ; les liens `href="#…"` vers une page passent par `allerA()` (indispensable dans l'aperçu `srcdoc`, où une ancre serait résolue par rapport à l'adresse de l'éditeur). L'aperçu démarre sur la page éditée en remplaçant la constante `PAGE_DEPART`.
 
+### Thème, composants et formats
+
+- `theme` (facultatif) garde la couleur principale, l'arrondi et la police. Le CSS de base utilise des variables (`var(--couleur, #6c5ce7)`, `var(--arrondi)`, `var(--police)`) : le générateur écrit seulement un bloc `:root` quand un thème est choisi, et la zone de création pose les mêmes variables sur son cadre.
+- `components` garde les blocs de « Mes composants » : chacun est un petit arbre aplati copié au moment de l'enregistrement. L'insertion le clone avec de nouveaux identifiants (`cloneSubtree`), comme un coller.
+- `responsive.tablet` et `responsive.mobile` ne gardent que les différences avec le style de base, plus `hide`. Le CSS exporté les écrit dans `@media (max-width: 900px)` puis `@media (max-width: 600px)` ; la zone de création calcule le style affiché avec `effectiveStyle(brique, format)`.
+
+### Briques avancées
+
+Les onglets donnent une barre de boutons `role="tab"` puis un panneau par bloc enfant (les suivants avec `hidden`) ; l'accordéon donne des `<details>`/`<summary>` (aucun script) ; la fenêtre est un fond fixe `hidden` contenant `.modal-box`, sur laquelle porte le style réglé ; la barre de menu écrit un lien par page, que `afficherPage()` met en avant. Une vidéo YouTube passe par `youtube-nocookie.com`.
+
+### Plusieurs projets
+
+Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un index (`ptt-makers:projets` : nom, date, nombre de pages) et l'identifiant du projet ouvert. Ouvrir un projet repart d'un historique vide. Le projet unique de la version 1.0 est repris au premier lancement.
+
 ## 4. Identité visuelle
 
 - **Nom et logo** : trois briques empilées aux couleurs des familles, la brique du haut en violet de marque.
@@ -143,6 +158,6 @@ Toutes les pages sont dans `index.html` (`<main class="page">`), seules les autr
 | Niveau | Fichiers | Ce qui est vérifié |
 |---|---|---|
 | Unitaires | `src/model/*.test.ts` | Identifiants, déplacements, interdiction de déposer un conteneur en lui-même, duplication, variables, renommage. |
-| Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, conditions, répétitions, pages, adresses d'API refusées, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil, tâches, annuaire avec API simulée, site de plusieurs pages). |
-| Unitaires | `src/store/editor.test.ts` | Ajout dans la sélection, regroupement des frappes dans l'historique, copier-coller, renommage de variable (jusque dans les conditions), pages (ajout, accueil, suppression, annulation). |
-| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée). |
+| Unitaires | `src/codegen/*.test.ts` | HTML/CSS/JS générés, échappement, liens dangereux, CSS injecté, carte des lignes, conditions, répétitions, pages, adresses d'API refusées, JavaScript valide pour tous les modèles, exécution réelle du code exporté (compteur, formulaire, profil, tâches, annuaire avec API simulée, site de plusieurs pages, onglets, fenêtre et menu). Thème et `@media` par format. |
+| Unitaires | `src/store/editor.test.ts` | Ajout dans la sélection, regroupement des frappes dans l'historique, copier-coller, renommage de variable (jusque dans les conditions), pages (ajout, accueil, suppression, annulation), style par format, Mes composants, Mes projets. |
+| Bout en bout | `e2e/editor.spec.ts` | Visite guidée, ajout et édition, glisser-déposer, variables liées (critère 1), compteur (critère 2), annuler/rétablir (critère 4), restauration après rechargement (critère 5), édition directe du texte, éditeur sur mobile, liste de tâches, navigation entre pages, données d'API (réponse simulée), Mes composants, masquer sur mobile, Mes projets. |
