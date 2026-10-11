@@ -66,14 +66,18 @@ export function useShortcuts() {
 /** Applique le thème (clair / sombre / système) à la page. */
 export function useTheme() {
   const theme = useWorkspace((s) => s.theme)
+  const ui = useWorkspace((s) => s.ui)
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const apply = () => {
-      const resolved = theme === 'system' ? (mq.matches ? 'dark' : 'light') : theme
+      // L'interface pro est toujours sombre, comme les logiciels de création 3D.
+      const resolved = ui === 'pro' ? 'dark' : theme === 'system' ? (mq.matches ? 'dark' : 'light') : theme
       document.documentElement.dataset.theme = resolved
+      if (ui === 'pro') document.documentElement.dataset.ui = 'pro'
+      else delete document.documentElement.dataset.ui
     }
     apply()
     mq.addEventListener('change', apply)
     return () => mq.removeEventListener('change', apply)
-  }, [theme])
+  }, [theme, ui])
 }

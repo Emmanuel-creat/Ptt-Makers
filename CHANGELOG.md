@@ -2,6 +2,24 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.4.0] : 2026-10-11
+
+Une interface de logiciel professionnel, inspirée de Blender : sombre, compacte, rangée par espaces de travail.
+
+### Ajouté
+- **Interface pro** (par défaut) : gris sombre, panneaux serrés, champs et boutons compacts, couleur de sélection orange et bleu de marque, zone de création sur une grille.
+- **Barre de menus** : Fichier, Édition, Ajouter, Affichage et Aide. Chaque commande affiche son raccourci ; on passe d'un menu à l'autre au survol, `Échap` referme.
+- **Espaces de travail** en onglets : Construction, Style, Logique, Code et Aperçu. Chacun range les panneaux pour une tâche (par exemple Code ouvre le code en grand à droite, Logique ouvre les variables).
+- **Barre d'outils verticale** sur la zone de création : sélectionner la page, ajouter une section, une carte, un titre, un paragraphe, un bouton, un champ, une image ou une icône près de la sélection.
+- **Onglets d'icônes** dans les propriétés : Contenu, Mise en page, Apparence, Texte, Interactions et Style du projet, qui ouvrent et font défiler jusqu'à la bonne section.
+- **Barre d'état** en bas : gestes utiles, nombre de briques, de pages et de variables, et version.
+- **Écran d'accueil** au démarrage : nouveau projet depuis un modèle, projets récents, reprise du projet en cours, nouveautés et guide. Il se rouvre depuis Fichier, et se désactive avec « Afficher au démarrage ».
+- **Interface classique** toujours disponible (bouton Disposition, réglage « Interface », ou menu Affichage), avec ses thèmes clair, sombre et système.
+
+### Modifié
+- Sur les écrans moyens, la barre du haut garde les icônes des boutons secondaires (leurs libellés restent dans les menus et pour les lecteurs d'écran).
+- Tests : 94 tests unitaires et 27 tests de bout en bout.
+
 ## [2.3.0] : 2026-10-11
 
 Premier pas de la version pro : un moteur de styles et 24 styles prêts à l'emploi.

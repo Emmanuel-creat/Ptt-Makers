@@ -1,4 +1,7 @@
 import { PanelBottomClose, PanelRightClose, SlidersHorizontal } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { PropsTabs, StatusBar, ToolStrip } from './components/ProChrome'
+import { Splash } from './components/Splash'
 import { ToolsPanel } from './components/ToolsPanel'
 import { Canvas } from './components/Canvas'
 import { Dialogs } from './components/Dialogs'
@@ -19,6 +22,13 @@ export default function App() {
   useShortcuts()
   const ws = useWorkspace()
   const mobile = useIsMobile()
+  const propsBody = useRef<HTMLDivElement>(null)
+  // Écran d'accueil à l'ouverture (pas pour un lien de partage ni pendant la première visite).
+  useEffect(() => {
+    const s = useWorkspace.getState()
+    if (s.showSplash && s.onboardingDone && !location.hash.startsWith('#projet=')) s.set({ splashOpen: true })
+  }, [])
+  const pro = ws.ui === 'pro'
   if (mobile) {
     return (
       <div className="pm-app is-mobile">
@@ -83,6 +93,7 @@ export default function App() {
         <div className="pm-center">
           <div className="pm-center-row">
             <div className="pm-canvas-area" data-tour="canvas" aria-label="Zone de création">
+              {pro && <ToolStrip />}
               <Canvas />
             </div>
             {dockRight && (ws.dockCollapsed ? <PanelToggle side="dock" /> : <>{dockSplitter}{dock}</>)}
@@ -113,14 +124,25 @@ export default function App() {
                   <PanelRightClose size={16} />
                 </IconButton>
               </div>
-              <div className="pm-panel-body">
-                <Inspector />
-              </div>
+              {pro ? (
+                <div className="pm-props">
+                  <PropsTabs body={propsBody} />
+                  <div className="pm-panel-body" ref={propsBody}>
+                    <Inspector />
+                  </div>
+                </div>
+              ) : (
+                <div className="pm-panel-body">
+                  <Inspector />
+                </div>
+              )}
             </aside>
           </>
         )}
       </div>
 
+      {pro && <StatusBar />}
+      {ws.splashOpen && <Splash />}
       <datalist id="pm-length-suggestions">
         {['auto', '100%', '50%', '320px', '480px', '720px', '960px'].map((v) => (
           <option key={v} value={v} />

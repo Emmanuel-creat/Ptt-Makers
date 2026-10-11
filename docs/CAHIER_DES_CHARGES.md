@@ -111,6 +111,13 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F43** Régler chaque élément du style à la main (couleurs, fond en dégradé, ambiance, bordures, arrondis, relief, flou, polices) et revenir aux réglages du style.
 - **F44** Faire suivre le style à toutes les briques en retirant leurs réglages faits à la main, en une étape annulable.
 
+### 4.13 Interface professionnelle (version 2.4)
+
+- **F45** Une interface sombre et compacte de logiciel professionnel, inspirée de Blender, avec une barre de menus (Fichier, Édition, Ajouter, Affichage, Aide) qui donne accès à toutes les commandes et à leurs raccourcis.
+- **F46** Des espaces de travail en onglets (Construction, Style, Logique, Code, Aperçu) qui rangent les panneaux pour chaque tâche.
+- **F47** Une barre d'outils verticale sur la zone de création, des onglets d'icônes dans les propriétés et une barre d'état.
+- **F48** Un écran d'accueil au démarrage (modèles, projets récents, reprise, aide), désactivable, et l'interface classique toujours disponible.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -137,4 +144,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 9. Avec une réponse d'API simulée, l'assistant ouvre un projet qui fonctionne dans l'aperçu, et une modification s'annule avec Ctrl+Z.
 10. Sur une page en grille, un bouton déposé dans le coin en haut à gauche occupe la colonne 1, rangée 1, dans l'éditeur, dans l'aperçu et dans le code exporté ; en format mobile, les briques s'empilent.
 11. Choisir le style « Nuit et jaune » change le fond de la page et des cartes dans l'éditeur et dans l'aperçu ; « Adapter toutes les briques au style » retire une couleur de fond donnée à la main.
+12. Au rechargement, l'écran d'accueil s'ouvre et se ferme avec `Échap` ; le menu Fichier le rouvre ; la barre d'outils ajoute un titre que le menu Édition annule ; l'espace Code affiche le code ; l'interface classique se choisit dans la disposition.
 12. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
