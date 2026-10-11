@@ -819,3 +819,32 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
+
+.pm-statusbar-problems {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--pm-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.pm-statusbar-problems:hover {
+  background: var(--pm-hover);
+  color: var(--pm-text);
+}
+.pm-statusbar-problems.is-error {
+  color: var(--pm-danger);
+}
+.pm-statusbar-problems.is-ok svg {
+  color: var(--pm-success);
+}
+.pm-statusbar-problems + .pm-statusbar-right {
+  margin-left: 0;
+}

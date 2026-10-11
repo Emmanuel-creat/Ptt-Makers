@@ -137,6 +137,8 @@ export interface BrickNode {
   showIf?: string
   /** Position sur la grille, quand le parent est une page en placement libre. */
   place?: GridPlace
+  /** Copie liée d'un composant de Mes composants : modifier une copie met à jour toutes les autres. */
+  instanceOf?: string
 }
 
 export type VariableKind = 'text' | 'number' | 'boolean' | 'list' | 'collection'

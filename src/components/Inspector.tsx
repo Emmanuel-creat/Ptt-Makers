@@ -1,4 +1,8 @@
 import {
+  Component,
+  Group,
+  Unlink,
+  Ungroup,
   AlignCenter,
   AlignLeft,
   AlignRight,
@@ -31,6 +35,7 @@ import type { BrickNode, BrickStyle, GridPlace, StyleOverride, Variable } from '
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 import { repeatOf } from '../model/tree'
+import { instanceOfNode, instanceRoots } from '../model/instances'
 import { ActionsEditor, PageSelect } from './ActionsEditor'
 import { BrickBadge } from './BrickIcon'
 import { ColorInput, NumberInput, SelectInput, TextInput, VariableSelect } from './fields'
@@ -41,8 +46,51 @@ import { IconButton, Row, Section, Segmented, Switch } from './ui'
 const TEXT_TYPES = new Set(['page', 'section', 'row', 'stack', 'grid', 'card', 'heading', 'text', 'link', 'badge', 'list', 'button'])
 
 /** Panneau Propriétés : tout ce qu'on peut régler sur la brique sélectionnée. */
+/** Plusieurs briques sélectionnées : ce qu'on peut faire sur toutes à la fois. */
+function MultiInspector({ ids }: { ids: string[] }) {
+  const nodes = useEditor((s) => s.project.nodes)
+  const { select, groupSelection, duplicateSelection, removeSelection } = useEditor.getState()
+  const chosen = ids.map((id) => nodes[id]).filter(Boolean)
+  const sameParent = chosen.every((n) => n.parent === chosen[0]?.parent)
+  return (
+    <div className="pm-inspector">
+      <header className="pm-inspector-head">
+        <div className="pm-inspector-title">
+          <strong className="pm-multi-title">{chosen.length} briques sélectionnées</strong>
+          <span className="pm-muted">Maj + clic pour en ajouter ou en retirer.</span>
+        </div>
+      </header>
+      <div className="pm-inspector-scroll">
+        <div className="pm-multi-actions">
+          <button type="button" className="pm-btn pm-btn-primary" disabled={!sameParent} onClick={groupSelection}>
+            <Group size={15} /> Grouper
+          </button>
+          <button type="button" className="pm-btn pm-btn-secondary" onClick={duplicateSelection}>
+            <Copy size={15} /> Dupliquer
+          </button>
+          <button type="button" className="pm-btn pm-btn-secondary is-danger" onClick={removeSelection}>
+            <Trash2 size={15} /> Supprimer
+          </button>
+        </div>
+        {!sameParent && <p className="pm-row-help">Pour grouper, choisis des briques rangées dans le même conteneur.</p>}
+        <ul className="pm-multi-list">
+          {chosen.map((n) => (
+            <li key={n.id}>
+              <button type="button" onClick={() => select(n.id)}>
+                <BrickBadge type={n.type} size="sm" />
+                <span className="pm-truncate">{n.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
 export function Inspector() {
   const selectedId = useEditor((s) => s.selectedId)
+  const selection = useEditor((s) => s.selection)
   const node = useEditor((s) => (s.selectedId ? s.project.nodes[s.selectedId] : null))
   const repeatId = useEditor((s) => (s.selectedId ? repeatOf(s.project.nodes, s.selectedId) : null))
   const variables = useEditor((s) => s.project.variables)
@@ -57,6 +105,7 @@ export function Inspector() {
       ...fieldsOf(source).map((f) => ({ token: `element.${f.name}`, hint: `${f.label} (${FIELD_TYPE_LABEL[f.type].toLowerCase()})` })),
     ]
   }, [repeatId, repeatSource, variables])
+  if (selection.length > 1) return <MultiInspector ids={selection} />
   if (!selectedId || !node) return <NoSelection />
   return (
     <ScopeTokens.Provider value={tokens}>
@@ -107,11 +156,32 @@ function NoSelection() {
   )
 }
 
+/** Rappelle qu'on modifie une copie liée : le changement touchera toutes les copies. */
+function InstanceBanner({ node }: { node: BrickNode }) {
+  const nodes = useEditor((st) => st.project.nodes)
+  const components = useEditor((st) => st.project.components)
+  const root = instanceOfNode(nodes, node.id)
+  const component = root && components?.find((c) => c.id === root.instanceOf)
+  if (!root || !component) return null
+  const count = instanceRoots(nodes, component.id).length
+  return (
+    <div className="pm-hint pm-instance-hint" role="note">
+      <Component size={15} />
+      <div>
+        Copie liée du composant « {component.name} » ({count} {count > 1 ? 'copies' : 'copie'}). Ce que tu changes à l’intérieur change aussi les autres copies ; le nom, la place et l’affichage restent propres à chacune.
+        <button type="button" className="pm-link-button" onClick={() => useEditor.getState().detachInstance(root.id)}>
+          <Unlink size={13} /> Détacher cette copie
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function NodeInspector({ node }: { node: BrickNode }) {
   const def = BRICKS[node.type]
   const beginner = useWorkspace((s) => s.beginner)
   const variables = useEditor((s) => s.project.variables)
-  const { updateNode, updateProps, updateStyle, duplicate, remove, notify, saveComponent } = useEditor.getState()
+  const { updateNode, updateProps, updateStyle, duplicate, remove, notify, saveComponent, ungroup } = useEditor.getState()
   const scope = useWorkspace((s) => s.styleScope)
   // Sur un format plus petit, on lit et on écrit seulement ce qui change pour ce format.
   const s: StyleOverride = scope === 'all' ? node.style : (node.responsive?.[scope] ?? {})
@@ -152,6 +222,11 @@ function NodeInspector({ node }: { node: BrickNode }) {
             <IconButton label="Enregistrer dans Mes composants" onClick={() => saveComponent(node.id)}>
               <Package size={15} />
             </IconButton>
+            {def.container && node.type !== 'repeat' && node.children.length > 0 && (
+              <IconButton label="Dégrouper (sortir le contenu)" shortcut="Ctrl+Maj+G" onClick={() => ungroup(node.id)}>
+                <Ungroup size={15} />
+              </IconButton>
+            )}
             <IconButton label="Dupliquer" shortcut="Ctrl+D" onClick={() => duplicate(node.id)}>
               <Copy size={15} />
             </IconButton>
@@ -161,6 +236,7 @@ function NodeInspector({ node }: { node: BrickNode }) {
           </div>
         )}
       </header>
+      <InstanceBanner node={node} />
       {beginner && (
         <p className="pm-inspector-desc">
           {def.description} <span className="pm-muted">Famille : {category.label}.</span>

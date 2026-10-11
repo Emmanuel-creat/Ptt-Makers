@@ -106,7 +106,15 @@ Dans l'aperçu et l'application exportée : un clic sur un titre de colonne trie
 
 ### Mes composants
 
-Sélectionne un bloc (une carte, un menu…) et clique sur l'icône Paquet <img src="icones/paquet.svg" width="16" height="16" alt=""> en haut des propriétés : il rejoint la famille **Mes composants** de la bibliothèque. Glisse-le ou clique dessus pour en placer une copie. Le × de la tuile le retire de la bibliothèque, sans toucher aux copies déjà placées.
+Sélectionne un bloc (une carte, un menu…) et clique sur l'icône Paquet <img src="icones/paquet.svg" width="16" height="16" alt=""> en haut des propriétés : il rejoint la famille **Mes composants** de la bibliothèque. Glisse-le ou clique dessus pour en placer une copie.
+
+Les copies sont **liées** : change un texte, une couleur ou ajoute une brique dans l'une d'elles, et toutes les autres suivent (le composant aussi). Le nom du bloc, sa place sur une grille, « masquée au départ » et « afficher seulement si » restent propres à chaque copie. Dans les propriétés, un bandeau rappelle qu'il s'agit d'une copie liée ; **Détacher cette copie** en fait un bloc ordinaire, que tu modifies seul. Le × de la tuile retire le composant de la bibliothèque : ses copies restent sur la page, détachées.
+
+### Sélectionner plusieurs briques, grouper
+
+`Maj + clic` (ou `Ctrl + clic`) sur une brique, dans la zone de création ou dans les calques, l'ajoute à la sélection (ou l'en retire). Les autres briques sélectionnées sont encadrées en pointillés, et les propriétés proposent **Grouper**, **Dupliquer** et **Supprimer** pour toutes à la fois. `Échap` revient à une seule brique.
+
+**Grouper** (`Ctrl + G`) range les briques dans un nouveau bloc « Groupe », à la place de la première, dans l'ordre de la page. Elles doivent avoir le même parent. **Dégrouper** (`Ctrl + Maj + G`, ou l'icône en haut des propriétés d'un bloc) sort le contenu du bloc et retire le bloc.
 
 ## Style et formats
 
@@ -269,6 +277,16 @@ Menu **Fichier**, **Installer sur mon ordinateur** : un fichier `Ptt-Makers-loca
 
 La version installée marche sans internet ; seul l'assistant IA en a besoin. Pour y retrouver un projet commencé en ligne : sur le site, *Exporter…*, *Projet Ptt-Makers (.json)*, puis dans la version installée, *Exporter…*, *Importer un projet*. Pour mettre à jour, télécharge le nouveau paquet et relance l'installation : tes projets sont gardés.
 
+## Le panneau Problèmes
+
+À côté de l'aperçu et du code, l'onglet **Problèmes** <img src="icones/problemes.svg" width="16" height="16" alt=""> passe le projet en revue à chaque changement. Les **erreurs** empêchent une partie de l'application de marcher : une variable, un champ, une page ou une brique qui n'existe plus, `{{element}}` hors d'une répétition, une formule mal écrite, une action « Ajouter un élément » sur une variable qui n'est pas une liste, une adresse d'API qui ne commence pas par `https://`. Les **conseils** rendent l'application plus soignée : une image sans description, un bouton sans texte, un lien qui ne mène nulle part, une page vide, une variable qui ne sert nulle part.
+
+Un clic sur une ligne sélectionne la brique concernée, ou ouvre la variable. La barre d'état, en bas, affiche le compte et ouvre le panneau.
+
+## Les versions
+
+Menu **Fichier**, **Versions…** <img src="icones/versions.svg" width="16" height="16" alt=""> : donne un nom (« avant la refonte ») et enregistre une photo du projet. Plus tard, **Revenir à cette version** remet le projet dans cet état. Rien ne se perd : l'état actuel est d'abord gardé dans une version automatique, et `Ctrl + Z` annule le retour. Chaque projet garde jusqu'à 30 versions, dans ce navigateur.
+
 ## Raccourcis clavier
 
 | Raccourci | Action |
@@ -277,6 +295,8 @@ La version installée marche sans internet ; seul l'assistant IA en a besoin. Po
 | `Ctrl/⌘ + S` | Enregistrer tout de suite |
 | `Suppr` | Supprimer la brique |
 | `Ctrl/⌘ + D` | Dupliquer |
+| `Maj + clic` | Ajouter une brique à la sélection |
+| `Ctrl/⌘ + G` · `Ctrl/⌘ + Maj + G` | Grouper · Dégrouper |
 | `Ctrl/⌘ + C` · `Ctrl/⌘ + V` | Copier · Coller dans la sélection |
 | `Alt + ↑` · `Alt + ↓` | Monter · Descendre (d'une rangée sur une page en grille) |
 | `Alt + ←` · `Alt + →` | Page en grille : décaler d'une colonne |

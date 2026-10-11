@@ -1,4 +1,4 @@
-import { Check, Code2, Copy, Download, ExternalLink, Eye, Info, RotateCcw } from 'lucide-react'
+import { Check, CircleAlert, Code2, Copy, Download, ExternalLink, Eye, Info, RotateCcw } from 'lucide-react'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { bundle, generate, type GeneratedCode } from '../codegen/generate'
 import { highlightLines, type Lang } from '../codegen/highlight'
@@ -6,6 +6,7 @@ import type { Project } from '../model/types'
 import { useEditor } from '../store/editor'
 import { DEVICE_WIDTH, useWorkspace, type CodeTab } from '../store/workspace'
 import { downloadFile } from '../utils/download'
+import { ProblemsPanel, useProblems } from './ProblemsPanel'
 import { IconButton } from './ui'
 
 const cache = new WeakMap<Project, GeneratedCode>()
@@ -26,6 +27,8 @@ export function useGeneratedCode(): GeneratedCode {
 export function Dock() {
   const tab = useWorkspace((s) => s.dockTab)
   const set = useWorkspace((s) => s.set)
+  const problems = useProblems()
+  const errors = problems.filter((p) => p.level === 'erreur').length
   return (
     <div className="pm-dock-inner">
       <div className="pm-tabs" role="tablist" aria-label="Aperçu et code">
@@ -35,11 +38,15 @@ export function Dock() {
         <button type="button" role="tab" aria-selected={tab === 'code'} className="pm-tab" onClick={() => set({ dockTab: 'code' })}>
           <Code2 size={15} /> Code
         </button>
+        <button type="button" role="tab" aria-selected={tab === 'problems'} className="pm-tab" onClick={() => set({ dockTab: 'problems' })}>
+          <CircleAlert size={15} /> Problèmes
+          {problems.length > 0 && <span className={`pm-tab-count ${errors ? 'is-error' : ''}`}>{problems.length}</span>}
+        </button>
         <span className="pm-live-dot" data-tip="Mis à jour en temps réel">
           en direct
         </span>
       </div>
-      {tab === 'preview' ? <Preview /> : <CodeView />}
+      {tab === 'preview' ? <Preview /> : tab === 'code' ? <CodeView /> : <ProblemsPanel />}
     </div>
   )
 }

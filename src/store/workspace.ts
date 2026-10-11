@@ -9,7 +9,7 @@ export type WorkspaceTab = 'construction' | 'style' | 'logique' | 'code' | 'aper
 export type Device = 'mobile' | 'tablet' | 'desktop'
 export type DockPosition = 'right' | 'bottom'
 export type LeftTab = 'bricks' | 'layers' | 'variables'
-export type DockTab = 'preview' | 'code'
+export type DockTab = 'preview' | 'code' | 'problems'
 export type CodeTab = 'html' | 'css' | 'js'
 export type MobileView = 'tools' | 'create' | 'props' | 'preview'
 /** Format dont on modifie le style dans les propriétés. */
@@ -55,7 +55,7 @@ interface WorkspaceState extends Layout {
   /** Défi guidé en cours, lié au projet créé pour lui. */
   challenge: { id: string; projectId: string } | null
   challengesDone: string[]
-  dialog: null | 'templates' | 'shortcuts' | 'export' | 'projects' | 'challenges' | 'assistant'
+  dialog: null | 'templates' | 'shortcuts' | 'export' | 'projects' | 'challenges' | 'assistant' | 'versions'
   set: (patch: Partial<Omit<WorkspaceState, 'set' | 'resetLayout'>>) => void
   resetLayout: () => void
 }

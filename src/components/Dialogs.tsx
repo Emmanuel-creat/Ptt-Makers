@@ -1,4 +1,4 @@
-import { Atom, Check, Copy, FileCode, FileJson, Files, FolderOpen, Link2, Plus, Trash2, Upload, X } from 'lucide-react'
+import { Atom, Check, Copy, FileCode, FileJson, Files, FolderOpen, History, Link2, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toReact, toVue } from '../codegen/frameworks'
 import { AssistantDialog } from './Assistant'
@@ -7,6 +7,7 @@ import { CHALLENGES } from '../model/challenges'
 import { TEMPLATES, buildProject, parseProject } from '../model/templates'
 import { useEditor } from '../store/editor'
 import { listProjects } from '../store/library'
+import { listVersions, removeVersion, saveVersion } from '../store/versions'
 import { useWorkspace } from '../store/workspace'
 import { downloadFile, slugify } from '../utils/download'
 import { shareUrl } from '../utils/share'
@@ -21,6 +22,7 @@ export function Dialogs() {
   if (dialog === 'projects') return <ProjectsDialog onClose={close} />
   if (dialog === 'challenges') return <ChallengesDialog onClose={close} />
   if (dialog === 'assistant') return <AssistantDialog onClose={close} />
+  if (dialog === 'versions') return <VersionsDialog onClose={close} />
   return null
 }
 
@@ -236,6 +238,9 @@ const SHORTCUTS: [string[], string][] = [
   [[MOD, 'D'], 'Dupliquer'],
   [[MOD, 'C'], 'Copier'],
   [[MOD, 'V'], 'Coller dans la sélection'],
+  [['Maj', 'Clic'], 'Ajouter une brique à la sélection'],
+  [[MOD, 'G'], 'Grouper les briques sélectionnées'],
+  [[MOD, 'Maj', 'G'], 'Dégrouper'],
   [['Alt', '↑'], 'Monter la brique'],
   [['Alt', '↓'], 'Descendre la brique'],
   [['Échap'], 'Sélectionner le parent'],
@@ -280,6 +285,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
 }
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+const defaultVersionName = () => `Version du ${dateFormat.format(Date.now())}`
 
 /** « Mes projets » : tous les projets enregistrés dans ce navigateur. */
 function ProjectsDialog({ onClose }: { onClose: () => void }) {
@@ -347,6 +353,85 @@ function ProjectsDialog({ onClose }: { onClose: () => void }) {
           )
         })}
       </ul>
+    </Modal>
+  )
+}
+
+function VersionsDialog({ onClose }: { onClose: () => void }) {
+  const projectId = useEditor((s) => s.projectId)
+  const projectName = useEditor((s) => s.project.name)
+  const { loadProject, notify } = useEditor.getState()
+  const [name, setName] = useState('')
+  const [, refresh] = useState(0)
+  const versions = listVersions(projectId)
+  const update = () => refresh((n) => n + 1)
+
+  const save = () => {
+    const label = name.trim() || defaultVersionName()
+    if (!saveVersion(projectId, label, useEditor.getState().project)) return notify('Le navigateur n’a plus de place : supprime d’anciennes versions')
+    setName('')
+    notify(`Version « ${label} » enregistrée`)
+    update()
+  }
+
+  return (
+    <Modal title="Versions" subtitle={`Des photos de « ${projectName} » que tu peux retrouver plus tard, dans ce navigateur.`} onClose={onClose} wide>
+      <form
+        className="pm-versions-new"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save()
+        }}
+      >
+        <input className="pm-input" aria-label="Nom de la version" placeholder="Nom de la version (ex. : avant la refonte)" value={name} onChange={(e) => setName(e.target.value)} />
+        <button type="submit" className="pm-btn pm-btn-primary">
+          <History size={16} /> Enregistrer cette version
+        </button>
+      </form>
+      {versions.length === 0 ? (
+        <p className="pm-muted pm-versions-empty">Aucune version pour l’instant. Enregistre-en une avant un gros changement.</p>
+      ) : (
+        <ul className="pm-projects">
+          {versions.map((v) => (
+            <li key={v.id} className="pm-project">
+              <div className="pm-project-open is-static">
+                <History size={18} aria-hidden="true" />
+                <span className="pm-project-name">{v.name}</span>
+                <span className="pm-project-meta">
+                  {v.auto ? 'Automatique · ' : ''}
+                  {v.project.pages.length} page{v.project.pages.length > 1 ? 's' : ''} · le {dateFormat.format(v.at)}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="pm-btn pm-btn-secondary"
+                onClick={() => {
+                  // On garde l'état actuel : revenir en arrière ne fait rien perdre.
+                  saveVersion(projectId, `Avant de revenir à « ${v.name} »`, useEditor.getState().project, true)
+                  loadProject(structuredClone(v.project))
+                  notify(`Retour à « ${v.name} » (Ctrl+Z pour annuler)`)
+                  onClose()
+                }}
+              >
+                <RotateCcw size={15} /> Revenir à cette version
+              </button>
+              <button
+                type="button"
+                className="pm-icon-btn is-danger"
+                aria-label={`Supprimer la version ${v.name}`}
+                data-tip="Supprimer"
+                onClick={() => {
+                  if (!confirm(`Supprimer la version « ${v.name} » ?`)) return
+                  removeVersion(projectId, v.id)
+                  update()
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </Modal>
   )
 }

@@ -4,7 +4,7 @@ import { useEditor } from './editor'
 import { listProjects } from './library'
 
 const reset = () =>
-  useEditor.setState({ project: buildProject('Test', {}, []), currentPage: 'page', past: [], future: [], selectedId: null, clipboard: null, lastEdit: null })
+  useEditor.setState({ project: buildProject('Test', {}, []), currentPage: 'page', past: [], future: [], selectedId: null, selection: [], clipboard: null, lastEdit: null })
 
 describe('éditeur', () => {
   beforeEach(reset)
@@ -232,5 +232,83 @@ describe('studio de style', () => {
     expect(ed().project.nodes[id].style.background).toBeUndefined()
     ed().undo()
     expect(ed().project.nodes[id].style.background).toBe('#ff0000')
+  })
+
+  it('sélectionne plusieurs briques, les groupe puis les dégroupe', () => {
+    const { addBrick, select, toggleSelect } = useEditor.getState()
+    const a = addBrick('heading')
+    const b = addBrick('text')
+    const c = addBrick('button')
+    select(a)
+    toggleSelect(c)
+    toggleSelect(b)
+    expect(useEditor.getState().selection).toEqual([a, c, b])
+    // La page elle-même ne rejoint pas la sélection.
+    toggleSelect('page')
+    expect(useEditor.getState().selection).toEqual([])
+    select(a)
+    toggleSelect(c)
+    useEditor.getState().groupSelection()
+    const { project, selectedId, selection } = useEditor.getState()
+    const group = project.nodes[selectedId!]
+    expect(selection).toEqual([])
+    expect(group.type).toBe('stack')
+    // Le groupe prend la place de la première brique et garde l'ordre du document.
+    expect(project.nodes.page.children).toEqual([group.id, b])
+    expect(group.children).toEqual([a, c])
+    useEditor.getState().ungroup(group.id)
+    expect(useEditor.getState().project.nodes.page.children).toEqual([a, c, b])
+    expect(useEditor.getState().selection).toEqual([a, c])
+    useEditor.getState().undo()
+    expect(useEditor.getState().project.nodes.page.children).toEqual([group.id, b])
+  })
+
+  it('supprime et duplique toute la sélection', () => {
+    const { addBrick, select, toggleSelect } = useEditor.getState()
+    const card = addBrick('card')
+    const inside = useEditor.getState().addBrickNearSelection('text')
+    const other = addBrick('button')
+    select(card)
+    toggleSelect(inside)
+    toggleSelect(other)
+    useEditor.getState().duplicateSelection()
+    // La brique dans la carte est copiée avec la carte, pas une seconde fois.
+    expect(useEditor.getState().project.nodes.page.children).toHaveLength(4)
+    expect(useEditor.getState().selection).toHaveLength(2)
+    useEditor.getState().removeSelection()
+    expect(useEditor.getState().project.nodes.page.children).toEqual([card, other])
+  })
+
+  it('les copies liées d’un composant restent identiques', () => {
+    const { addBrick, addBrickNearSelection, saveComponent, insertComponent, select } = useEditor.getState()
+    const card = addBrick('card')
+    const text = addBrickNearSelection('text')
+    saveComponent(card, 'Fiche')
+    const componentId = useEditor.getState().project.components![0].id
+    select(null)
+    insertComponent(componentId)
+    const copy = useEditor.getState().selectedId!
+    const copyText = useEditor.getState().project.nodes[copy].children[0]
+    expect(useEditor.getState().project.nodes[copy].instanceOf).toBe(componentId)
+    // Modifier l'intérieur d'une copie change l'autre copie et le composant.
+    useEditor.getState().updateProps(copyText, { text: 'Bonjour' })
+    let { project } = useEditor.getState()
+    // Les briques gardent leur identifiant.
+    expect(project.nodes[text].props.text).toBe('Bonjour')
+    const master = project.components![0]
+    expect(master.nodes[master.nodes[master.rootId].children[0]].props.text).toBe('Bonjour')
+    // Le nom de la racine reste propre à chaque copie.
+    useEditor.getState().updateNode(copy, { name: 'Autre' })
+    expect(useEditor.getState().project.nodes[card].name).not.toBe('Autre')
+    // Annuler revient en arrière sur les deux copies en une étape.
+    useEditor.getState().undo()
+    useEditor.getState().undo()
+    project = useEditor.getState().project
+    expect(project.nodes[text].props.text).not.toBe('Bonjour')
+    expect(project.nodes[copyText].props.text).not.toBe('Bonjour')
+    // Une copie détachée ne suit plus.
+    useEditor.getState().detachInstance(copy)
+    useEditor.getState().updateProps(copyText, { text: 'Seule' })
+    expect(useEditor.getState().project.nodes[text].props.text).not.toBe('Seule')
   })
 })

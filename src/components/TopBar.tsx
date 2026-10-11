@@ -19,6 +19,7 @@ import {
   Tablet,
   Trophy,
   Undo2,
+  History,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useEditor } from '../store/editor'
@@ -166,6 +167,9 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
         </button>
         <button type="button" className="pm-btn pm-btn-secondary" onClick={() => ws.set({ dialog: 'projects' })}>
           <FolderOpen size={16} /> <span className="pm-hide-sm">Mes projets</span>
+        </button>
+        <button type="button" className="pm-icon-btn" aria-label="Versions" data-tip="Versions" onClick={() => ws.set({ dialog: 'versions' })}>
+          <History size={16} />
         </button>
         <button type="button" className="pm-btn pm-btn-secondary" onClick={() => ws.set({ dialog: 'templates' })}>
           <LayoutTemplate size={16} /> <span className="pm-hide-sm">Modèles</span>

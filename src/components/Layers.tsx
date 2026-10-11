@@ -1,4 +1,4 @@
-import { ChevronRight, EyeOff, Repeat, Variable, Zap } from 'lucide-react'
+import { ChevronRight, Component, EyeOff, Repeat, Variable, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { isContainer } from '../model/bricks'
 import { canDrop } from '../model/tree'
@@ -18,10 +18,10 @@ export function Layers() {
 
 function LayerItem({ id, depth }: { id: string; depth: number }) {
   const node = useEditor((s) => s.project.nodes[id])
-  const selected = useEditor((s) => s.selectedId === id)
+  const selected = useEditor((s) => s.selectedId === id || s.selection.includes(id))
   const hovered = useEditor((s) => s.hoveredId === id)
   const drop = useEditor((s) => (s.dropTarget?.id === id ? s.dropTarget.position : null))
-  const { select, hover, setDragging, setDropTarget, updateNode } = useEditor.getState()
+  const { select, toggleSelect, hover, setDragging, setDropTarget, updateNode } = useEditor.getState()
   const [open, setOpen] = useState(true)
   const [editing, setEditing] = useState(false)
   if (!node) return null
@@ -68,7 +68,7 @@ function LayerItem({ id, depth }: { id: string; depth: number }) {
           const t = useEditor.getState().dropTarget
           if (t) useEditor.getState().drop(t)
         }}
-        onClick={() => select(id)}
+        onClick={(e) => (e.shiftKey || e.ctrlKey || e.metaKey ? toggleSelect(id) : select(id))}
         onMouseEnter={() => hover(id)}
         onMouseLeave={() => hover(null)}
         onDoubleClick={() => node.parent && setEditing(true)}
@@ -112,6 +112,11 @@ function LayerItem({ id, depth }: { id: string; depth: number }) {
           </span>
         )}
         <span className="pm-layer-flags">
+          {node.instanceOf && (
+            <span data-tip="Copie liée d’un composant">
+              <Component size={13} aria-label="Copie liée" />
+            </span>
+          )}
           {node.showIf && (
             <span data-tip={`Visible si « ${node.showIf} » est vrai`}>
               <Variable size={13} aria-label="Affichage conditionnel" />

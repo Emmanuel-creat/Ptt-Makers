@@ -216,3 +216,65 @@ export function makeBrick(nodes: Nodes, type: BrickType): { nodes: Nodes; rootId
   const rootId = create({ type, children: BRICKS[type].starter }, null)
   return { nodes: sub, rootId }
 }
+
+/** Garde seulement les briques les plus hautes : une brique dont un ancêtre est aussi choisi est déjà incluse. */
+export function topLevel(nodes: Nodes, ids: string[]): string[] {
+  const set = new Set(ids)
+  return ids.filter((id) => {
+    let cur = nodes[id]?.parent ?? null
+    while (cur) {
+      if (set.has(cur)) return false
+      cur = nodes[cur]?.parent ?? null
+    }
+    return !!nodes[id]?.parent
+  })
+}
+
+/**
+ * Range des briques sœurs dans un nouveau conteneur, à la place de la première.
+ * Le groupe garde leur sens : une ligne si elles étaient côte à côte, une colonne sinon.
+ */
+export function groupNodes(nodes: Nodes, ids: string[]): { nodes: Nodes; groupId: string } | null {
+  const chosen = topLevel(nodes, ids)
+  if (!chosen.length) return null
+  const parentId = nodes[chosen[0]].parent!
+  if (chosen.some((id) => nodes[id].parent !== parentId)) return null
+  const parent = nodes[parentId]
+  const ordered = parent.children.filter((c) => chosen.includes(c))
+  const horizontal = (parent.style.direction ?? BRICKS[parent.type].defaultStyle.direction) === 'row'
+  const group = makeNode(nodes, horizontal ? 'row' : 'stack', { name: 'Groupe' })
+  // Sur une page en grille, le groupe occupe la case qui englobe toutes les briques.
+  const places = ordered.map((id) => nodes[id].place).filter((p): p is NonNullable<typeof p> => !!p)
+  if (places.length) {
+    const col = Math.min(...places.map((p) => p.col))
+    const row = Math.min(...places.map((p) => p.row))
+    group.place = {
+      col,
+      row,
+      w: Math.max(...places.map((p) => p.col + p.w)) - col,
+      h: Math.max(...places.map((p) => p.row + p.h)) - row,
+    }
+  }
+  let next = insertNode(nodes, group, parentId, parent.children.indexOf(ordered[0]))
+  ordered.forEach((id, i) => {
+    next = moveNode(next, id, group.id, i)
+    const { place: _place, ...rest } = next[id]
+    next[id] = rest
+  })
+  return { nodes: next, groupId: group.id }
+}
+
+/** Sort le contenu d'un conteneur à sa place, puis supprime le conteneur vide. */
+export function ungroupNode(nodes: Nodes, id: string): { nodes: Nodes; childIds: string[] } | null {
+  const node = nodes[id]
+  if (!node?.parent || !isContainer(node.type) || node.type === 'repeat') return null
+  const parentId = node.parent
+  const childIds = [...node.children]
+  let next = nodes
+  const at = nodes[parentId].children.indexOf(id)
+  childIds.forEach((c, i) => {
+    next = moveNode(next, c, parentId, at + 1 + i)
+  })
+  next = removeNode(next, id)
+  return { nodes: next, childIds }
+}
