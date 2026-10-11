@@ -25,6 +25,14 @@ import {
   SquareChevronDown,
   Tag,
   TextCursorInput,
+  Table2,
+  ChartColumn,
+  CalendarDays,
+  SquareKanban,
+  MessagesSquare,
+  PanelBottom,
+  TrendingUp,
+  Gauge,
   type LucideIcon,
 } from 'lucide-react'
 import { BRICKS } from '../model/bricks'
@@ -57,6 +65,14 @@ const ICONS: Record<string, LucideIcon> = {
   image: Image,
   divider: Minus,
   spacer: MoveVertical,
+  table: Table2,
+  chart: ChartColumn,
+  calendar: CalendarDays,
+  kanban: SquareKanban,
+  chat: MessagesSquare,
+  tabbar: PanelBottom,
+  stat: TrendingUp,
+  progress: Gauge,
 }
 
 export function BrickIcon({ type, size = 16 }: { type: BrickType; size?: number }) {

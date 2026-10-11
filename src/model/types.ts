@@ -27,8 +27,16 @@ export type BrickType =
   | 'icon'
   | 'divider'
   | 'spacer'
+  | 'table'
+  | 'chart'
+  | 'calendar'
+  | 'kanban'
+  | 'chat'
+  | 'tabbar'
+  | 'stat'
+  | 'progress'
 
-export type Category = 'structure' | 'texte' | 'interaction' | 'medias'
+export type Category = 'structure' | 'texte' | 'interaction' | 'medias' | 'pro'
 
 export type Align = 'start' | 'center' | 'end' | 'stretch'
 export type Justify = 'start' | 'center' | 'end' | 'space-between'

@@ -90,6 +90,9 @@ body.is-resizing-y iframe {
 [data-cat='medias'] {
   --cat: var(--cat-medias);
 }
+[data-cat='pro'] {
+  --cat: var(--cat-pro);
+}
 
 /* ------------------------------------------------------------------ Mise en page */
 

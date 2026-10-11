@@ -497,3 +497,33 @@ test.describe('interface pro', () => {
     await expect(page.locator('.pm-toolstrip')).toHaveCount(0)
   })
 })
+
+test.describe('briques pro', () => {
+  test('un kanban et une discussion fonctionnent dans l’aperçu', async ({ page }) => {
+    await openBlank(page)
+    await page.locator('.pm-tile', { hasText: 'Kanban' }).click()
+    await expect(page.locator('.pm-frame .kanban-card')).toHaveCount(4)
+    await page.locator('.pm-frame .page').click({ position: { x: 4, y: 4 } })
+    await page.locator('.pm-tile', { hasText: 'Discussion' }).click()
+    const counts = preview(page).locator('.kanban-count')
+    await expect(counts).toHaveText(['2', '1', '1'])
+    await preview(page).locator('.kanban-move').first().click()
+    await expect(counts).toHaveText(['1', '2', '1'])
+    await preview(page).getByLabel('Écrire un message').fill('Ça avance bien')
+    await preview(page).getByRole('button', { name: 'Envoyer' }).click()
+    await expect(preview(page).locator('.chat-msg.is-me').last()).toContainText('Ça avance bien')
+  })
+
+  test('le modèle Tableau de bord affiche ses graphiques et trie son tableau', async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await page.getByRole('button', { name: 'Plus tard' }).click()
+    await page.getByRole('button', { name: 'Modèles' }).click()
+    await page.getByRole('button', { name: /Tableau de bord/ }).click()
+    await expect(page.locator('.pm-frame .stat')).toHaveCount(4)
+    await expect(page.locator('.pm-frame .chart svg')).toHaveCount(2)
+    await preview(page).getByRole('button', { name: 'Montant' }).click()
+    await expect(preview(page).locator('.table tbody tr').first()).toContainText('19,90 €')
+  })
+})
