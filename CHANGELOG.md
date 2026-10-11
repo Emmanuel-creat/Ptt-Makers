@@ -2,6 +2,16 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [1.3.0] : 2026-10-11
+
+Apprendre en jouant, partager d'un lien et continuer dans React ou Vue.
+
+### Ajouté
+- **Défis guidés** (bouton « Défis ») : 6 défis du plus facile au plus avancé (première page, compteur, bonjour prénom, liste de courses, site de deux pages, fenêtre surprise). Chaque défi s'ouvre dans un nouveau projet ; une carte suit les étapes, qui se cochent toutes seules, avec un indice pour la suivante.
+- **Lien de partage** (Exporter) : le projet entier est compressé dans l'adresse. La personne qui ouvre le lien reçoit une copie dans « Mes projets ». Rien n'est envoyé sur un serveur.
+- **Export React** (`App.jsx` + `App.css`) et **export Vue** (`App.vue`) : la structure devient du JSX ou un gabarit Vue, le comportement est lancé quand le composant s'affiche.
+- Tests : 68 tests unitaires (dont le rendu des exports avec les vrais React et Vue) et 18 tests de bout en bout.
+
 ## [1.2.0] : 2026-10-11
 
 Des sites plus riches et mieux rangés : six nouvelles briques, un thème, des blocs réutilisables, des réglages par écran et plusieurs projets.

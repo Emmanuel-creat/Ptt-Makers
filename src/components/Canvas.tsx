@@ -9,6 +9,7 @@ import { DEVICE_WIDTH, useWorkspace } from '../store/workspace'
 import { BrickIcon } from './BrickIcon'
 import { CanvasNode, INLINE_EDITABLE } from './CanvasNode'
 import { IconButton } from './ui'
+import { ChallengePanel } from './ChallengePanel'
 import { PagesBar } from './PagesBar'
 
 type Rect = { top: number; left: number; width: number; height: number; horizontal: boolean }
@@ -111,6 +112,7 @@ export function Canvas() {
   return (
     <div className="pm-canvas">
       <PagesBar />
+      <ChallengePanel />
       <div
         className="pm-canvas-scroll"
         onClick={(e) => {

@@ -43,7 +43,10 @@ interface WorkspaceState extends Layout {
   codeTab: CodeTab
   mobileView: MobileView
   styleScope: StyleScope
-  dialog: null | 'templates' | 'shortcuts' | 'export' | 'projects'
+  /** Défi guidé en cours, lié au projet créé pour lui. */
+  challenge: { id: string; projectId: string } | null
+  challengesDone: string[]
+  dialog: null | 'templates' | 'shortcuts' | 'export' | 'projects' | 'challenges'
   set: (patch: Partial<Omit<WorkspaceState, 'set' | 'resetLayout'>>) => void
   resetLayout: () => void
 }
@@ -61,6 +64,8 @@ export const useWorkspace = create<WorkspaceState>()(
       codeTab: 'html',
       mobileView: 'create',
       styleScope: 'all',
+      challenge: null,
+      challengesDone: [],
       dialog: null,
       set: (patch) => set(patch),
       resetLayout: () => set(DEFAULT_LAYOUT),

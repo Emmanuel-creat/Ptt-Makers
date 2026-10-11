@@ -220,3 +220,46 @@ test.describe('composants, formats et projets', () => {
     await expect(page.getByLabel('Nom du projet')).toHaveValue('Mon site')
   })
 })
+
+test.describe('défis, partage et frameworks', () => {
+  test('un défi se coche tout seul', async ({ page }) => {
+    await openBlank(page)
+    await page.getByRole('button', { name: 'Défis' }).click()
+    await page.locator('.pm-challenge-card', { hasText: 'Ma première page' }).getByRole('button', { name: 'Commencer' }).click()
+    const panel = page.getByRole('complementary', { name: 'Défi : Ma première page' })
+    await expect(panel).toContainText('0/4')
+    await page.locator('.pm-tile', { hasText: 'Titre' }).click()
+    await page.getByLabel('Texte', { exact: true }).fill('Mon super site')
+    await expect(panel).toContainText('2/4')
+    await expect(panel).toContainText('Famille Interaction')
+  })
+
+  test('un lien de partage ouvre une copie du projet', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await openBlank(page)
+    await page.getByLabel('Nom du projet').fill('Projet partagé')
+    await page.locator('.pm-tile', { hasText: 'Titre' }).click()
+    await page.getByLabel('Texte', { exact: true }).fill('Coucou depuis le lien')
+    await page.getByRole('button', { name: 'Exporter' }).click()
+    await page.getByRole('button', { name: /Copier un lien de partage/ }).click()
+    await expect(page.getByText(/Lien copié/)).toBeVisible()
+    const url = await page.evaluate(() => navigator.clipboard.readText())
+    expect(url).toContain('#projet=')
+
+    const other = await context.newPage()
+    await other.goto('/')
+    await other.evaluate(() => localStorage.clear())
+    await other.goto(url)
+    await expect(other.getByLabel('Nom du projet')).toHaveValue('Projet partagé')
+    await expect(other.locator('.pm-frame h2')).toHaveText('Coucou depuis le lien')
+    expect(other.url()).not.toContain('#projet=')
+  })
+
+  test('exporter un composant React', async ({ page }) => {
+    await openBlank(page)
+    await page.getByRole('button', { name: 'Exporter' }).click()
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: /Composant React/ }).click()
+    expect((await download).suggestedFilename()).toBe('App.jsx')
+  })
+})

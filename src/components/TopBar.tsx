@@ -16,6 +16,7 @@ import {
   Sun,
   SunMoon,
   Tablet,
+  Trophy,
   Undo2,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -133,6 +134,9 @@ export function TopBar({ compact = false }: { compact?: boolean }) {
           <CircleHelp size={17} />
         </IconButton>
         <div className="pm-topbar-sep" />
+        <button type="button" className="pm-btn pm-btn-secondary" onClick={() => ws.set({ dialog: 'challenges' })}>
+          <Trophy size={16} /> <span className="pm-hide-sm">Défis</span>
+        </button>
         <button type="button" className="pm-btn pm-btn-secondary" onClick={() => ws.set({ dialog: 'projects' })}>
           <FolderOpen size={16} /> <span className="pm-hide-sm">Mes projets</span>
         </button>
