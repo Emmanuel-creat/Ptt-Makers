@@ -3,8 +3,9 @@ import { clampPlace, isFreeGrid } from '../model/freeGrid'
 import { ICON_NAMES } from '../model/icons'
 import { FONT_IDS, STYLE_IDS, stylePreset, type FontId } from '../model/styles'
 import { buildApp, type PageSpec, type Spec } from '../model/templates'
-import type { Action, BrickNode, BrickStyle, BrickType, CollectionField, ConditionOp, Project, ProjectTheme, PropValue, Variable, VariableKind } from '../model/types'
+import { HTTP_METHODS, type Action, type BrickNode, type BrickStyle, type BrickType, type CollectionField, type Condition, type ConditionOp, type HttpMethod, type Project, type ProjectTheme, type PropValue, type Variable, type VariableKind } from '../model/types'
 import { DEFAULT_FIELDS, FIELD_TYPE_LABEL, inferFields, isRecord } from '../model/collections'
+import { VAR_NAME_RE } from '../model/variables'
 
 /**
  * Format d'échange entre Ptt-Makers et l'IA.
@@ -28,11 +29,16 @@ export interface AiBaseAction {
   page: string
   which: 'current' | 'first' | 'last' | ''
   path: string
+  /** Appel d'API : la méthode (vide : GET). Le corps va dans `value`, les en-têtes dans `message`. */
+  method?: HttpMethod | ''
 }
 
 export interface AiAction extends Omit<AiBaseAction, 'type'> {
   type: Action['type']
   op: ConditionOp | ''
+  /** Conditions en plus, reliées par « and » ou « or ». */
+  join?: 'and' | 'or' | ''
+  more?: Condition[]
   then: AiBaseAction[]
   else: AiBaseAction[]
 }
@@ -47,8 +53,20 @@ export interface AiBrick {
   hidden: boolean
   showIf: string
   onClick: AiAction[]
+  /** Autres événements : survol, saisie, changement de valeur, touche (pour « touche », `key` dit laquelle). */
+  events?: AiEvent[]
   /** Case sur une page en grille (tout à 0 si la page est en pile). */
   place: { col: number; row: number; w: number; h: number }
+}
+
+export const AI_EVENTS = { survol: 'onHover', saisie: 'onInput', changement: 'onChange', touche: 'onKey' } as const
+export type AiEventName = keyof typeof AI_EVENTS
+
+export interface AiEvent {
+  on: AiEventName
+  /** Touche (Enter, Escape, ArrowUp, ArrowDown, espace) pour « touche », vide sinon. */
+  key: string
+  actions: AiAction[]
 }
 
 export interface AiPage {
@@ -63,6 +81,9 @@ export interface AiPage {
   /** Page réservée : variable de la personne connectée et ref de la page de connexion (vides : page ouverte à tous). */
   loginVar?: string
   loginPage?: string
+  /** Minuterie : actions répétées toutes les `timerMs` millisecondes (0 : aucune). */
+  timerMs?: number
+  onTimer?: AiAction[]
 }
 
 export interface AiVariable {
@@ -80,6 +101,8 @@ export interface AiProject {
   variables: AiVariable[]
   pages: AiPage[]
   bricks: AiBrick[]
+  /** Fonctions réutilisables, lancées par l'action « call » (value = le nom). */
+  functions?: { name: string; actions: AiAction[] }[]
 }
 
 /* --------------------------------- Schéma -------------------------------- */
@@ -106,6 +129,7 @@ const ACTION_TYPES: Action['type'][] = [
   'signup',
   'login',
   'logout',
+  'call',
 ]
 const BRICK_TYPES = (Object.keys(BRICKS) as BrickType[]).filter((t) => t !== 'page')
 const STYLE_KEYS: (keyof BrickStyle)[] = [
@@ -152,12 +176,18 @@ const baseActionProps = {
   page: str,
   which: { type: 'string', enum: ['current', 'first', 'last', ''] },
   path: str,
+  method: { type: 'string', enum: [...HTTP_METHODS, ''] },
 }
 const baseAction = obj(baseActionProps)
 const action = obj({
   ...baseActionProps,
   type: { type: 'string', enum: ACTION_TYPES },
   op: { type: 'string', enum: ['true', 'false', 'eq', 'neq', 'gt', 'lt', 'empty', 'notEmpty', ''] },
+  join: { type: 'string', enum: ['and', 'or', ''] },
+  more: {
+    type: 'array',
+    items: obj({ variable: str, op: { type: 'string', enum: ['true', 'false', 'eq', 'neq', 'gt', 'lt', 'empty', 'notEmpty'] }, value: str }),
+  },
   then: { type: 'array', items: baseAction },
   else: { type: 'array', items: baseAction },
 })
@@ -174,7 +204,7 @@ export const PROJECT_SCHEMA = obj({
   variables: { type: 'array', items: obj({ name: str, kind: { type: 'string', enum: ['text', 'number', 'boolean', 'list', 'collection'] }, initial: str, persist: { type: 'boolean' } }) },
   pages: {
     type: 'array',
-    items: obj({ ref: str, name: str, title: str, style: keyValues(STYLE_KEYS), onLoad: { type: 'array', items: action }, layout: { type: 'string', enum: ['pile', 'grille'] }, paramVar: str, loginVar: str, loginPage: str }),
+    items: obj({ ref: str, name: str, title: str, style: keyValues(STYLE_KEYS), onLoad: { type: 'array', items: action }, layout: { type: 'string', enum: ['pile', 'grille'] }, paramVar: str, loginVar: str, loginPage: str, timerMs: { type: 'integer' }, onTimer: { type: 'array', items: action } }),
   },
   bricks: {
     type: 'array',
@@ -188,9 +218,11 @@ export const PROJECT_SCHEMA = obj({
       hidden: { type: 'boolean' },
       showIf: str,
       onClick: { type: 'array', items: action },
+      events: { type: 'array', items: obj({ on: { type: 'string', enum: Object.keys(AI_EVENTS) }, key: str, actions: { type: 'array', items: action } }) },
       place: obj({ col: { type: 'integer' }, row: { type: 'integer' }, w: { type: 'integer' }, h: { type: 'integer' } }),
     }),
   },
+  functions: { type: 'array', items: obj({ name: str, actions: { type: 'array', items: action } }) },
 })
 
 /* ------------------------- Description pour l'IA ------------------------- */
@@ -227,6 +259,29 @@ function toStyle(list: AiKeyValue[]): BrickStyle | undefined {
     else style[key] = value
   }
   return Object.keys(style).length ? (style as BrickStyle) : undefined
+}
+
+/** Événements de l'IA vers ceux de l'éditeur (les touches inconnues deviennent Entrée). */
+function toEvents(b: AiBrick, props: Record<string, PropValue>): Pick<Spec, 'on'> {
+  const on: NonNullable<Spec['on']> = {}
+  let key = ''
+  for (const e of b.events ?? []) {
+    const field = AI_EVENTS[e.on]
+    if (!field || !e.actions?.length) continue
+    on[field] = [...(on[field] ?? []), ...toActions(e.actions)]
+    if (field === 'onKey') key = e.key === 'espace' || e.key === ' ' ? ' ' : ['Enter', 'Escape', 'ArrowUp', 'ArrowDown'].includes(e.key) ? e.key : 'Enter'
+  }
+  if (key) props.eventKey = key
+  return Object.keys(on).length ? { on } : {}
+}
+
+function fromEvents(n: BrickNode): AiEvent[] {
+  const out: AiEvent[] = []
+  for (const [name, field] of Object.entries(AI_EVENTS) as [AiEventName, (typeof AI_EVENTS)[AiEventName]][]) {
+    const list = n[field]
+    if (list?.length) out.push({ on: name, key: field === 'onKey' ? String(n.props.eventKey || 'Enter') : '', actions: list.map(fromAction) })
+  }
+  return out
 }
 
 function toProps(type: BrickType, list: AiKeyValue[]): Record<string, PropValue> {
@@ -274,14 +329,22 @@ function toAction(a: AiBaseAction | AiAction): Action | null {
       return { type: 'listAdd', variable: a.variable, value: a.value }
     case 'listRemove':
       return { type: 'listRemove', variable: a.variable, which: a.which || 'current' }
-    case 'fetch':
-      return { type: 'fetch', url: a.url, variable: a.variable, path: a.path }
+    case 'fetch': {
+      const method = a.method && a.method !== 'GET' && HTTP_METHODS.includes(a.method) ? a.method : undefined
+      const out: Action = { type: 'fetch', url: a.url, variable: a.variable, path: a.path }
+      if (method) out.method = method
+      if (a.message) out.headers = a.message
+      if (method && a.value) out.body = a.value
+      return out
+    }
     // Comptes : value = l'e-mail, message = le mot de passe (avec des {{variables}})
     case 'signup':
     case 'login':
       return { type: a.type, variable: a.variable, email: a.value, password: a.message }
     case 'logout':
       return { type: 'logout', variable: a.variable }
+    case 'call':
+      return { type: 'call', name: a.value }
     case 'addRecord': {
       // value : les valeurs de la fiche en JSON, ex. {"nom": "{{nom_saisi}}", "prix": "{{prix_saisi}}"}
       let values: Record<string, string> = {}
@@ -302,6 +365,9 @@ function toAction(a: AiBaseAction | AiAction): Action | null {
         value: full.value,
         then: toActions(full.then),
         else: toActions(full.else),
+        ...(full.more?.length
+          ? { join: full.join === 'or' ? ('or' as const) : ('and' as const), more: full.more.map((c) => ({ variable: c.variable, op: c.op || 'true', value: c.value ?? '' })) }
+          : {}),
       }
     }
     default:
@@ -379,6 +445,7 @@ export function aiToProject(ai: AiProject): Project {
       hidden: b.hidden || undefined,
       showIf: b.showIf || undefined,
       onClick: toActions(b.onClick),
+      ...toEvents(b, props),
       place: b.place && b.place.col > 0 && b.place.row > 0 && b.place.w > 0 && b.place.h > 0 ? clampPlace(b.place) : undefined,
       children: [],
     }
@@ -396,7 +463,7 @@ export function aiToProject(ai: AiProject): Project {
     }
   }
 
-  const pages: PageSpec[] = (ai.pages.length ? ai.pages : [{ ref: firstPage, name: 'Accueil', title: ai.name, style: [], onLoad: [], layout: 'pile' as const, paramVar: '', loginVar: '', loginPage: '' }]).map((p) => ({
+  const pages: PageSpec[] = (ai.pages.length ? ai.pages : [{ ref: firstPage, name: 'Accueil', title: ai.name, style: [], onLoad: [], layout: 'pile' as const, paramVar: '', loginVar: '', loginPage: '' } as AiPage]).map((p) => ({
     ref: p.ref,
     name: p.name || 'Page',
     title: p.title || undefined,
@@ -405,10 +472,15 @@ export function aiToProject(ai: AiProject): Project {
     grid: p.layout === 'grille' || undefined,
     paramVar: p.paramVar || undefined,
     login: p.loginVar && p.loginPage ? { variable: p.loginVar, page: at(p.loginPage) } : undefined,
+    onTimer: p.onTimer?.length && (p.timerMs ?? 0) >= 100 ? toActions(p.onTimer) : undefined,
+    timerMs: p.onTimer?.length && (p.timerMs ?? 0) >= 100 ? Math.round(p.timerMs!) : undefined,
     children: children.get(p.ref) ?? [],
   }))
   const variables = ai.variables.map(toVariable).filter((v): v is Variable => !!v)
-  const project = buildApp(ai.name || 'Projet IA', pages, variables)
+  const functions = (ai.functions ?? [])
+    .filter((f, i, all) => VAR_NAME_RE.test(f.name) && all.findIndex((x) => x.name === f.name) === i)
+    .map((f) => ({ name: f.name, actions: toActions(f.actions) }))
+  const project = buildApp(ai.name || 'Projet IA', pages, variables, functions)
   const theme = ai.theme
   if (theme && (theme.style || theme.primary || theme.font || theme.radius)) {
     const t: ProjectTheme = {
@@ -448,7 +520,10 @@ function fromAction(a: Action): AiAction {
     page: '',
     which: '',
     path: '',
+    method: '',
     op: '',
+    join: '',
+    more: [],
     then: [],
     else: [],
   }
@@ -463,6 +538,18 @@ function fromAction(a: Action): AiAction {
     delete extra.password
     full.value = a.email
     full.message = a.password
+  }
+  if (a.type === 'fetch') {
+    const extra = full as Partial<AiAction> & { headers?: unknown; body?: unknown }
+    delete extra.headers
+    delete extra.body
+    full.method = a.method ?? ''
+    full.value = a.body ?? ''
+    full.message = a.headers ?? ''
+  }
+  if (a.type === 'call') {
+    delete (full as Partial<AiAction> & { name?: unknown }).name
+    full.value = a.name
   }
   if (a.type === 'wait') {
     delete (full as Partial<AiAction> & { ms?: unknown }).ms
@@ -492,6 +579,7 @@ export function projectToAi(p: Project): AiProject {
         hidden: !!c.hidden,
         showIf: c.showIf ?? '',
         onClick: (c.onClick ?? []).map(fromAction),
+        events: fromEvents(c),
         place: c.place ? { ...c.place } : { col: 0, row: 0, w: 0, h: 0 },
       })
       walk(c)
@@ -510,6 +598,8 @@ export function projectToAi(p: Project): AiProject {
       paramVar: String(page.props.paramVar ?? ''),
       loginVar: String(page.props.loginVar ?? ''),
       loginPage: String(page.props.loginPage ?? ''),
+      timerMs: page.onTimer?.length ? Number(page.props.timerMs) || 0 : 0,
+      onTimer: (page.onTimer ?? []).map(fromAction),
     }
   })
   return {
@@ -529,5 +619,6 @@ export function projectToAi(p: Project): AiProject {
     })),
     pages,
     bricks,
+    functions: (p.functions ?? []).map((f) => ({ name: f.name, actions: f.actions.map(fromAction) })),
   }
 }

@@ -1,13 +1,17 @@
-import { FileUp, LayoutTemplate, Lightbulb, Plus, Trash2 } from 'lucide-react'
+import { Braces, ChevronRight, FileUp, LayoutTemplate, Lightbulb, Plus, Trash2 } from 'lucide-react'
+import { countActions, forEachAction, forEachNodeAction } from '../model/actions'
+import { FunctionActionsEditor } from './ActionsEditor'
 import { useRef, useState } from 'react'
 import { DEFAULT_FIELDS, FIELD_TYPE_LABEL, addField, emptyRecord, fieldsOf, formatField, importCsv, recordsOf, removeField, toRecords, updateField } from '../model/collections'
 import { countVariableUses } from '../model/refactor'
 import { parseExpr, readRecordField } from '../model/expressions'
 import { shownField } from '../codegen/proBricks'
-import type { CollectionField, DataRecord, FieldType, Variable, VariableKind } from '../model/types'
+import type { AppFunction, CollectionField, DataRecord, FieldType, Variable, VariableKind } from '../model/types'
 import { RESERVED_NAMES, VAR_NAME_RE, coerce, convertValue, defaultValue, toVariableName, valueToText } from '../model/variables'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
+
+const NO_FUNCTIONS: AppFunction[] = []
 
 export const KIND_LABEL: Record<VariableKind, string> = {
   text: 'Texte',
@@ -39,7 +43,93 @@ export function VariablesPanel() {
         ))}
       </ul>
       {!variables.length && <p className="pm-empty-small">Aucune variable pour l'instant.</p>}
+      <FunctionsSection />
     </div>
+  )
+}
+
+/** Fonctions réutilisables : une suite d'actions nommée, lancée de partout avec « Lancer une fonction ». */
+function FunctionsSection() {
+  const functions = useEditor((s) => s.project.functions ?? NO_FUNCTIONS)
+  const addFunction = useEditor((s) => s.addFunction)
+  const [name, setName] = useState('')
+  const [open, setOpen] = useState<string | null>(null)
+  const clean = toVariableName(name)
+  const exists = functions.some((f) => f.name === clean)
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (clean && addFunction(clean)) {
+      setOpen(clean)
+      setName('')
+    }
+  }
+  return (
+    <section className="pm-functions" aria-label="Fonctions réutilisables">
+      <h3 className="pm-functions-title">
+        <Braces size={14} aria-hidden="true" /> Fonctions réutilisables
+      </h3>
+      <p className="pm-row-help">Une suite d’actions à écrire une fois, puis à lancer depuis n’importe quel bouton avec « Lancer une fonction ».</p>
+      <form className="pm-var-new-row" onSubmit={submit}>
+        <input className="pm-input" placeholder="Nom (ex. reinitialiser)" aria-label="Nom de la nouvelle fonction" value={name} onChange={(e) => setName(e.target.value)} />
+        <button type="submit" className="pm-btn pm-btn-primary pm-btn-icon" disabled={!clean || exists} aria-label="Créer la fonction">
+          <Plus size={16} />
+        </button>
+      </form>
+      {name && exists && <p className="pm-field-error">Ce nom existe déjà</p>}
+      <ul className="pm-var-list">
+        {functions.map((f) => (
+          <FunctionItem key={f.name} fn={f} open={open === f.name} onToggle={() => setOpen(open === f.name ? null : f.name)} />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function FunctionItem({ fn, open, onToggle }: { fn: AppFunction; open: boolean; onToggle: () => void }) {
+  const { renameFunction, removeFunction, notify } = useEditor.getState()
+  const [draft, setDraft] = useState(fn.name)
+  const calls = useEditor((s) => {
+    let n = 0
+    for (const node of Object.values(s.project.nodes)) forEachNodeAction(node, (a) => a.type === 'call' && a.name === fn.name && n++)
+    for (const f of s.project.functions ?? []) forEachAction(f.actions, (a) => a.type === 'call' && a.name === fn.name && n++)
+    return n
+  })
+  const rename = () => {
+    const clean = toVariableName(draft)
+    if (clean === fn.name) return setDraft(fn.name)
+    if (!clean || !renameFunction(fn.name, clean)) {
+      notify('Ce nom est déjà pris ou invalide')
+      setDraft(fn.name)
+    }
+  }
+  return (
+    <li className="pm-var-item pm-function-item">
+      <div className="pm-function-head">
+        <button type="button" className="pm-function-toggle" aria-expanded={open} onClick={onToggle}>
+          <ChevronRight size={14} aria-hidden="true" className={open ? 'is-open' : ''} />
+          <code>{fn.name}()</code>
+          <span className="pm-muted">
+            {countActions(fn.actions)} action(s), {calls} appel(s)
+          </span>
+        </button>
+        <button type="button" className="pm-icon-btn" aria-label={`Supprimer la fonction ${fn.name}`} onClick={() => removeFunction(fn.name)}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+      {open && (
+        <div className="pm-function-body">
+          <input
+            className="pm-input"
+            aria-label="Nom de la fonction"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={rename}
+            onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+          />
+          <FunctionActionsEditor name={fn.name} />
+        </div>
+      )}
+    </li>
   )
 }
 
@@ -109,7 +199,8 @@ function VariableItem({ variable: v }: { variable: Variable }) {
   const variables = useEditor((s) => s.project.variables)
   const { updateVariable, removeVariable, notify } = useEditor.getState()
   const [draft, setDraft] = useState(v.name)
-  const uses = countVariableUses(nodes, v.name)
+  const functions = useEditor((s) => s.project.functions)
+  const uses = countVariableUses(nodes, v.name, functions)
 
   const commitName = () => {
     const clean = toVariableName(draft)

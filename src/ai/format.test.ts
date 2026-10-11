@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { generate } from '../codegen/generate'
-import { TEMPLATES } from '../model/templates'
+import { buildApp, TEMPLATES } from '../model/templates'
 import { aiToProject, brickCatalog, PROJECT_SCHEMA, projectToAi, type AiProject } from './format'
 
 const roundTrip = (id: string) => {
@@ -14,6 +14,76 @@ describe('format d’échange avec l’IA', () => {
     expect(after.pages).toHaveLength(before.pages.length)
     expect(after.variables).toEqual(before.variables)
     expect(generate(after).html).toBe(generate(before).html)
+    expect(generate(after).js).toBe(generate(before).js)
+  })
+
+  it('garde les événements (survol, saisie, touche) et la minuterie d’une page', () => {
+    const before = buildApp(
+      'Evenements',
+      [
+        {
+          name: 'Accueil',
+          onTimer: [{ type: 'add', variable: 'n', amount: 1 }],
+          timerMs: 2000,
+          children: [
+            { type: 'input', props: { bind: 't', eventKey: 'Escape' }, on: { onKey: [{ type: 'set', variable: 't', value: '' }], onChange: [{ type: 'alert', message: 'ok' }] } },
+            { type: 'button', on: { onHover: [{ type: 'add', variable: 'n', amount: 2 }] } },
+          ],
+        },
+      ],
+      [
+        { name: 't', kind: 'text', initial: '' },
+        { name: 'n', kind: 'number', initial: 0 },
+      ],
+    )
+    const ai = JSON.parse(JSON.stringify(projectToAi(before))) as AiProject
+    expect(ai.pages[0].timerMs).toBe(2000)
+    expect(ai.bricks[0].events?.map((e) => [e.on, e.key])).toEqual([
+      ['changement', ''],
+      ['touche', 'Escape'],
+    ])
+    const after = aiToProject(ai)
+    expect(generate(after).js).toBe(generate(before).js)
+  })
+
+  it('garde la méthode, les en-têtes et le corps d’un appel d’API, et les conditions et/ou', () => {
+    const before = buildApp(
+      'Api',
+      [
+        {
+          name: 'Accueil',
+          children: [
+            {
+              type: 'button',
+              onClick: [
+                { type: 'fetch', method: 'PUT', url: 'https://api.exemple.fr/x', variable: '', path: '', headers: 'Authorization: Bearer {{t}}', body: 'nom: {{t}}' },
+                { type: 'if', variable: 'n', op: 'gt', value: '{{m}}', join: 'or', more: [{ variable: 't', op: 'empty', value: '' }], then: [{ type: 'alert', message: 'a' }], else: [] },
+              ],
+            },
+          ],
+        },
+      ],
+      [
+        { name: 't', kind: 'text', initial: '' },
+        { name: 'n', kind: 'number', initial: 0 },
+        { name: 'm', kind: 'number', initial: 1 },
+      ],
+    )
+    const after = aiToProject(JSON.parse(JSON.stringify(projectToAi(before))) as AiProject)
+    expect(Object.values(after.nodes).find((n) => n.type === 'button')!.onClick).toEqual(Object.values(before.nodes).find((n) => n.type === 'button')!.onClick)
+    expect(generate(after).js).toBe(generate(before).js)
+  })
+
+  it('garde les fonctions réutilisables et leurs appels', () => {
+    const before = buildApp(
+      'Fonctions',
+      [{ name: 'Accueil', children: [{ type: 'button', ref: 'b', onClick: [{ type: 'call', name: 'cacher' }] }, { type: 'text', ref: 'msg' }] }],
+      [],
+      [{ name: 'cacher', actions: [{ type: 'hide', target: '@msg' }] }],
+    )
+    expect(before.functions?.[0].actions).toEqual([{ type: 'hide', target: 'texte-1' }])
+    const after = aiToProject(JSON.parse(JSON.stringify(projectToAi(before))) as AiProject)
+    expect(after.functions).toEqual(before.functions)
     expect(generate(after).js).toBe(generate(before).js)
   })
 

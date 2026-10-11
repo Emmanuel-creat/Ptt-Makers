@@ -3803,3 +3803,212 @@ select.pm-input {
   tab-size: 2;
   resize: vertical;
 }
+
+/* Événements d'une brique : choix de l'événement, puis ses actions */
+.pm-events {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pm-events-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.pm-events-tabs .pm-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.pm-events-count {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--pm-brand);
+  color: #fff;
+  font-size: 10.5px;
+  line-height: 16px;
+  text-align: center;
+}
+.pm-events-key {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--pm-text-2);
+}
+.pm-fetch-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--pm-text-2);
+}
+.pm-fetch-more summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pm-text-2);
+  margin-bottom: 4px;
+}
+.pm-condition-more {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  padding: 8px;
+  border-left: 2px solid var(--pm-brand-soft);
+}
+.pm-condition-more > :not(.pm-icon-btn) {
+  grid-column: 1;
+}
+.pm-condition-more > .pm-icon-btn {
+  grid-column: 2;
+  grid-row: 1;
+}
+.pm-join {
+  width: auto;
+  min-width: 56px;
+}
+
+/* Fonctions réutilisables (panneau Variables) */
+.pm-functions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--pm-border);
+}
+.pm-functions-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+.pm-function-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pm-function-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pm-function-toggle .is-open {
+  transform: rotate(90deg);
+}
+.pm-function-toggle .pm-muted {
+  margin-left: auto;
+  font-size: 11.5px;
+}
+.pm-function-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+/* Débogueur de l'aperçu */
+.pm-preview-stage.has-debugger {
+  justify-content: flex-start;
+}
+.pm-preview-stage.has-debugger .pm-preview-frame {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pm-debugger {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 10px;
+  border-left: 1px solid var(--pm-border);
+  background: var(--pm-surface);
+  overflow: auto;
+  font-size: 12.5px;
+}
+.pm-debugger-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pm-debugger-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.pm-debugger-title {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pm-text-2);
+}
+.pm-debugger-steps {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.pm-debugger-steps li {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+.pm-debugger-steps li.is-current {
+  background: var(--pm-brand-soft);
+  color: var(--pm-brand);
+  font-weight: 600;
+}
+.pm-debugger-n {
+  min-width: 22px;
+  color: var(--pm-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.pm-debugger-empty {
+  margin: 0;
+}
+.pm-debugger-vars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+.pm-debugger-vars > div {
+  display: grid;
+  grid-template-columns: minmax(70px, auto) 1fr;
+  gap: 8px;
+}
+.pm-debugger-vars dt {
+  font-family: var(--pm-mono, ui-monospace, monospace);
+  color: var(--pm-text-2);
+}
+.pm-debugger-vars dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

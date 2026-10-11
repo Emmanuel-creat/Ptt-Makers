@@ -138,16 +138,29 @@ Une variable garde une information : un **texte**, un **nombre** ou **vrai/faux*
 - Pour la **remplir** avec un champ de saisie, choisis-la dans *Enregistrer dans la variable*.
 - Pour **montrer une brique seulement si** une variable est vraie, utilise *Afficher seulement si* (section Interactions).
 
-### Les actions « au clic »
-Dans la section **Interactions** d'une brique, ajoute des actions qui s'exécutent quand on clique dessus dans l'aperçu :
+### Les actions et les événements
+Dans la section **Interactions** d'une brique, choisis d'abord l'**événement** avec les pastilles :
+
+- **Clic** et **Survol** (la souris arrive sur la brique), pour toutes les briques ;
+- pour un champ, aussi **Saisie** (à chaque lettre), **Changement** (valeur validée, choix fait, case cochée) et **Touche** (Entrée, Échap, flèche haut ou bas, Espace, à choisir juste en dessous).
+
+Le chiffre sur une pastille compte ses actions. Puis ajoute des actions :
 donner une valeur à une variable, ajouter un nombre, inverser vrai/faux, afficher/masquer une brique, défiler jusqu'à une brique, afficher un message, ouvrir un lien.
 
 > Exemple : un bouton « + 1 » avec l'action *Ajouter 1 à compteur*, et un titre `{{compteur}}`. C'est le modèle **Compteur**.
 
 Les actions sont rangées par familles : variables, listes, logique, pages et briques, autres (message, lien, données d'API).
 
+### La minuterie d'une page
+Dans les réglages d'une page, la section **Minuterie** répète des actions toutes les N secondes (au moins 0,1 s) tant que la page est affichée : une horloge, un compte à rebours, des données d'API rafraîchies. Sur un projet à plusieurs pages, la minuterie s'arrête quand on change de page.
+
 ### Les conditions
 L'action **Si… alors… sinon…** teste une variable (vraie, fausse, égale à, plus grande que, vide…) et lance les actions de la branche *Alors* ou *Sinon*. Une condition peut en contenir d'autres.
+
+Le bouton **+ Condition** ajoute d'autres tests, reliés par **et** (toutes doivent être vraies) ou **ou** (une seule suffit). La valeur comparée peut être une autre variable : écris `{{minimum}}` pour comparer `age` à `minimum`.
+
+### Les fonctions réutilisables
+Quand les mêmes actions reviennent sur plusieurs boutons, range-les dans une **fonction** : dans l'onglet *Variables*, rubrique **Fonctions réutilisables**, donne-lui un nom (ex. `reinitialiser`) et ajoute ses actions. Partout ailleurs, l'action **Lancer une fonction** la lance, puis les actions suivantes continuent. Renommer la fonction met tous ses appels à jour. Une fonction qui finirait par se relancer elle-même est signalée dans le panneau Problèmes.
 
 > Exemple : *Si nouvelle n'est pas vide, alors ajouter `{{nouvelle}}` à taches et vider nouvelle, sinon afficher « Écris d'abord une tâche ».* C'est le bouton « Ajouter » du modèle **Liste de tâches**.
 
@@ -238,9 +251,9 @@ Le modèle **Espace membres** <img src="icones/comptes.svg" width="16" height="1
 
 Si l'e-mail ou le mot de passe ne vont pas, un message le dit et les actions suivantes ne sont pas faites. Le mot de passe n'est jamais gardé en clair, seulement son empreinte. Les comptes restent dans le navigateur de chaque personne : c'est un espace personnel, pas encore un vrai serveur de comptes partagé entre appareils.
 
-## Charger des données (API)
+## Appeler une API
 
-Sélectionne une page (*Réglages de la page*) puis la section **Au chargement de la page**, et ajoute l'action **Charger des données** :
+Sélectionne une page (*Réglages de la page*) puis la section **Au chargement de la page**, et ajoute l'action **Appeler une API** :
 
 - l'**adresse** d'une API qui renvoie du JSON (elle doit commencer par `https://`) ;
 - la **variable** qui recevra le résultat (une Liste pour un tableau de données) ;
@@ -248,7 +261,15 @@ Sélectionne une page (*Réglages de la page*) puis la section **Au chargement d
 
 Dans une répétition, `{{element.name}}` ou `{{element.address.city}}` affiche un champ de chaque élément. Le modèle **Annuaire (API)** montre tout cela avec une API de démonstration.
 
-Les actions **s'enchaînent** : après *Charger des données*, l'action suivante attend que les données soient arrivées. Tu peux donc écrire *Donner « Chargement… » à etape, Charger des données dans meteo, Donner « Prêt » à etape*. Si l'adresse ne répond pas, l'erreur est notée dans la console du navigateur et les actions continuent.
+Pour **envoyer** des données, choisis la méthode **POST** (créer), **PUT** ou **PATCH** (modifier) ou **DELETE** (supprimer) devant l'adresse :
+
+- le **corps** s'écrit une ligne par champ, `nom: {{nom}}`, et part en JSON. Une valeur écrite seule, comme `{{age}}`, garde son type (nombre, vrai/faux, liste) ;
+- les **en-têtes** (bouton *En-têtes*) s'écrivent de la même façon, par exemple `Authorization: Bearer {{jeton}}` ;
+- la variable qui reçoit la réponse devient facultative.
+
+Si l'API répond par une erreur, la variable garde sa valeur et l'erreur est notée dans la console.
+
+Les actions **s'enchaînent** : après *Appeler une API*, l'action suivante attend que les données soient arrivées. Tu peux donc écrire *Donner « Chargement… » à etape, Charger des données dans meteo, Donner « Prêt » à etape*. Si l'adresse ne répond pas, l'erreur est notée dans la console du navigateur et les actions continuent.
 
 ## L'assistant IA (version Pro)
 
@@ -294,6 +315,12 @@ Menu **Fichier**, **Installer sur mon ordinateur** : un fichier `Ptt-Makers-loca
 3. Le raccourci **Ptt-Makers** apparaît sur le bureau, avec son icône. Il ouvre l'atelier dans sa propre fenêtre.
 
 La version installée marche sans internet ; seul l'assistant IA en a besoin. Pour y retrouver un projet commencé en ligne : sur le site, *Exporter…*, *Projet Ptt-Makers (.json)*, puis dans la version installée, *Exporter…*, *Importer un projet*. Pour mettre à jour, télécharge le nouveau paquet et relance l'installation : tes projets sont gardés.
+
+## Le débogueur
+
+Dans l'aperçu, le bouton en forme d'insecte ouvre le **débogueur** à côté de la page. Chaque action lancée s'y ajoute, avec la brique et l'événement d'où elle vient (« Bouton 1, au clic : score + 1 »), et les **variables** s'affichent en direct.
+
+Coche **Pas à pas** : l'application s'arrête avant chaque action, la page montre l'effet de la précédente, et le bouton **Action suivante** continue. Pratique pour comprendre pourquoi une condition ne fait pas ce que tu attends. Le débogueur n'existe que dans l'aperçu : le code exporté n'en garde aucune trace.
 
 ## Le panneau Problèmes
 

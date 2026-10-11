@@ -1,4 +1,4 @@
-import { forEachAction } from './actions'
+import { EVENT_FIELDS, forEachAction, linePairs, loopingFunctions } from './actions'
 import { BRICKS } from './bricks'
 import { fieldsOf, isCollection, isListLike } from './collections'
 import { exprRefs, parseExpr } from './expressions'
@@ -90,7 +90,7 @@ function actionTexts(a: Action): string[] {
     case 'alert':
       return [a.message]
     case 'fetch':
-      return [a.url]
+      return [a.url, a.headers ?? '', a.body ?? '']
     case 'navigate':
       return a.value ? [a.value] : []
     case 'addRecord':
@@ -118,7 +118,9 @@ export function findProblems(project: Project): Problem[] {
 
   const checkActions = (actions: Action[], node: BrickNode, scope: Scope) => {
     forEachAction(actions, (a) => {
-      if ('variable' in a) {
+      // Un envoi (POST, PUT...) peut ne rien garder de la réponse.
+      const optionalVar = a.type === 'fetch' && (a.method ?? 'GET') !== 'GET' && !a.variable
+      if ('variable' in a && !optionalVar) {
         const v = variable(a.variable)
         if (!a.variable) add({ level: 'erreur', message: 'Une action n’a pas de variable choisie.', nodeId: node.id })
         else if (!v) add({ level: 'erreur', message: `Une action utilise la variable « ${a.variable} », qui n’existe pas.`, nodeId: node.id })
@@ -128,6 +130,21 @@ export function findProblems(project: Project): Problem[] {
         else if ((a.type === 'signup' || a.type === 'login' || a.type === 'logout') && v.kind !== 'text') {
           add({ level: 'erreur', message: `La personne connectée se range dans une variable texte, pas dans « ${v.name} ».`, nodeId: node.id })
         }
+      }
+      if (a.type === 'call') {
+        if (!a.name) add({ level: 'erreur', message: 'Une action « Lancer une fonction » n’a pas de fonction choisie.', nodeId: node.id })
+        else if (!project.functions?.some((f) => f.name === a.name)) add({ level: 'erreur', message: `Une action lance la fonction « ${a.name} », qui n’existe pas.`, nodeId: node.id })
+      }
+      if (a.type === 'if') {
+        for (const c of a.more ?? []) {
+          if (!c.variable) add({ level: 'erreur', message: 'Une condition « Si » n’a pas de variable choisie.', nodeId: node.id })
+          else if (!variable(c.variable)) add({ level: 'erreur', message: `Une condition utilise la variable « ${c.variable} », qui n’existe pas.`, nodeId: node.id })
+        }
+      }
+      if (a.type === 'fetch') {
+        const bad = [...linePairs(a.headers), ...linePairs(a.body)].find((x) => !x.key)
+        if (bad) add({ level: 'erreur', message: `Appel d’API : la ligne « ${bad.line} » doit s’écrire « nom: valeur ».`, nodeId: node.id })
+        if (a.body?.trim() && (a.method ?? 'GET') === 'GET') add({ level: 'attention', message: 'Appel d’API : un appel GET n’envoie pas de corps, choisis POST ou PUT.', nodeId: node.id })
       }
       if ('target' in a && !nodes[a.target]) add({ level: 'erreur', message: 'Une action vise une brique qui n’existe plus.', nodeId: node.id })
       if (a.type === 'navigate') {
@@ -189,9 +206,18 @@ export function findProblems(project: Project): Problem[] {
         if (error) add({ level: 'erreur', message: `Le JavaScript du code personnalisé a une erreur : ${error}`, nodeId: node.id })
       }
 
-      checkActions(node.onClick, node, scope)
-      if (node.onLoad) checkActions(node.onLoad, node, scope)
+      for (const field of EVENT_FIELDS) if (node[field]) checkActions(node[field]!, node, scope)
+      if (node.onTimer?.length && !(Number(node.props.timerMs) >= 100)) {
+        add({ level: 'erreur', message: 'La minuterie de la page doit durer au moins 100 millisecondes.', nodeId: node.id })
+      }
     })
+  }
+
+  // Les fonctions réutilisables : mêmes vérifications que des actions de page, plus les boucles sans fin.
+  const home = nodes[project.rootId]
+  if (home) for (const f of project.functions ?? []) checkActions(f.actions, home, { variables, repeat: undefined })
+  for (const name of loopingFunctions(project.functions)) {
+    add({ level: 'erreur', message: `La fonction « ${name} » finit par se lancer elle-même : elle tournerait sans fin.` })
   }
 
   for (const v of variables) {
@@ -207,7 +233,7 @@ export function findProblems(project: Project): Problem[] {
         }
       }
     }
-    if (countVariableUses(nodes, v.name) === 0) add({ level: 'attention', message: `La variable « ${v.name} » n’est utilisée nulle part.`, variable: v.name })
+    if (countVariableUses(nodes, v.name, project.functions) === 0) add({ level: 'attention', message: `La variable « ${v.name} » n’est utilisée nulle part.`, variable: v.name })
   }
 
   return problems.sort((a, b) => (a.level === b.level ? 0 : a.level === 'erreur' ? -1 : 1))

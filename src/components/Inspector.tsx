@@ -20,6 +20,7 @@ import {
   Sparkles,
   Tablet,
   Rocket,
+  Timer,
   Rows3,
   Trash2,
   Type,
@@ -36,7 +37,8 @@ import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 import { repeatOf } from '../model/tree'
 import { instanceOfNode, instanceRoots } from '../model/instances'
-import { ActionsEditor, PageSelect } from './ActionsEditor'
+import { EVENT_FIELDS, countActions } from '../model/actions'
+import { ActionsEditor, EventsEditor, PageSelect, TimerEditor } from './ActionsEditor'
 import { BrickBadge } from './BrickIcon'
 import { ColorInput, NumberInput, SelectInput, TextInput, VariableSelect } from './fields'
 import { REPEAT_TOKENS, ScopeTokens } from './scope'
@@ -187,6 +189,7 @@ function NodeInspector({ node }: { node: BrickNode }) {
   const s: StyleOverride = scope === 'all' ? node.style : (node.responsive?.[scope] ?? {})
   const setStyle = (patch: Partial<StyleOverride>) => updateStyle(node.id, patch, scope)
   const isRoot = !node.parent
+  const eventCount = EVENT_FIELDS.reduce((n, f) => n + countActions(node[f]), 0)
   const category = CATEGORIES.find((c) => c.id === def.category)!
 
   return (
@@ -446,19 +449,35 @@ function NodeInspector({ node }: { node: BrickNode }) {
           </Section>
         )}
 
+        {isRoot && (
+          <Section
+            title="Minuterie"
+            icon={<Timer size={15} />}
+            defaultOpen={!!node.onTimer?.length}
+            badge={node.onTimer?.length ? <span className="pm-count">{node.onTimer.length}</span> : undefined}
+          >
+            {beginner && (
+              <p className="pm-row-help">
+                Ces actions se répètent tant que la page est affichée : une horloge, un compte à rebours, des données rafraîchies.
+              </p>
+            )}
+            <TimerEditor id={node.id} />
+          </Section>
+        )}
+
         {!isRoot && (
           <Section
             title="Interactions"
             icon={<Zap size={15} />}
-            defaultOpen={node.type === 'button' || node.onClick.length > 0 || !!node.showIf || !!node.hidden}
-            badge={node.onClick.length ? <span className="pm-count">{node.onClick.length}</span> : undefined}
+            defaultOpen={node.type === 'button' || eventCount > 0 || !!node.showIf || !!node.hidden}
+            badge={eventCount ? <span className="pm-count">{eventCount}</span> : undefined}
           >
             {beginner && (
               <p className="pm-row-help">
-                Les actions transforment ta page en application : elles s'exécutent quand on clique sur la brique dans l'aperçu.
+                Les actions transforment ta page en application : choisis l’événement (clic, survol, saisie, touche…) puis ce qui doit se passer.
               </p>
             )}
-            <ActionsEditor id={node.id} />
+            <EventsEditor id={node.id} />
             <div className="pm-divider" />
             <Row label="Visibilité au démarrage">
               {() => (

@@ -2,6 +2,19 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.11.0] : 2026-10-11
+
+Une logique d'application complète : la cinquième vague du plan des 200 améliorations.
+
+### Ajouté
+- **Nouveaux événements** : en plus du clic, une brique réagit au **survol**, et un champ à **chaque lettre tapée**, au **changement de valeur** et à une **touche** (Entrée, Échap, flèches, Espace). Dans *Interactions*, des pastilles choisissent l'événement et comptent ses actions. Une page a aussi sa **minuterie** : des actions répétées toutes les N secondes tant qu'elle est affichée (horloge, compte à rebours, données rafraîchies).
+- **Appels d'API complets** : l'action *Appeler une API* choisit sa méthode (GET, POST, PUT, PATCH, DELETE), envoie un **corps JSON** (une ligne « nom: valeur » par champ, avec des `{{variables}}`) et des **en-têtes** (par exemple `Authorization: Bearer {{jeton}}`). Une valeur écrite seule, comme `{{age}}`, garde son type. Une réponse en erreur ne remplace pas la variable.
+- **Conditions et/ou** : une action *Si* peut tester plusieurs conditions, reliées par « et » (toutes vraies) ou « ou » (au moins une). La valeur comparée peut être **une autre variable**, écrite `{{nom}}`.
+- **Fonctions réutilisables** (panneau Variables) : une suite d'actions nommée, écrite une fois et lancée de partout avec l'action *Lancer une fonction*. Renommer une fonction ou une variable met tous les appels à jour. Une fonction qui finirait par se relancer elle-même est signalée dans les Problèmes et ses appels sont ignorés dans le code.
+- **Débogueur** dans l'aperçu (bouton en forme d'insecte) : la liste des actions lancées, avec la brique et l'événement d'où elles viennent, et les variables en direct. En mode **pas à pas**, chaque action attend *Action suivante* et la page montre l'effet de la précédente. Le débogueur n'existe que dans l'aperçu, jamais dans le code exporté.
+- Le modèle Liste de tâches ajoute une tâche avec la touche Entrée.
+- L'assistant IA connaît les événements, la minuterie, les appels d'API complets, les conditions et/ou et les fonctions.
+
 ## [2.10.0] : 2026-10-11
 
 Des logiciels prêts à livrer : la quatrième vague du plan des 200 améliorations.

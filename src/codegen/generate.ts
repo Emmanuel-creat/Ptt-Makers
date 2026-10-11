@@ -2,8 +2,9 @@ import { BRICKS } from '../model/bricks'
 import { iconSvg } from '../model/icons'
 import { fieldsOf, isCollection, isListLike, normalize, type FilterOp } from '../model/collections'
 import { compileExpr, compileRecordField, exprHelpers, type CompileEnv } from '../model/expressions'
-import type { Action, BrickNode, CollectionField, Project, Variable } from '../model/types'
-import { interpolate, parseTemplate, toVariableName } from '../model/variables'
+import type { Action, BrickNode, CollectionField, Condition, EventField, Project, Variable } from '../model/types'
+import { FIELD_TYPES, linePairs, loopingFunctions } from '../model/actions'
+import { VAR_NAME_RE, interpolate, parseTemplate, toVariableName } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
 import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
 import { closeSafe } from './customCode'
@@ -41,7 +42,14 @@ interface Gen {
   repeatOf: Map<string, string>
   /** Répétitions actives (les répétitions imbriquées dans une autre sont rendues comme un simple bloc). */
   repeats: Set<string>
+  /** Fonctions du projet qui s'appellent elles-mêmes (leurs appels sont ignorés). */
+  looping: Set<string>
+  /** Aperçu avec débogueur : chaque action s'annonce (et peut attendre « Action suivante »). */
+  debug: boolean
 }
+
+/** Vrai pendant la génération d'un code avec débogueur (toutes les listes d'actions deviennent « async »). */
+let debugging = false
 
 function setRange(map: GeneratedCode['map'], id: string, kind: 'html' | 'css' | 'js', range: LineRange) {
   map[id] = { ...map[id], [kind]: range }
@@ -62,7 +70,7 @@ function createGen(project: Project): Gen {
     n.children.forEach((c) => visit(c, inner))
   }
   for (const p of project.pages) visit(p, null)
-  return { project, map: {}, repeatOf, repeats }
+  return { project, map: {}, repeatOf, repeats, looping: loopingFunctions(project.functions), debug: debugging }
 }
 
 /** Ordre du document : toutes les pages, de haut en bas. */
@@ -638,9 +646,11 @@ export function describeAction(a: Action, project: Project): string {
     case 'listClear':
       return `vider ${a.variable}`
     case 'if':
-      return `si ${a.variable} ${CONDITION_LABEL[a.op]}${['eq', 'neq', 'gt', 'lt'].includes(a.op) ? ` ${a.value}` : ''}`
+      return `si ${[a, ...(a.more ?? [])]
+        .map((c) => `${c.variable} ${CONDITION_LABEL[c.op]}${['eq', 'neq', 'gt', 'lt'].includes(c.op) ? ` ${c.value}` : ''}`)
+        .join(a.join === 'or' ? ' ou ' : ' et ')}`
     case 'fetch':
-      return `charger ${a.variable}`
+      return (a.method ?? 'GET') === 'GET' ? `charger ${a.variable}` : `envoyer (${a.method})${a.variable ? ` puis ranger dans ${a.variable}` : ''}`
     case 'addRecord':
       return `ajouter une fiche à ${a.variable}`
     case 'signup':
@@ -649,6 +659,8 @@ export function describeAction(a: Action, project: Project): string {
       return 'se connecter'
     case 'logout':
       return 'se déconnecter'
+    case 'call':
+      return `lancer la fonction ${a.name}`
   }
 }
 
@@ -660,8 +672,9 @@ function formatDelay(ms: number): string {
 
 /** Les actions doivent-elles attendre (chargement, pause) ? Leur fonction devient alors « async ». */
 export function needsAsync(actions: Action[]): boolean {
+  if (debugging && actions.length) return true
   return actions.some(
-    (a) => a.type === 'fetch' || a.type === 'wait' || a.type === 'signup' || a.type === 'login' || (a.type === 'if' && (needsAsync(a.then) || needsAsync(a.else))),
+    (a) => a.type === 'fetch' || a.type === 'wait' || a.type === 'signup' || a.type === 'login' || a.type === 'call' || (a.type === 'if' && (needsAsync(a.then) || needsAsync(a.else))),
   )
 }
 
@@ -679,18 +692,25 @@ interface ActionCtx {
   fields?: CollectionField[]
   /** La répétition montre une vue (filtrée ou triée) : on retrouve l'élément par lui-même, pas par sa position. */
   byElement?: boolean
+  /** Débogueur : d'où viennent les actions (« Bouton 1, au clic »). */
+  source?: string
 }
 
 const indentLines = (ls: string[]) => ls.map((l) => `  ${l}`)
 
-function conditionExpr(a: Extract<Action, { type: 'if' }>, v: Variable): string {
+function conditionExpr(c: Condition, v: Variable, variables: Variable[]): string {
   const ref = `etat.${v.name}`
   const list = isListLike(v)
   const size = list ? `${ref}.length` : ref
-  const num = String(Number(String(a.value).replace(',', '.')) || 0)
+  // La valeur comparée peut être une autre variable, écrite {{nom}} (une liste compte ses éléments).
+  const parts = parseTemplate(c.value.trim())
+  const other = parts.length === 1 && parts[0].kind === 'var' ? variables.find((x) => parts[0].kind === 'var' && x.name === parts[0].name) : undefined
+  const otherRef = other ? (isListLike(other) ? `etat.${other.name}.length` : `etat.${other.name}`) : null
+  const num = otherRef ?? String(Number(String(c.value).replace(',', '.')) || 0)
   const compared =
-    list || v.kind === 'number' ? num : v.kind === 'boolean' ? String(a.value === 'true') : jsTemplate(a.value, [])
-  switch (a.op) {
+    otherRef ?? (list || v.kind === 'number' ? num : v.kind === 'boolean' ? String(c.value === 'true') : jsTemplate(c.value, variables))
+  const measured = v.kind === 'text' && !(other && other.kind === 'text') ? `${ref}.length` : size
+  switch (c.op) {
     case 'true':
       return list ? `${size} > 0` : ref
     case 'false':
@@ -704,9 +724,9 @@ function conditionExpr(a: Extract<Action, { type: 'if' }>, v: Variable): string 
     case 'neq':
       return `${size} !== ${compared}`
     case 'gt':
-      return `${v.kind === 'text' ? `${ref}.length` : size} > ${num}`
+      return `${measured} > ${num}`
     case 'lt':
-      return `${v.kind === 'text' ? `${ref}.length` : size} < ${num}`
+      return `${measured} < ${num}`
   }
 }
 
@@ -727,6 +747,11 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
   const find = (n: string) => vars.find((v) => v.name === n)
   const inRepeat = ctx.repeat != null
   const tpl = (s: string) => jsTemplate(s, vars, inRepeat, ctx.fields)
+  const bodyValue = (s: string) => {
+    const parts = parseTemplate(s)
+    const only = parts.length === 1 && parts[0].kind === 'var' ? vars.find((x) => parts[0].kind === 'var' && x.name === parts[0].name) : undefined
+    return only ? `etat.${only.name}` : tpl(s)
+  }
   const missingVar = (n: string) => ({ lines: [`// Action ignorée : la variable « ${n || '?'} » n'existe pas.`], changesState: false })
   const ignored = (why: string) => ({ lines: [`// Action ignorée : ${why}`], changesState: false })
   const el = (id: string) => {
@@ -816,11 +841,14 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
       return { lines: [`etat.${v.name} = [];`], changesState: true }
     }
     case 'if': {
-      const v = find(a.variable)
-      if (!v) return missingVar(a.variable)
+      const all = [a, ...(a.more ?? [])]
+      const missing = all.find((c) => !find(c.variable))
+      if (missing) return missingVar(missing.variable)
+      const tests = all.map((c) => conditionExpr(c, find(c.variable)!, vars))
+      const test = tests.length === 1 ? tests[0] : tests.map((t) => `(${t})`).join(a.join === 'or' ? ' || ' : ' && ')
       const thenR = blockLines(a.then, g, ctx)
       const elseR = blockLines(a.else, g, ctx)
-      const out = [`if (${conditionExpr(a, v)}) {`]
+      const out = [`if (${test}) {`]
       out.push(...indentLines(thenR.lines))
       if (!thenR.lines.length) out.push('  // Rien à faire')
       if (elseR.lines.length) {
@@ -831,35 +859,37 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
       return { lines: out, changesState: thenR.changesState || elseR.changesState }
     }
     case 'fetch': {
+      const method = a.method ?? 'GET'
       const v = find(a.variable)
-      if (!v) return missingVar(a.variable)
+      // Un envoi (POST, PUT...) peut se passer de variable : la réponse n'est alors pas gardée.
+      if (!v && (method === 'GET' || a.variable)) return missingVar(a.variable)
       if (!/^https?:\/\//i.test(a.url.trim())) return ignored('l’adresse doit commencer par https://')
       const path = jsPath(a.path)
       if (path == null) return ignored(`le chemin « ${oneLine(a.path)} » n’est pas valide.`)
-      const read = `donnees${path}`
-      const convert =
-        isListLike(v)
+      const headers = linePairs(a.headers).filter((x) => x.key)
+      const body = method === 'GET' ? [] : linePairs(a.body).filter((x) => x.key)
+      const options: string[] = []
+      if (method !== 'GET') options.push(`method: ${jsString(method)}`)
+      const head = headers.map((h) => `${jsString(h.key)}: ${tpl(h.value)}`)
+      if (body.length && !headers.some((h) => h.key.toLowerCase() === 'content-type')) head.unshift('"Content-Type": "application/json"')
+      if (head.length) options.push(`headers: { ${head.join(', ')} }`)
+      // Une valeur qui est exactement {{variable}} garde son type (nombre, vrai/faux, liste) ; sinon c'est un texte.
+      if (body.length) options.push(`body: JSON.stringify({ ${body.map((b) => `${jsString(b.key)}: ${bodyValue(b.value)}`).join(', ')} })`)
+      const call = `await fetch(${tpl(a.url.trim())}${options.length ? `, { ${options.join(', ')} }` : ''})`
+      const lines = ['try {', `  const reponse = ${call};`, '  if (!reponse.ok) throw new Error("Réponse " + reponse.status);']
+      if (v) {
+        const convert = isListLike(v)
           ? `Array.isArray(valeur) ? valeur : []`
           : v.kind === 'number'
             ? 'Number(valeur) || 0'
             : v.kind === 'boolean'
               ? 'Boolean(valeur)'
               : 'typeof valeur === "object" ? JSON.stringify(valeur) : String(valeur ?? "")'
-      // await : les actions suivantes attendent que les données soient arrivées.
-      return {
-        lines: [
-          'try {',
-          `  const reponse = await fetch(${tpl(a.url.trim())});`,
-          '  const donnees = await reponse.json();',
-          `  const valeur = ${read};`,
-          `  etat.${v.name} = ${convert};`,
-          '  afficher();',
-          '} catch (erreur) {',
-          '  console.error("Chargement impossible :", erreur);',
-          '}',
-        ],
-        changesState: false,
+        lines.push('  const donnees = await reponse.json();', `  const valeur = donnees${path};`, `  etat.${v.name} = ${convert};`, '  afficher();')
       }
+      // await : les actions suivantes attendent la réponse.
+      lines.push('} catch (erreur) {', `  console.error(${jsString(method === 'GET' ? 'Chargement impossible :' : 'Envoi impossible :')}, erreur);`, '}')
+      return { lines, changesState: false }
     }
     case 'addRecord': {
       const v = find(a.variable)
@@ -901,6 +931,13 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
       if (!v || v.kind !== 'text') return missingVar(a.variable)
       return { lines: [`etat.${v.name} = "";`], changesState: true }
     }
+    case 'call': {
+      const f = g.project.functions?.find((x) => x.name === a.name)
+      if (!f) return ignored(`la fonction « ${a.name || '?'} » n’existe pas.`)
+      if (g.looping.has(f.name)) return ignored(`la fonction « ${f.name} » s’appelle elle-même et tournerait sans fin.`)
+      // await : les actions suivantes attendent la fin de la fonction (qui met la page à jour elle-même).
+      return { lines: [`await ${functionName(f.name)}();`], changesState: false }
+    }
   }
 }
 
@@ -913,6 +950,10 @@ function blockLines(actions: Action[], g: Gen, ctx: ActionCtx): { lines: string[
     if ((a.type === 'wait' || a.type === 'fetch') && pending) {
       lines.push('afficher();')
       pending = false
+    }
+    if (g.debug) {
+      const where = ctx.source ? `${ctx.source} : ` : ''
+      lines.push(`await pas(${jsString(where + describeAction(a, g.project))});`)
     }
     const r = actionLines(a, g, ctx)
     pending ||= r.changesState
@@ -966,7 +1007,8 @@ function emitJs(g: Gen): string {
   const boundFields = outside.filter((n) => ['input', 'textarea', 'select', 'checkbox'].includes(n.type) && known(n.props.bind))
   const boundTables = outside.filter((n) => n.type === 'table' && tableSource(n.props, variables))
   const persisted = variables.filter((v) => v.persist)
-  const clickable = outside.filter((n) => n.onClick.length > 0)
+  const clickable = outside.filter((n) => nodeEvents(n).length > 0)
+  const timers = project.pages.map((id) => project.nodes[id]).filter((p) => p?.onTimer?.length && Number(p.props.timerMs) >= 100)
   const repeats = order.filter((n) => g.repeats.has(n.id))
   const loads = project.pages.map((id) => project.nodes[id]).filter((p) => p?.onLoad?.length)
   const hasTabs = order.some((n) => n.type === 'tabs')
@@ -978,10 +1020,11 @@ function emitJs(g: Gen): string {
   const hasChat = order.some((n) => n.type === 'chat' && n.props.composer)
   const hasWidgets = hasSortable || hasKanban || hasChat
   const customCode = outside.filter((n) => n.type === 'code')
+  const functions = (project.functions ?? []).filter((f) => VAR_NAME_RE.test(f.name))
 
   out.push('// Code généré par Ptt-Makers. Tu peux le lire, le copier et le modifier librement !')
 
-  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !hasTabs && !hasModals && !hasWidgets && !customCode.length) {
+  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !timers.length && !hasTabs && !hasModals && !hasWidgets && !customCode.length && !functions.length) {
     out.push('// Ce projet ne contient pas encore d’interactions.')
     out.push('// Ajoute une variable ou une action « Au clic » pour voir du JavaScript apparaître ici.')
     return out.toString()
@@ -1027,8 +1070,14 @@ function emitJs(g: Gen): string {
     out.push('}')
   }
 
+  if (g.debug) {
+    title('Débogueur de l’aperçu (absent du code exporté)')
+    for (const l of DEBUGGER) out.push(l)
+  }
+
   title('Met à jour la page à partir des variables')
   out.push('function afficher() {')
+  if (g.debug) out.push('  parent.postMessage({ ptt: "etat", etat: JSON.parse(JSON.stringify(etat)) }, "*");')
   if (!dynamicTexts.length && !dynamicLists.length && !conditional.length && !boundFields.length && !repeats.length && !boundTables.length) {
     out.push('  // Rien à mettre à jour pour le moment.')
   }
@@ -1195,13 +1244,13 @@ function emitJs(g: Gen): string {
   }
 
   if (clickable.length) {
-    title('Réagit aux clics')
+    title(clickable.every((n) => nodeEvents(n).every((e) => e.field === 'onClick')) ? 'Réagit aux clics' : 'Réagit aux clics, au survol, à la saisie et aux touches')
     for (const n of clickable) {
       const start = out.line + 1
-      out.push(`// ${commentName(n)} : ${n.onClick.map((a) => describeAction(a, project)).join(', ')}`)
-      out.push(`document.getElementById(${jsString(n.id)}).addEventListener("click", ${needsAsync(n.onClick) ? 'async ' : ''}() => {`)
-      emitActionsBlock(out, g, n.onClick, { repeat: null }, '  ')
-      out.push('});')
+      for (const e of nodeEvents(n)) {
+        const target = e.onControl ? `document.getElementById(${jsString(`${n.id}-champ`)})` : `document.getElementById(${jsString(n.id)})`
+        emitEvent(out, g, n, e, target, { repeat: null }, '')
+      }
       setRange(g.map, n.id, 'js', [start, out.line])
     }
   }
@@ -1261,6 +1310,11 @@ function emitJs(g: Gen): string {
       out.push('  }')
     }
     if (loads.length) out.push('  auChargement[page]?.();')
+    if (timers.length) {
+      out.push('  // Une seule minuterie à la fois : celle de la page affichée')
+      out.push('  clearInterval(minuterieEnCours);')
+      out.push('  if (minuteries[page]) minuterieEnCours = setInterval(minuteries[page].actions, minuteries[page].ms);')
+    }
     out.push('}')
     out.push('window.addEventListener("hashchange", afficherPage);')
     out.push('')
@@ -1274,6 +1328,21 @@ function emitJs(g: Gen): string {
     out.push('  });')
     out.push('}')
 
+    if (timers.length) {
+      title('Minuteries : des actions répétées tant que la page est affichée')
+      out.push('let minuterieEnCours = null;')
+      out.push('const minuteries = {')
+      for (const p of timers) {
+        out.push(`  // ${oneLine(p.name)} : toutes les ${formatDelay(Number(p.props.timerMs))}`)
+        out.push(`  ${jsString(p.id)}: {`)
+        out.push(`    ms: ${Math.round(Number(p.props.timerMs))},`)
+        out.push(`    actions: ${needsAsync(p.onTimer!) ? 'async ' : ''}() => {`)
+        emitActionsBlock(out, g, p.onTimer!, { repeat: null }, '      ')
+        out.push('    },')
+        out.push('  },')
+      }
+      out.push('};')
+    }
     if (loads.length) {
       title('Actions lancées quand une page s’affiche')
       out.push('const auChargement = {')
@@ -1422,6 +1491,13 @@ function emitJs(g: Gen): string {
     } else emitActionsBlock(out, g, p.onLoad!, { repeat: null }, '')
     setRange(g.map, p.id, 'js', [start, out.line])
   }
+  if (!multi && timers.length) {
+    const p = timers[0]
+    title(`Minuterie : toutes les ${formatDelay(Number(p.props.timerMs))}`)
+    out.push(`setInterval(${needsAsync(p.onTimer!) ? 'async ' : ''}() => {`)
+    emitActionsBlock(out, g, p.onTimer!, { repeat: null }, '  ')
+    out.push(`}, ${Math.round(Number(p.props.timerMs))});`)
+  }
   if (/\bverifier\(/.test(out.toString())) {
     title('Vérification des formulaires : chaque champ suit ses règles, la première erreur reçoit le curseur')
     out.push('function verifier(zone) {')
@@ -1498,6 +1574,16 @@ function emitJs(g: Gen): string {
     out.push('  return String(a ?? "").localeCompare(String(b ?? ""), "fr", { numeric: true });')
     out.push('}')
   }
+  if (functions.length) {
+    title('Tes fonctions réutilisables : l’action « Lancer une fonction » les appelle')
+    for (const f of functions) {
+      out.push(`async function ${functionName(f.name)}() {`)
+      if (g.looping.has(f.name)) out.push('  // Cette fonction s’appelle elle-même : ces appels sont ignorés pour ne pas tourner sans fin.')
+      emitActionsBlock(out, g, f.actions, { repeat: null }, '  ')
+      if (!f.actions.length) out.push('  // Rien à faire pour l’instant')
+      out.push('}')
+    }
+  }
   if (customCode.length) {
     title('Ton code personnalisé : chaque bloc reçoit « bloc » (la brique) et peut lire ou changer « etat »')
     for (const n of customCode) {
@@ -1518,6 +1604,69 @@ function emitJs(g: Gen): string {
     for (const l of helpers) out.push(l)
   }
   return out.toString()
+}
+
+/** Le débogueur de l'aperçu : annonce chaque action à Ptt-Makers et, en mode pas à pas, attend « Action suivante ». */
+const DEBUGGER = [
+  'const debogueur = { pasAPas: false, suite: null };',
+  'window.addEventListener("message", (e) => {',
+  '  const d = e.data;',
+  '  if (!d || d.ptt !== "debogueur") return;',
+  '  if ("pasAPas" in d) debogueur.pasAPas = d.pasAPas;',
+  '  if ((d.suivant || !debogueur.pasAPas) && debogueur.suite) {',
+  '    const reprendre = debogueur.suite;',
+  '    debogueur.suite = null;',
+  '    reprendre();',
+  '  }',
+  '});',
+  'async function pas(texte) {',
+  '  afficher();',
+  '  parent.postMessage({ ptt: "pas", texte, pause: debogueur.pasAPas }, "*");',
+  '  if (debogueur.pasAPas) await new Promise((reprendre) => (debogueur.suite = reprendre));',
+  '}',
+]
+
+/** Nom JavaScript d'une fonction du projet (le préfixe évite toute collision avec le reste du script). */
+const functionName = (name: string) => `fonction_${name}`
+
+/** Un événement d'une brique qui lance des actions. */
+interface NodeEvent {
+  field: EventField
+  /** Événement du navigateur. */
+  dom: string
+  /** Sur le champ lui-même (saisie, changement, touche) plutôt que sur la brique. */
+  onControl: boolean
+  /** Touche attendue (événement « touche »). */
+  key?: string
+  label: string
+  actions: Action[]
+}
+
+const KEY_LABELS: Record<string, string> = { Enter: 'Entrée', Escape: 'Échap', ArrowUp: 'flèche haut', ArrowDown: 'flèche bas', ' ': 'Espace' }
+
+/** Les événements d'une brique qui ont des actions (le chargement et la minuterie des pages sont à part). */
+function nodeEvents(n: BrickNode): NodeEvent[] {
+  const field = FIELD_TYPES.includes(n.type)
+  const key = String(n.props.eventKey || 'Enter')
+  const list: NodeEvent[] = [
+    { field: 'onClick', dom: 'click', onControl: false, label: 'au clic', actions: n.onClick ?? [] },
+    { field: 'onHover', dom: 'mouseenter', onControl: false, label: 'au survol', actions: n.onHover ?? [] },
+    { field: 'onInput', dom: 'input', onControl: true, label: 'à chaque saisie', actions: field ? (n.onInput ?? []) : [] },
+    { field: 'onChange', dom: 'change', onControl: true, label: 'quand la valeur change', actions: field ? (n.onChange ?? []) : [] },
+    { field: 'onKey', dom: 'keydown', onControl: true, key, label: `touche ${KEY_LABELS[key] ?? key}`, actions: field ? (n.onKey ?? []) : [] },
+  ]
+  return list.filter((e) => e.actions.length)
+}
+
+function emitEvent(out: Emitter, g: Gen, n: BrickNode, e: NodeEvent, target: string, ctx: ActionCtx, indent: string) {
+  out.push(`${indent}// ${commentName(n)}, ${e.label} : ${e.actions.map((a) => describeAction(a, g.project)).join(', ')}`)
+  out.push(`${indent}${target}.addEventListener(${jsString(e.dom)}, ${needsAsync(e.actions) ? 'async ' : ''}(${e.key ? 'evenement' : ''}) => {`)
+  if (e.key) {
+    out.push(`${indent}  if (evenement.key !== ${jsString(e.key)}) return;`)
+    if (e.key === 'Enter') out.push(`${indent}  evenement.preventDefault();`)
+  }
+  emitActionsBlock(out, g, e.actions, g.debug ? { ...ctx, source: `${commentName(n)}, ${e.label}` } : ctx, `${indent}  `)
+  out.push(`${indent}});`)
 }
 
 /** Une répétition : remplit chaque copie et branche ses clics. */
@@ -1543,12 +1692,12 @@ function emitRepeat(out: Emitter, g: Gen, r: BrickNode, order: BrickNode[], show
     }
     if (n.showIf && variables.some((v) => v.name === n.showIf)) out.push(`    ${q(n)}.hidden = ${showIfExpr(n.showIf)};`)
   }
-  for (const n of members.filter((m) => m.onClick.length)) {
+  for (const n of members.filter((m) => nodeEvents(m).length)) {
     const s = out.line + 1
-    out.push(`    // ${commentName(n)} : ${n.onClick.map((a) => describeAction(a, g.project)).join(', ')}`)
-    out.push(`    ${q(n)}.addEventListener("click", ${needsAsync(n.onClick) ? 'async ' : ''}() => {`)
-    emitActionsBlock(out, g, n.onClick, { repeat: r.id, fields: source.fields, byElement: !!view }, '      ')
-    out.push('    });')
+    for (const e of nodeEvents(n)) {
+      const target = e.onControl ? `${q(n)}.querySelector("input, textarea, select")` : q(n)
+      emitEvent(out, g, n, e, target, { repeat: r.id, fields: source.fields, byElement: !!view }, '    ')
+    }
     setRange(g.map, n.id, 'js', [s, out.line])
   }
   out.push(`  }${empty ? `, ${jsString(empty)}` : ''});`)
@@ -1609,7 +1758,16 @@ const ACCOUNT_HELPERS = (key: string): string[] => [
 
 /* -------------------------------- Ensemble ------------------------------- */
 
-export function generate(project: Project): GeneratedCode {
+export function generate(project: Project, options: { debug?: boolean } = {}): GeneratedCode {
+  debugging = !!options.debug
+  try {
+    return generateAll(project)
+  } finally {
+    debugging = false
+  }
+}
+
+function generateAll(project: Project): GeneratedCode {
   const g = createGen(project)
   const root = project.nodes[project.rootId]
   const html = new Emitter()

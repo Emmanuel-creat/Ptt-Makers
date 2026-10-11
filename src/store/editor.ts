@@ -1,8 +1,10 @@
 import { create } from 'zustand'
+import { mapNodeActions } from '../model/actions'
+import { VAR_NAME_RE } from '../model/variables'
 import { isContainer } from '../model/bricks'
 import { clampPlace, defaultSize, fixPlacements, isFreeGrid, setFreeGrid } from '../model/freeGrid'
 import { detachAll, syncInstances } from '../model/instances'
-import { renameVariableInNodes } from '../model/refactor'
+import { renameFunctionCalls, renameVariableInFunctions, renameVariableInNodes } from '../model/refactor'
 import { scaffoldCollection } from '../model/scaffold'
 import { adoptStyle, stylePreset, type StyleTokens } from '../model/styles'
 import { createDefaultProject } from '../model/templates'
@@ -35,13 +37,13 @@ import {
   canDrop,
   type Nodes,
 } from '../model/tree'
-import type { Action, BrickNode, BrickStyle, BrickType, DropTarget, GridPlace, Project, ProjectTheme, PropValue, ResponsiveScope, StyleOverride, Variable } from '../model/types'
+import type { Action, BrickNode, BrickStyle, BrickType, DropTarget, EventField, GridPlace, Project, ProjectTheme, PropValue, ResponsiveScope, StyleOverride, Variable } from '../model/types'
 
 const HISTORY_LIMIT = 120
 /** Les modifications successives d'un même champ sont regroupées dans une seule étape d'annulation. */
 const COALESCE_MS = 800
 
-type Snapshot = Pick<Project, 'nodes' | 'variables' | 'name' | 'rootId' | 'pages' | 'theme' | 'components'>
+type Snapshot = Pick<Project, 'nodes' | 'variables' | 'name' | 'rootId' | 'pages' | 'theme' | 'components' | 'functions'>
 
 export type Dragging = { kind: 'new'; type: BrickType } | { kind: 'component'; id: string } | { kind: 'move'; id: string } | null
 
@@ -99,7 +101,12 @@ interface EditorState {
   /** Passe une page en placement libre sur la grille, ou la remet en pile. */
   setLayout: (pageId: string, grid: boolean, measuredRows?: Record<string, number>) => void
   updateNode: (id: string, patch: Partial<Pick<BrickNode, 'name' | 'hidden' | 'showIf'>>) => void
-  setActions: (id: string, actions: Action[], field?: 'onClick' | 'onLoad') => void
+  setActions: (id: string, actions: Action[], field?: EventField) => void
+  /** Fonctions réutilisables : créer (false si le nom est pris ou invalide), renommer, changer les actions, supprimer. */
+  addFunction: (name: string) => boolean
+  renameFunction: (from: string, to: string) => boolean
+  setFunctionActions: (name: string, actions: Action[]) => void
+  removeFunction: (name: string) => void
 
   updateTheme: (patch: Partial<ProjectTheme>) => void
   /** Choisit un style prêt à l'emploi (les réglages du Studio repartent de zéro). Sans id : retour au thème simple. */
@@ -168,6 +175,7 @@ const snapshot = (p: Project): Snapshot => ({
   pages: p.pages,
   theme: p.theme,
   components: p.components,
+  functions: p.functions,
 })
 
 let toastCounter = 0
@@ -643,8 +651,34 @@ export const useEditor = create<EditorState>((rawSet, get) => {
         return {
           variables: p.variables.map((v) => (v.name === name ? { ...v, ...patch } : v)),
           nodes: renaming ? renameVariableInNodes(p.nodes, name, patch.name!) : p.nodes,
+          functions: renaming ? renameVariableInFunctions(p.functions, name, patch.name!) : p.functions,
         }
       }, `var:${name}:${Object.keys(patch).join(',')}`),
+
+    addFunction: (name) => {
+      const p = get().project
+      if (!VAR_NAME_RE.test(name) || p.functions?.some((f) => f.name === name)) return false
+      commit((q) => ({ functions: [...(q.functions ?? []), { name, actions: [] }] }))
+      return true
+    },
+
+    renameFunction: (from, to) => {
+      const p = get().project
+      if (from === to) return true
+      if (!VAR_NAME_RE.test(to) || p.functions?.some((f) => f.name === to)) return false
+      commit((q) => ({
+        functions: (q.functions ?? []).map((f) => ({ name: f.name === from ? to : f.name, actions: renameFunctionCalls(f.actions, from, to) })),
+        nodes: Object.fromEntries(
+          Object.entries(q.nodes).map(([id, n]) => [id, mapNodeActions(n, (a) => (a.type === 'call' && a.name === from ? { ...a, name: to } : a))]),
+        ),
+      }))
+      return true
+    },
+
+    setFunctionActions: (name, actions) =>
+      commit((p) => ({ functions: (p.functions ?? []).map((f) => (f.name === name ? { ...f, actions } : f)) }), `function:${name}`),
+
+    removeFunction: (name) => commit((p) => ({ functions: (p.functions ?? []).filter((f) => f.name !== name) })),
 
     removeVariable: (name) => commit((p) => ({ variables: p.variables.filter((v) => v.name !== name) })),
 

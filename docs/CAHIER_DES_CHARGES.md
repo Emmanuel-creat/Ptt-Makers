@@ -162,6 +162,14 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F73** L'export en **application installable** (PWA qui marche sans internet), préparée pour Android et iOS avec Capacitor.
 - **F74** Des **comptes dans l'application générée** (créer un compte, se connecter, se déconnecter, pages réservées), avec des mots de passe jamais gardés en clair.
 
+### 4.20 Logique complète (version 2.11)
+
+- **F75** De nouveaux **événements** : survol d'une brique ; saisie, changement de valeur et touche pour un champ ; **minuterie** d'une page.
+- **F76** Des **appels d'API complets** : méthode GET, POST, PUT, PATCH ou DELETE, en-têtes et corps JSON avec des `{{variables}}`.
+- **F77** Des **conditions et/ou**, et la comparaison de deux variables.
+- **F78** Des **fonctions réutilisables** : une suite d'actions nommée, lancée de partout.
+- **F79** Un **débogueur pas à pas** dans l'aperçu, qui montre chaque action et les variables en direct, absent du code exporté.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -195,4 +203,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 16. Le paquet pour ordinateur ouvre l'atelier depuis un fichier, sans réseau : un modèle choisi s'affiche dans l'aperçu et reste là après un rechargement.
 17. Deux briques sélectionnées avec `Maj + clic` se groupent puis se dégroupent ; un texte changé dans une copie d'un composant change aussi l'autre copie ; un bouton sans texte apparaît dans le panneau Problèmes et un clic le sélectionne ; revenir à une version enregistrée rend une brique supprimée depuis.
 18. La galerie filtrée sur « Gestion et métiers » et la recherche « tva » ne montrent que la facturation, dont le total TTC vaut 2 284 € ; une brique Code personnalisé affiche le résultat de son script dans l'éditeur et dans l'aperçu ; dans le modèle « Espace membres », la page réservée renvoie vers la connexion puis s'ouvre après la création d'un compte ; l'application installable se télécharge en .zip, et une fois en ligne son service worker est actif.
-19. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+19. Dans la liste de tâches, la touche Entrée ajoute une tâche ; une fonction créée dans le panneau Variables et lancée par un bouton change le texte de l'aperçu ; avec le débogueur en pas à pas, le compteur reste à 0 tant que l'on n'a pas cliqué sur *Action suivante*, puis passe à 1.
+20. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

@@ -1,5 +1,6 @@
 import { ChevronRight, Component, EyeOff, Repeat, Variable, Zap } from 'lucide-react'
 import { useState } from 'react'
+import { EVENT_FIELDS, countActions } from '../model/actions'
 import { isContainer } from '../model/bricks'
 import { canDrop } from '../model/tree'
 import type { DropPosition } from '../model/types'
@@ -25,6 +26,7 @@ function LayerItem({ id, depth }: { id: string; depth: number }) {
   const [open, setOpen] = useState(true)
   const [editing, setEditing] = useState(false)
   if (!node) return null
+  const actionCount = EVENT_FIELDS.reduce((n, f) => n + countActions(node[f]), 0)
   const container = isContainer(node.type)
   const hasChildren = node.children.length > 0
 
@@ -132,8 +134,8 @@ function LayerItem({ id, depth }: { id: string; depth: number }) {
               <Repeat size={13} aria-label="Répétition" />
             </span>
           )}
-          {node.onClick.length > 0 && (
-            <span data-tip={`${node.onClick.length} action(s) au clic`}>
+          {actionCount > 0 && (
+            <span data-tip={`${actionCount} action(s)`}>
               <Zap size={13} aria-label="Interactions" />
             </span>
           )}
