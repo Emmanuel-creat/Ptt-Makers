@@ -26,6 +26,7 @@ src/
 │   ├── tree.ts         Opérations sur l'arbre (insérer, déplacer, dupliquer…)
 │   ├── freeGrid.ts     Page en grille : cases, tailles de départ, remise en ordre
 │   ├── icons.ts        Icônes dessinées de la brique Icône (tracés dans iconData.ts)
+│   ├── styles.ts       Les 24 styles du Studio et le calcul des réglages
 │   ├── variables.ts    Textes dynamiques {{nom}}, conversions
 │   ├── refactor.ts     Renommage / usages d'une variable
 │   └── templates.ts    Modèles de départ + validation d'import
@@ -145,6 +146,15 @@ Chaque projet est rangé sous sa propre clé (`ptt-makers:projet:<id>`), avec un
 - La brique Icône garde un **nom** d'icône (`etoile`, `telephone`…) dans `props.symbol`. Les tracés (24 × 24, trait de 2 px) sont dans `src/model/iconData.ts`, généré à partir de Lucide (licence ISC).
 - Le même SVG sert partout : React dans la zone de création, texte HTML dans le code généré (`width="1em"`, `stroke="currentColor"` : l'icône suit la taille et la couleur du texte). L'export React convertit les attributs SVG (`stroke-width` devient `strokeWidth`).
 - `resolveIcon` lit aussi les anciens projets : un emoji connu devient l'icône équivalente, sinon l'étoile.
+
+### Moteur de styles (version 2.3)
+
+- `theme.style` garde le nom d'un des 24 styles de `src/model/styles.ts`, et `theme.tokens` seulement les réglages changés dans le Studio. `resolveTokens` les assemble dans l'ordre : style, ancien thème (`primary`, `radius`, `font`), réglages du Studio.
+- `themeEntries` (`src/codegen/style.ts`) les transforme en variables CSS : `--couleur`, `--sur-couleur`, `--fond`, `--surface`, `--texte`, `--texte-doux`, `--barre`, `--sur-barre`, `--bordure`, `--trait`, `--arrondi`, `--arrondi-carte`, `--ombre`, `--ombre-bouton`, `--ombre-champ`, `--flou`, `--police`, `--police-titre`. Le CSS de base les lit avec, en secours, les valeurs d'avant : un projet sans style s'affiche comme avant.
+- Les ombres sont calculées à partir du type de relief et de son intensité. Le néomorphisme mélange la couleur de surface avec du noir et du blanc (`color-mix`), le néobrutalisme décale une ombre de la couleur du texte.
+- Les fonds acceptent une couleur ou un dégradé, jamais une image ni du code CSS (`sanitizeBackground`).
+- Les briques n'ont plus de couleurs par défaut (page, carte, fenêtre, barre de menu) : le CSS de base les prend dans le style. `adoptStyle` retire les couleurs, bordures, ombres et arrondis donnés à la main (sauf l'arrondi des images et vidéos).
+- Les polices grotesque, éditoriale, géométrique et manuscrite viennent de Google Fonts : le code généré ajoute le lien seulement si le style les utilise, et l'éditeur charge la même feuille.
 
 ### Assistant IA (version Pro)
 

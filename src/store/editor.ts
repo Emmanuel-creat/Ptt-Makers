@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { isContainer } from '../model/bricks'
 import { clampPlace, defaultSize, fixPlacements, isFreeGrid, setFreeGrid } from '../model/freeGrid'
 import { renameVariableInNodes } from '../model/refactor'
+import { adoptStyle, stylePreset, type StyleTokens } from '../model/styles'
 import { createDefaultProject } from '../model/templates'
 import {
   currentProjectId,
@@ -85,6 +86,12 @@ interface EditorState {
   setActions: (id: string, actions: Action[], field?: 'onClick' | 'onLoad') => void
 
   updateTheme: (patch: Partial<ProjectTheme>) => void
+  /** Choisit un style prêt à l'emploi (les réglages du Studio repartent de zéro). Sans id : retour au thème simple. */
+  chooseStyle: (id: string | null) => void
+  /** Change des réglages du Studio de style (undefined = revenir à la valeur du style). */
+  updateTokens: (patch: Partial<StyleTokens>) => void
+  /** Fait suivre le style à toutes les briques (retire leurs couleurs, bordures, ombres et arrondis propres). */
+  adoptStyle: () => void
   saveComponent: (id: string, name?: string) => void
   insertComponent: (componentId: string, at?: { parentId: string; index: number; cell?: DropTarget['cell'] }) => void
   removeComponent: (componentId: string) => void
@@ -392,6 +399,32 @@ export const useEditor = create<EditorState>((set, get) => {
         for (const k of Object.keys(patch) as (keyof ProjectTheme)[]) if (patch[k] === undefined) delete theme[k]
         return { theme: Object.keys(theme).length ? theme : undefined }
       }, `theme:${Object.keys(patch).join(',')}`),
+
+    chooseStyle: (id) =>
+      commit((p) => {
+        if (id === null) return p.theme ? { theme: undefined } : null
+        if (!stylePreset(id) || (p.theme?.style === id && !p.theme.tokens && !p.theme.primary && p.theme.radius === undefined && !p.theme.font)) return null
+        return { theme: { style: id } }
+      }),
+
+    updateTokens: (patch) =>
+      commit((p) => {
+        const tokens: Partial<StyleTokens> = { ...p.theme?.tokens, ...patch }
+        for (const k of Object.keys(patch) as (keyof StyleTokens)[]) if (patch[k] === undefined) delete tokens[k]
+        const theme: ProjectTheme = { ...p.theme, tokens }
+        // Les anciens réglages équivalents laissent la place à ceux du Studio.
+        if ('accent' in patch) delete theme.primary
+        if ('radius' in patch) delete theme.radius
+        if ('font' in patch) delete theme.font
+        if (!Object.keys(tokens).length) delete theme.tokens
+        return { theme: Object.keys(theme).length ? theme : undefined }
+      }, `tokens:${Object.keys(patch).join(',')}`),
+
+    adoptStyle: () =>
+      commit((p) => {
+        const nodes = adoptStyle(p.nodes)
+        return JSON.stringify(nodes) === JSON.stringify(p.nodes) ? null : { nodes }
+      }),
 
     saveComponent: (id, name) => {
       const { project, notify } = get()

@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import { STYLE_PRESETS } from '../model/styles'
 import type { Project } from '../model/types'
 import { brickCatalog, PROJECT_SCHEMA, projectToAi, type AiProject } from './format'
 
@@ -64,6 +65,8 @@ export async function describeError(error: unknown): Promise<string> {
   return error instanceof Error ? error.message : String(error)
 }
 
+const STYLE_LIST = STYLE_PRESETS.map((s) => `"${s.id}" (${s.name})`).join(', ')
+
 const FORMAT_RULES = `Tu construis des applications pour Ptt-Makers, un atelier visuel en français. Tu réponds avec un projet au format JSON demandé.
 
 Règles du format :
@@ -79,6 +82,7 @@ Règles du format :
 - Onglets (tabs) et accordéon (accordion) : chaque enfant est une colonne (stack) ; son "name" devient le titre de l'onglet ou de la question.
 - Fenêtre (modal) : cachée au départ ; un bouton l'ouvre avec l'action show. Barre de menu (navbar) : affiche toute seule un lien par page.
 - Lien vers une page : brique link avec la propriété page = ref de la page.
+- Style du projet (theme.style) : choisis le style qui convient le mieux parmi ${STYLE_LIST}. Quand un style est choisi, ne donne pas de couleur de fond, de texte, de bordure ni d'ombre aux briques : elles suivent le style. Laisse primary vide sauf si l'utilisateur demande une couleur précise.
 - Écris tous les textes visibles en français, avec du vrai contenu (pas de « Lorem ipsum »). Pas de tiret cadratin, et aucun emoji dans les textes : pour illustrer, ajoute une brique icon (propriété symbol = nom d'une icône de la liste).
 - "summary" : deux ou trois phrases simples qui expliquent ce que tu as construit.
 

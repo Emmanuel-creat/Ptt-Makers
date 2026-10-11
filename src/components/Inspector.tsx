@@ -26,7 +26,8 @@ import { BRICKS, CATEGORIES, type FieldDef } from '../model/bricks'
 import { GRID_COLUMNS, GRID_ROW, isFreeGrid } from '../model/freeGrid'
 import { ICON_NAMES, iconLabel, resolveIcon } from '../model/icons'
 import { IconSvg } from './CanvasNode'
-import type { BrickNode, BrickStyle, GridPlace, ProjectTheme, StyleOverride } from '../model/types'
+import { STYLE_PRESETS, resolveTokens, stylePreset, type FontId, type ShadowKind, type StyleTokens } from '../model/styles'
+import type { BrickNode, BrickStyle, GridPlace, StyleOverride } from '../model/types'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 import { repeatOf } from '../model/tree'
@@ -526,34 +527,138 @@ function ScopeBar({ node }: { node: BrickNode }) {
   )
 }
 
-const FONTS: { value: NonNullable<ProjectTheme['font']>; label: string }[] = [
+const FONTS: { value: FontId; label: string }[] = [
   { value: 'inter', label: 'Inter (par défaut)' },
   { value: 'system', label: 'Police du système' },
   { value: 'arrondie', label: 'Arrondie' },
   { value: 'serif', label: 'Avec empattements (classique)' },
   { value: 'mono', label: 'Machine à écrire' },
+  { value: 'grotesque', label: 'Grotesque (titres forts)' },
+  { value: 'editoriale', label: 'Éditoriale (magazine)' },
+  { value: 'geometrique', label: 'Géométrique (moderne)' },
+  { value: 'manuscrite', label: 'Manuscrite' },
 ]
 
-/** Thème du projet : réglé depuis n'importe quelle page, appliqué à toutes. */
+const SHADOW_KINDS: { value: ShadowKind; label: string }[] = [
+  { value: 'aucune', label: 'Aucune (plat)' },
+  { value: 'douce', label: 'Douce' },
+  { value: 'portee', label: 'Portée (flottante)' },
+  { value: 'relief', label: 'Relief (néomorphisme)' },
+  { value: 'decalee', label: 'Décalée (néobrutalisme)' },
+  { value: 'verre', label: 'Verre (reflet)' },
+]
+
+/** Petit aperçu d'un style : son fond, une surface et sa couleur principale. */
+function StyleSwatch({ tokens }: { tokens: Partial<StyleTokens> }) {
+  return (
+    <span className="pm-style-sw" style={{ background: tokens.background ?? '#ffffff' }} aria-hidden="true">
+      <span style={{ background: tokens.surface ?? '#ffffff', borderRadius: Math.min(8, tokens.cardRadius ?? 6), border: tokens.borderWidth ? `1px solid ${tokens.border}` : undefined }} />
+      <span style={{ background: tokens.accent ?? '#6c5ce7' }} />
+    </span>
+  )
+}
+
+/** Studio de style : un style prêt à l'emploi pour tout le projet, puis chaque réglage à la main. */
 function ThemeSection() {
   const theme = useEditor((s) => s.project.theme)
-  const updateTheme = useEditor((s) => s.updateTheme)
+  const chooseStyle = useEditor((s) => s.chooseStyle)
+  const updateTokens = useEditor((s) => s.updateTokens)
+  const adopt = useEditor((s) => s.adoptStyle)
+  const t = resolveTokens(theme)
+  const set = <K extends keyof StyleTokens>(k: K) => (v: StyleTokens[K] | undefined) => updateTokens({ [k]: v } as Partial<StyleTokens>)
+  const color = (k: 'accent' | 'onAccent' | 'background' | 'surface' | 'text' | 'muted' | 'bar' | 'onBar' | 'border', label: string, help?: string) => (
+    <Row label={label} help={help}>{(id) => <ColorInput id={id} value={t[k]} onChange={set(k)} />}</Row>
+  )
+  const custom = Object.keys(theme?.tokens ?? {}).length > 0
   return (
-    <Section title="Thème du projet" icon={<Sparkles size={15} />} defaultOpen={false}>
-      <p className="pm-row-help">Appliqué à toutes les pages : boutons, liens, champs, onglets…</p>
-      <Row label="Couleur principale">{(id) => <ColorInput id={id} value={theme?.primary} onChange={(primary) => updateTheme({ primary })} />}</Row>
-      <Row label="Arrondi des boutons et champs">
-        {(id) => <NumberInput id={id} value={theme?.radius} placeholder="10" max={40} onChange={(radius) => updateTheme({ radius })} />}
-      </Row>
-      <Row label="Police">
-        {(id) => (
-          <SelectInput
-            id={id}
-            value={theme?.font ?? 'inter'}
-            options={FONTS}
-            onChange={(font) => updateTheme({ font: font === 'inter' ? undefined : (font as ProjectTheme['font']) })}
+    <Section title="Style du projet" icon={<Sparkles size={15} />} defaultOpen={false} badge={theme?.style ? <span className="pm-section-note">{stylePreset(theme.style)?.name}</span> : undefined}>
+      <p className="pm-row-help">Un style habille toutes les pages d'un coup : couleurs, surfaces, relief, flou, arrondis et polices.</p>
+      <div className="pm-style-grid" role="listbox" aria-label="Styles proposés">
+        <button type="button" role="option" aria-selected={!theme?.style} className="pm-style-opt" onClick={() => chooseStyle(null)}>
+          <StyleSwatch tokens={{}} />
+          <span>Sans style</span>
+        </button>
+        {STYLE_PRESETS.map((p) => (
+          <button key={p.id} type="button" role="option" aria-selected={theme?.style === p.id} className="pm-style-opt" data-tip={p.origin} onClick={() => chooseStyle(p.id)}>
+            <StyleSwatch tokens={p.tokens} />
+            <span>{p.name}</span>
+          </button>
+        ))}
+      </div>
+      <div className="pm-style-actions">
+        <button type="button" className="pm-btn pm-btn-secondary" onClick={adopt} data-tip="Retire les couleurs, bordures, ombres et arrondis donnés à la main aux briques">
+          Adapter toutes les briques au style
+        </button>
+        {custom && (
+          <button
+            type="button"
+            className="pm-btn pm-btn-ghost"
+            onClick={() => updateTokens(Object.fromEntries(Object.keys(theme?.tokens ?? {}).map((k) => [k, undefined])) as Partial<StyleTokens>)}
+          >
+            Revenir aux réglages du style
+          </button>
+        )}
+      </div>
+
+      <h4 className="pm-sub">Couleurs</h4>
+      {color('accent', 'Couleur principale')}
+      {color('onAccent', 'Texte sur la couleur principale')}
+      {color('background', 'Fond des pages', 'Une couleur ou un dégradé, par exemple linear-gradient(160deg, #ff6a3d, #7a2cff).')}
+      {color('surface', 'Surfaces (cartes, champs, fenêtres)')}
+      {color('text', 'Texte')}
+      {color('muted', 'Texte secondaire')}
+      {color('bar', 'Barre de menu')}
+      {color('onBar', 'Texte de la barre de menu')}
+      {color('border', 'Bordures')}
+      <Row label="Ambiance">
+        {() => (
+          <Segmented
+            label="Ambiance"
+            size="sm"
+            value={t.dark ? 'sombre' : 'claire'}
+            onChange={(v) => set('dark')(v === 'sombre')}
+            options={[
+              { value: 'claire', label: 'Claire' },
+              { value: 'sombre', label: 'Sombre' },
+            ]}
           />
         )}
+      </Row>
+
+      <h4 className="pm-sub">Formes</h4>
+      <Row label="Épaisseur des bordures">{(id) => <NumberInput id={id} value={t.borderWidth} placeholder="1" max={8} onChange={set('borderWidth')} />}</Row>
+      <Row label="Arrondi des cartes">{(id) => <NumberInput id={id} value={t.cardRadius} placeholder="14" max={60} onChange={set('cardRadius')} />}</Row>
+      <Row label="Arrondi des boutons et champs" help="999 donne des boutons en pilule.">
+        {(id) => <NumberInput id={id} value={t.radius} placeholder="10" max={999} onChange={set('radius')} />}
+      </Row>
+
+      <h4 className="pm-sub">Relief et verre</h4>
+      <Row label="Relief">
+        {(id) => <SelectInput id={id} value={t.shadow ?? 'douce'} options={SHADOW_KINDS} onChange={(v) => set('shadow')(v as ShadowKind)} />}
+      </Row>
+      <Row label="Intensité du relief">
+        {() => (
+          <Segmented
+            label="Intensité du relief"
+            size="sm"
+            value={String(t.depth ?? 1) as '1' | '2' | '3'}
+            onChange={(v) => set('depth')(Number(v))}
+            options={[
+              { value: '1', label: 'Léger' },
+              { value: '2', label: 'Moyen' },
+              { value: '3', label: 'Fort' },
+            ]}
+          />
+        )}
+      </Row>
+      <Row label="Flou derrière les surfaces" help="Effet verre : visible quand le fond est un dégradé ou une image.">
+        {(id) => <NumberInput id={id} value={t.blur} placeholder="0" max={40} onChange={set('blur')} />}
+      </Row>
+
+      <h4 className="pm-sub">Polices</h4>
+      <Row label="Police du texte">{(id) => <SelectInput id={id} value={t.font ?? 'inter'} options={FONTS} onChange={(v) => set('font')(v as FontId)} />}</Row>
+      <Row label="Police des titres">
+        {(id) => <SelectInput id={id} value={t.headingFont ?? t.font ?? 'inter'} options={FONTS} onChange={(v) => set('headingFont')(v as FontId)} />}
       </Row>
     </Section>
   )

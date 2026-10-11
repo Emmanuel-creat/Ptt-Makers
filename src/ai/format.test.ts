@@ -23,7 +23,7 @@ describe('format d’échange avec l’IA', () => {
     const ai: AiProject = {
       name: 'Quiz',
       summary: 'Un quiz.',
-      theme: { primary: '#e11d48', radius: 6, font: 'arrondie' },
+      theme: { style: '', primary: '#e11d48', radius: 6, font: 'arrondie' },
       variables: [
         { name: 'score', kind: 'number', initial: '0' },
         { name: 'mauvais nom', kind: 'text', initial: '' },
@@ -81,6 +81,14 @@ describe('format d’échange avec l’IA', () => {
     expect(retour.place).toEqual({ col: 1, row: 4, w: 3, h: 1 })
     expect(projectToAi(p).pages[1].layout).toBe('grille')
     expect(() => new Function(generate(p).js)).not.toThrow()
+  })
+
+  it('garde le style choisi par l’IA et ignore un style inconnu', () => {
+    const base: AiProject = { name: 'X', summary: '', theme: { style: 'nuit-jaune', primary: '', radius: 0, font: '' }, variables: [], pages: [], bricks: [] }
+    const p = aiToProject(base)
+    expect(p.theme).toEqual({ style: 'nuit-jaune' })
+    expect(projectToAi(p).theme.style).toBe('nuit-jaune')
+    expect(aiToProject({ ...base, theme: { style: 'inconnu', primary: '', radius: 0, font: 'grotesque' } }).theme).toEqual({ font: 'grotesque' })
   })
 
   it('le schéma n’est pas récursif et tous les objets sont fermés', () => {

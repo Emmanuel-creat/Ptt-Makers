@@ -419,3 +419,29 @@ test.describe('icônes dessinées', () => {
     expect(text).not.toMatch(/\p{Extended_Pictographic}/u)
   })
 })
+
+test.describe('studio de style', () => {
+  test('applique un style à tout le projet, dans l’éditeur et dans l’aperçu', async ({ page }) => {
+    await openBlank(page)
+    await page.locator('.pm-tile', { hasText: 'Carte' }).click()
+    await page.locator('.pm-frame .page').click({ position: { x: 4, y: 4 } })
+    await page.getByRole('button', { name: /Style du projet/ }).click()
+    await page.getByRole('listbox', { name: 'Styles proposés' }).getByRole('option', { name: 'Nuit et jaune' }).click()
+    await expect(page.locator('.pm-frame .page')).toHaveCSS('background-color', 'rgb(17, 18, 21)')
+    await expect(page.locator('.pm-frame [data-ptt-id="carte-1"]')).toHaveCSS('background-color', 'rgb(29, 31, 36)')
+    await expect(preview(page).locator('#page')).toHaveCSS('background-color', 'rgb(17, 18, 21)')
+
+    // Un réglage du Studio change tout le projet.
+    await page.getByLabel('Arrondi des cartes').fill('0')
+    await expect(page.locator('.pm-frame [data-ptt-id="carte-1"]')).toHaveCSS('border-top-left-radius', '0px')
+
+    // Une couleur donnée à la main masque le style, jusqu'à « Adapter toutes les briques ».
+    await page.locator('.pm-frame [data-ptt-id="carte-1"]').click()
+    await page.getByLabel('Fond', { exact: true }).fill('#ff0000')
+    await expect(page.locator('.pm-frame [data-ptt-id="carte-1"]')).toHaveCSS('background-color', 'rgb(255, 0, 0)')
+    await page.locator('.pm-frame .page').click({ position: { x: 4, y: 4 } })
+    await page.getByRole('button', { name: /Style du projet/ }).click()
+    await page.getByRole('button', { name: 'Adapter toutes les briques au style' }).click()
+    await expect(page.locator('.pm-frame [data-ptt-id="carte-1"]')).toHaveCSS('background-color', 'rgb(29, 31, 36)')
+  })
+})

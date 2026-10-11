@@ -45,7 +45,10 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
   min-height: 100vh;
   font-family: var(--police, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
   line-height: 1.5;
+  background: var(--fond, #ffffff);
+  color: var(--texte, #1b1d29);
 }
+.page h1, .page h2, .page h3 { font-family: var(--police-titre, inherit); }
 .page *, .page *::before, .page *::after { box-sizing: border-box; }
 .page h1, .page h2, .page h3, .page p { margin: 0; }
 .page h1 { font-size: 2.4rem; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; }
@@ -55,16 +58,25 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 .page a { color: var(--couleur, #5b4ff5); font-weight: 500; }
 .page ul, .page ol { margin: 0; padding-left: 1.4em; line-height: 1.75; }
 .page img { display: block; max-width: 100%; object-fit: cover; }
-.page hr { width: 100%; margin: 0; border: 0; border-top: 1px solid #e4e6ef; }
+.page hr { width: 100%; margin: 0; border: 0; border-top: 1px solid var(--trait, #e4e6ef); }
 .page[hidden], .page [hidden] { display: none !important; }
 
 .page .section, .page .row, .page .stack, .page .card { display: flex; flex-direction: column; min-width: 0; }
 .page .row { flex-direction: row; }
 .page .grid { display: grid; }
+/* Carte : fond, bordure, arrondi et ombre viennent du style du projet. */
+.page .card {
+  background: var(--surface, #ffffff);
+  border: var(--bordure, 1px solid #e4e6ef);
+  border-radius: var(--arrondi-carte, 14px);
+  box-shadow: var(--ombre, 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.05));
+  -webkit-backdrop-filter: blur(var(--flou, 0px));
+  backdrop-filter: blur(var(--flou, 0px));
+}
 /* Une répétition affiche une copie de son contenu par élément de la liste. */
 .page .repeat { display: flex; flex-direction: column; min-width: 0; }
 .page .repeat-item { display: contents; }
-.page .repeat-empty { color: #6b7083; }
+.page .repeat-empty { color: var(--texte-doux, #6b7083); }
 .page .spacer { flex-shrink: 0; }
 
 .page .badge {
@@ -72,8 +84,8 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
   width: fit-content;
   padding: 3px 10px;
   border-radius: 999px;
-  background: #ede9fe;
-  color: #5b21b6;
+  background: var(--badge, #ede9fe);
+  color: var(--sur-badge, #5b21b6);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -84,8 +96,9 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
   justify-content: center;
   width: fit-content;
   padding: 10px 18px;
-  border: 1px solid transparent;
+  border: var(--bordure-bouton, 1px solid transparent);
   border-radius: var(--arrondi, 10px);
+  box-shadow: var(--ombre-bouton, none);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -94,18 +107,19 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 .page .btn:hover { filter: brightness(1.06); }
 .page .btn:active { transform: translateY(1px); }
 .page .btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--couleur, #6c5ce7) 45%, transparent); outline-offset: 2px; }
-.page .btn-primary { background: var(--couleur, #6c5ce7); color: #ffffff; }
-.page .btn-secondary { background: #ffffff; color: #1b1d29; border-color: #d6d9e4; }
+.page .btn-primary { background: var(--couleur, #6c5ce7); color: var(--sur-couleur, #ffffff); }
+.page .btn-secondary { background: var(--surface, #ffffff); color: var(--texte, #1b1d29); border: var(--bordure, 1px solid #d6d9e4); }
 .page .btn-ghost { background: transparent; color: var(--couleur, #6c5ce7); }
 
 .page .field { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; font-weight: 500; }
 .page .field input, .page .field textarea, .page .field select {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #d6d9e4;
+  border: var(--bordure, 1px solid #d6d9e4);
   border-radius: var(--arrondi, 10px);
-  background: #ffffff;
-  color: #1b1d29;
+  background: var(--surface, #ffffff);
+  box-shadow: var(--ombre-champ, none);
+  color: var(--texte, #1b1d29);
   font: inherit;
   font-weight: 400;
 }
@@ -120,14 +134,14 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 
 /* Onglets */
 .page .tabs, .page .accordion { display: flex; flex-direction: column; min-width: 0; }
-.page .tabs-bar { display: flex; gap: 4px; border-bottom: 1px solid #e4e6ef; overflow-x: auto; }
+.page .tabs-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--trait, #e4e6ef); overflow-x: auto; }
 .page .tabs-bar button {
   margin-bottom: -1px;
   padding: 10px 14px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: none;
-  color: #6b7083;
+  color: var(--texte-doux, #6b7083);
   font: inherit;
   font-weight: 600;
   white-space: nowrap;
@@ -136,7 +150,7 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 .page .tabs-bar button[aria-selected="true"] { color: var(--couleur, #6c5ce7); border-bottom-color: var(--couleur, #6c5ce7); }
 
 /* Accordéon : des volets <details> qui s'ouvrent sans JavaScript */
-.page .accordion-item { border: 1px solid #e4e6ef; border-radius: var(--arrondi, 10px); background: #ffffff; color: #1b1d29; }
+.page .accordion-item { border: var(--bordure, 1px solid #e4e6ef); border-radius: var(--arrondi, 10px); background: var(--surface, #ffffff); color: var(--texte, #1b1d29); box-shadow: var(--ombre, none); }
 .page .accordion-item > summary {
   display: flex;
   justify-content: space-between;
@@ -168,7 +182,12 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
   width: 100%;
   max-height: 90vh;
   overflow: auto;
+  background: var(--surface, #ffffff);
+  color: var(--texte, #1b1d29);
+  border-radius: var(--arrondi-carte, 16px);
   box-shadow: 0 24px 60px rgba(17, 19, 28, 0.3);
+  -webkit-backdrop-filter: blur(var(--flou, 0px));
+  backdrop-filter: blur(var(--flou, 0px));
 }
 .page .modal-close {
   position: absolute;
@@ -186,7 +205,15 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 }
 
 /* Barre de menu */
-.page .navbar { display: flex; align-items: center; flex-wrap: wrap; }
+.page .navbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--barre, #1b1d29);
+  color: var(--sur-barre, #ffffff);
+  -webkit-backdrop-filter: blur(var(--flou, 0px));
+  backdrop-filter: blur(var(--flou, 0px));
+}
 .page .navbar-brand { margin-right: auto; font-weight: 800; }
 .page .navbar-links { display: flex; flex-wrap: wrap; gap: inherit; }
 .page .navbar a { color: inherit; font-weight: 500; text-decoration: none; opacity: 0.8; }
@@ -194,7 +221,7 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 
 /* Médias */
 .page .video { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; background: #11131c; object-fit: cover; }
-.page .icon { display: inline-block; width: fit-content; line-height: 1; }
+.page .icon { display: inline-block; width: fit-content; line-height: 1; color: var(--icone, inherit); }
 .page .icon svg { display: block; width: 1em; height: 1em; }
 
 /* Sur petit écran, les grilles passent sur une seule colonne. */

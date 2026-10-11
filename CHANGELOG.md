@@ -2,6 +2,21 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.3.0] : 2026-10-11
+
+Premier pas de la version pro : un moteur de styles et 24 styles prêts à l'emploi.
+
+### Ajouté
+- **Studio de style** (sélectionne la page, puis « Style du projet ») : 24 styles qui habillent toutes les pages d'un clic. Néomorphisme sombre, nuit et jaune, verre givré, photo et tuiles de verre, verre de nuit à halos, verre liquide, néomorphisme clair, pâte à modeler, néobrutalisme, éditorial, typographie géante, utilitaire dense, bento, dégradé vif, pastel, chrome, Y2K, nature, terminal, carnet papier, pro sobre, spatial, dessiné à la main et collage.
+- Chaque réglage du style se change à la main : couleur principale, texte sur la couleur, fond des pages (couleur ou dégradé), surfaces, texte, texte secondaire, barre de menu, bordures, ambiance claire ou sombre, arrondis des cartes et des boutons, relief (plat, doux, porté, néomorphisme, décalé, verre), intensité, flou derrière les surfaces, police du texte et police des titres.
+- Quatre nouvelles polices : grotesque, éditoriale, géométrique et manuscrite (chargées depuis Google Fonts seulement quand le style les utilise).
+- **Adapter toutes les briques au style** : retire les couleurs, bordures, ombres et arrondis donnés à la main pour que tout le projet suive le style (annulable).
+- L'assistant IA choisit un style adapté à l'application qu'il crée, et garde tes réglages du Studio quand il modifie le projet.
+
+### Modifié
+- Les cartes, champs, boutons, onglets, accordéons, fenêtres, barres de menu et étiquettes prennent leurs couleurs dans le style du projet. Sans style, rien ne change à l'écran.
+- Tests : 94 tests unitaires et 23 tests de bout en bout.
+
 ## [2.2.0] : 2026-10-11
 
 Plus aucun emoji : des icônes dessinées à la place.

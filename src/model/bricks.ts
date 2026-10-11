@@ -65,7 +65,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     idPrefix: 'page',
     fields: [{ key: 'title', label: "Titre de l'onglet", kind: 'text' }],
     defaultProps: { title: 'Mon projet' },
-    defaultStyle: { direction: 'column', gap: 16, padding: 24, background: '#ffffff', color: '#1b1d29' },
+    defaultStyle: { direction: 'column', gap: 16, padding: 24 },
   },
   section: {
     type: 'section',
@@ -129,11 +129,6 @@ export const BRICKS: Record<BrickType, BrickDef> = {
       direction: 'column',
       gap: 8,
       padding: 20,
-      background: '#ffffff',
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: '#e4e6ef',
-      shadow: 'sm',
     },
   },
   repeat: {
@@ -194,7 +189,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     idPrefix: 'fenetre',
     fields: [{ key: 'label', label: 'Titre pour les lecteurs d’écran', kind: 'text' }],
     defaultProps: { label: 'Fenêtre' },
-    defaultStyle: { direction: 'column', gap: 12, padding: 28, background: '#ffffff', borderRadius: 16, maxWidth: '480px' },
+    defaultStyle: { direction: 'column', gap: 12, padding: 28, maxWidth: '480px' },
     starter: [
       { type: 'heading', props: { text: 'Bonne nouvelle !', level: '2' } },
       { type: 'text', props: { text: 'Écris ici le message de ta fenêtre.' } },
@@ -210,7 +205,7 @@ export const BRICKS: Record<BrickType, BrickDef> = {
     idPrefix: 'menu-nav',
     fields: [{ key: 'brand', label: 'Nom affiché à gauche', kind: 'text', dynamic: true }],
     defaultProps: { brand: 'Mon site' },
-    defaultStyle: { padding: 16, gap: 16, background: '#1b1d29', color: '#ffffff' },
+    defaultStyle: { padding: 16, gap: 16 },
   },
   heading: {
     type: 'heading',
