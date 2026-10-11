@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, type ReactNode } from 'react'
+import { createContext, memo, useContext, useMemo, type ReactNode } from 'react'
 import { BRICKS } from '../model/bricks'
 import { SVG_ATTRS, iconNode } from '../model/icons'
 import { PLACEHOLDER_IMAGE, brickClass } from '../codegen/baseCss'
@@ -7,9 +7,10 @@ import { proHtml, tabbarIcons } from '../codegen/proBricks'
 import { codeDocument } from '../codegen/customCode'
 import { applyView, isListLike, viewOptions } from '../model/collections'
 import { effectiveStyle, reactStyle } from '../codegen/style'
-import type { BrickNode, Variable } from '../model/types'
+import type { BrickNode, StateScope, Variable } from '../model/types'
 import { evaluateTemplateExpr, interpolate, parseTemplate, resolveToken, type RepeatScope } from '../model/variables'
 import { useEditor } from '../store/editor'
+import { withVariant } from '../model/instances'
 import { useWorkspace, type Device } from '../store/workspace'
 
 /** Copie de répétition en cours de rendu : l'élément affiché et s'il s'agit d'une copie (non modifiable). */
@@ -63,13 +64,20 @@ function DynamicText({ text, variables, scope }: { text: string; variables: Vari
  * généré ; seuls les attributs data-* servent à l'éditeur (sélection, glisser-déposer).
  */
 export const CanvasNode = memo(function CanvasNode({ id }: { id: string }) {
-  const node = useEditor((s) => s.project.nodes[id])
+  const raw = useEditor((s) => s.project.nodes[id])
+  const components = useEditor((s) => s.project.components)
+  // Une copie d'un composant prend le style de sa variante.
+  const node = useMemo(() => raw && withVariant(raw, components), [raw, components])
   const variables = useEditor((s) => s.project.variables)
   const editing = useEditor((s) => s.editingId === id)
   const frame = useContext(RepeatContext)
   const device = useWorkspace((s) => s.device)
+  // La brique sélectionnée montre l'état dont on règle le style (survol, appui…).
+  const selected = useEditor((s) => s.selectedId === id)
+  const styleState = useWorkspace((s) => s.styleState)
+  const state = selected && styleState !== 'normal' ? styleState : null
   if (!node) return null
-  return renderNode(node, variables, editing && !frame?.copy, frame, device)
+  return renderNode(node, variables, editing && !frame?.copy, frame, device, state)
 })
 
 /** Texte modifiable directement dans la zone de création (double-clic). */
@@ -130,10 +138,10 @@ export function IconSvg({ name }: { name: string }) {
 
 export const INLINE_EDITABLE = new Set(['heading', 'text', 'badge', 'button', 'link'])
 
-function renderNode(node: BrickNode, variables: Variable[], editing: boolean, frame: RepeatFrame | null, device: Device): ReactNode {
+function renderNode(node: BrickNode, variables: Variable[], editing: boolean, frame: RepeatFrame | null, device: Device, state: StateScope | null): ReactNode {
   const p = node.props
-  // Le style vu dépend du format choisi (réglages propres à la tablette et au mobile).
-  const view = effectiveStyle(node, device)
+  // Le style vu dépend du format choisi (réglages propres à la tablette et au mobile) et de l'état réglé.
+  const view = effectiveStyle(node, device, state)
   const def = BRICKS[node.type]
   const condVar = node.showIf ? variables.find((v) => v.name === node.showIf) : undefined
   const conditionalHidden = node.showIf ? !condVar || (Array.isArray(condVar.initial) ? condVar.initial.length === 0 : !condVar.initial) : false

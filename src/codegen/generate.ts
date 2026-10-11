@@ -3,14 +3,15 @@ import { iconSvg } from '../model/icons'
 import { fieldsOf, isCollection, isListLike, normalize, type FilterOp } from '../model/collections'
 import { compileExpr, compileRecordField, exprHelpers, type CompileEnv } from '../model/expressions'
 import type { Action, BrickNode, CollectionField, Condition, EventField, Project, Variable } from '../model/types'
-import { FIELD_TYPES, linePairs, loopingFunctions } from '../model/actions'
+import { FIELD_TYPES, forEachAction, forEachNodeAction, linePairs, loopingFunctions } from '../model/actions'
 import { collectSubtree } from '../model/tree'
+import { applyVariants } from '../model/instances'
 import { VAR_NAME_RE, interpolate, parseTemplate, toVariableName } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
 import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
 import { closeSafe } from './customCode'
 import { proHtml, shownField, tableSource, tabbarIcons } from './proBricks'
-import { BREAKPOINTS, overrideEntries, styleEntries, themeEntries, themeFontsUrl } from './style'
+import { BREAKPOINTS, alternateThemeEntries, themeIsDark, overrideEntries, stateEntries, stateSelector, styleEntries, styledStates, themeEntries, themeFontsUrl } from './style'
 
 export type LineRange = [start: number, end: number]
 
@@ -90,6 +91,20 @@ function documentOrder(project: Project): BrickNode[] {
 /** Sélecteur CSS d'une brique : un id, ou une classe pour les briques répétées (il y en a plusieurs copies). */
 const selectorOf = (g: Gen, id: string) => (g.repeatOf.has(id) ? `.${id}` : `#${id}`)
 /** Sélecteur qui reçoit le style réglé : pour une fenêtre, c'est la boîte et non le fond sombre. */
+/** Le projet utilise-t-il quelque part ce type d'action (briques et fonctions) ? */
+function usesAction(project: Project, type: Action['type']): boolean {
+  let found = false
+  const check = (a: Action) => {
+    if (a.type === type) found = true
+  }
+  for (const n of Object.values(project.nodes)) forEachNodeAction(n, check)
+  for (const f of project.functions ?? []) forEachAction(f.actions, check)
+  return found
+}
+
+/** Briques qui peuvent être désactivées par une variable. */
+export const DISABLEABLE = new Set(['button', 'input', 'textarea', 'select', 'checkbox'])
+
 const styleSelector = (g: Gen, node: BrickNode) => selectorOf(g, node.id) + (node.type === 'modal' ? ' > .modal-box' : '')
 
 /* ---------------------------------- HTML --------------------------------- */
@@ -459,6 +474,27 @@ function emitCss(g: Gen): string {
     out.push('}')
     out.push('')
   }
+  const alternate = alternateThemeEntries(g.project.theme)
+  if (alternate) {
+    // L'autre ambiance : sombre pour un style clair, claire pour un style sombre.
+    const toDark = !themeIsDark(g.project.theme)
+    const name = toDark ? 'sombre' : 'claire'
+    const other = toDark ? 'claire' : 'sombre'
+    const block = (selector: string, pad: string) => {
+      out.push(`${pad}${selector} {`)
+      for (const [k, v] of alternate) out.push(`${pad}  ${k}: ${v};`)
+      out.push(`${pad}}`)
+    }
+    if (g.project.theme?.darkMode === 'auto') {
+      out.push(`/* Ambiance ${name} : quand l’appareil est réglé ainsi, sauf si la personne a choisi l’ambiance ${other} */`)
+      out.push(`@media (prefers-color-scheme: ${toDark ? 'dark' : 'light'}) {`)
+      block(`:root:not([data-ambiance="${other}"])`, '  ')
+      out.push('}')
+    }
+    out.push(`/* Ambiance ${name} choisie avec l’action « Changer d’ambiance » */`)
+    block(`:root[data-ambiance="${name}"]`, '')
+    out.push('')
+  }
   out.push('/* Styles de tes briques */')
   const order = documentOrder(g.project)
   const cleanName = (n: BrickNode) => n.name.replace(/[*/<>]/g, '')
@@ -476,6 +512,24 @@ function emitCss(g: Gen): string {
     out.push('')
     out.push(`/* Code personnalisé : ${cleanName(node)} */`)
     for (const l of closeSafe(String(node.props.css), 'style').trimEnd().split('\n')) out.push(l)
+  }
+  // Survol, focus, appui, désactivé : seulement ce qui change, avec une transition douce.
+  const withStates = order.filter((n) => styledStates(n).length)
+  if (withStates.length) {
+    out.push('')
+    out.push('/* États : survol, focus, appui et désactivé */')
+    for (const n of withStates) {
+      const sel = styleSelector(g, n)
+      out.push(`/* ${cleanName(n)} */`)
+      out.push(`${sel} { transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, opacity 0.18s ease; }`)
+      for (const state of styledStates(n)) {
+        const entries = stateEntries(n, n.states![state])
+        if (!entries.length) continue
+        out.push(`${stateSelector(n, state, sel)} {`)
+        for (const [k, v] of entries) out.push(`  ${k}: ${v};`)
+        out.push('}')
+      }
+    }
   }
   // Réglages propres aux petits écrans, du plus grand au plus petit.
   for (const bp of BREAKPOINTS) {
@@ -709,6 +763,8 @@ export function describeAction(a: Action, project: Project): string {
       return 'se déconnecter'
     case 'call':
       return `lancer la fonction ${a.name}`
+    case 'toggleTheme':
+      return 'changer d’ambiance (claire ou sombre)'
   }
 }
 
@@ -986,6 +1042,9 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
       // await : les actions suivantes attendent la fin de la fonction (qui met la page à jour elle-même).
       return { lines: [`await ${functionName(f.name)}();`], changesState: false }
     }
+    case 'toggleTheme':
+      if (!project.theme?.darkMode) return ignored('la version sombre n’est pas activée (Studio de style).')
+      return { lines: ['changerAmbiance();'], changesState: false }
   }
 }
 
@@ -1060,6 +1119,7 @@ function emitJs(g: Gen): string {
   const dynamicTexts = outside.filter((n) => dynamicProps(n).some(([k]) => needsTemplate(n.props[k], variables, false)))
   const dynamicLists = outside.filter((n) => n.type === 'list' && needsTemplate(n.props.items, variables, false))
   const conditional = outside.filter((n) => known(n.showIf))
+  const disabling = outside.filter((n) => DISABLEABLE.has(n.type) && known(n.disabledIf))
   const boundFields = outside.filter((n) => ['input', 'textarea', 'select', 'checkbox'].includes(n.type) && known(n.props.bind))
   const boundTables = outside.filter((n) => n.type === 'table' && tableSource(n.props, variables))
   const persisted = variables.filter((v) => v.persist)
@@ -1078,10 +1138,11 @@ function emitJs(g: Gen): string {
   const hasWidgets = hasSortable || hasKanban || hasChat
   const customCode = outside.filter((n) => n.type === 'code')
   const functions = (project.functions ?? []).filter((f) => VAR_NAME_RE.test(f.name))
+  const usesAmbiance = !!project.theme?.darkMode && usesAction(project, 'toggleTheme')
 
   out.push('// Code généré par Ptt-Makers. Tu peux le lire, le copier et le modifier librement !')
 
-  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !timers.length && !hasTabs && !hasModals && !hasWidgets && !customCode.length && !functions.length && !forms.length) {
+  if (!variables.length && !clickable.length && !repeats.length && !multi && !loads.length && !timers.length && !hasTabs && !hasModals && !hasWidgets && !customCode.length && !functions.length && !forms.length && !usesAmbiance) {
     out.push('// Ce projet ne contient pas encore d’interactions.')
     out.push('// Ajoute une variable ou une action « Au clic » pour voir du JavaScript apparaître ici.')
     return out.toString()
@@ -1104,6 +1165,31 @@ function emitJs(g: Gen): string {
     out.push('};')
   } else {
     out.push('const etat = {};')
+  }
+
+  if (usesAmbiance) {
+    title('L’ambiance claire ou sombre choisie par la personne, gardée dans ce navigateur')
+    const slug = toVariableName(project.name).toLowerCase() || 'projet'
+    const darkByDefault = project.theme!.darkMode === 'auto' ? 'matchMedia("(prefers-color-scheme: dark)").matches' : String(themeIsDark(project.theme))
+    out.push(`const CLE_AMBIANCE = ${jsString(`ptt-makers:${slug}:ambiance`)};`)
+    out.push('try {')
+    out.push('  const choisie = localStorage.getItem(CLE_AMBIANCE);')
+    out.push('  if (choisie) document.documentElement.dataset.ambiance = choisie;')
+    out.push('} catch {')
+    out.push('  // Navigateur sans stockage : on suit le réglage de départ.')
+    out.push('}')
+    out.push('')
+    out.push('function changerAmbiance() {')
+    out.push('  const choisie = document.documentElement.dataset.ambiance;')
+    out.push(`  const sombre = choisie ? choisie === "sombre" : ${darkByDefault};`)
+    out.push('  const suivante = sombre ? "claire" : "sombre";')
+    out.push('  document.documentElement.dataset.ambiance = suivante;')
+    out.push('  try {')
+    out.push('    localStorage.setItem(CLE_AMBIANCE, suivante);')
+    out.push('  } catch {')
+    out.push('    // Stockage bloqué : le choix vaut jusqu’au rechargement.')
+    out.push('  }')
+    out.push('}')
   }
 
   if (persisted.length) {
@@ -1132,10 +1218,18 @@ function emitJs(g: Gen): string {
     for (const l of DEBUGGER) out.push(l)
   }
 
+  if (disabling.length) {
+    title('Désactive un bouton ou un champ (il garde sa place, mais ne réagit plus)')
+    out.push('function desactiver(id, idControle, oui) {')
+    out.push('  document.getElementById(id).classList.toggle("is-disabled", oui);')
+    out.push('  document.getElementById(idControle).disabled = oui;')
+    out.push('}')
+  }
+
   title('Met à jour la page à partir des variables')
   out.push('function afficher() {')
   if (g.debug) out.push('  parent.postMessage({ ptt: "etat", etat: JSON.parse(JSON.stringify(etat)) }, "*");')
-  if (!dynamicTexts.length && !dynamicLists.length && !conditional.length && !boundFields.length && !repeats.length && !boundTables.length) {
+  if (!dynamicTexts.length && !dynamicLists.length && !conditional.length && !disabling.length && !boundFields.length && !repeats.length && !boundTables.length) {
     out.push('  // Rien à mettre à jour pour le moment.')
   }
   for (const n of dynamicTexts) {
@@ -1155,6 +1249,12 @@ function emitJs(g: Gen): string {
   }
   for (const n of conditional) {
     out.push(`  document.getElementById(${jsString(n.id)}).hidden = ${showIfExpr(String(n.showIf))};`)
+  }
+  for (const n of disabling) {
+    const name = String(n.disabledIf)
+    const v = variables.find((x) => x.name === name)!
+    const on = isListLike(v) ? `etat.${name}.length > 0` : `Boolean(etat.${name})`
+    out.push(`  desactiver(${jsString(n.id)}, ${jsString(n.type === 'button' ? n.id : `${n.id}-champ`)}, ${on});`)
   }
   for (const n of boundFields) {
     const field = `document.getElementById(${jsString(`${n.id}-champ`)})`
@@ -1927,7 +2027,8 @@ const ACCOUNT_HELPERS = (key: string): string[] => [
 export function generate(project: Project, options: { debug?: boolean } = {}): GeneratedCode {
   debugging = !!options.debug
   try {
-    return generateAll(project)
+    // Les copies d'un composant prennent le style de leur variante.
+    return generateAll(applyVariants(project))
   } finally {
     debugging = false
   }

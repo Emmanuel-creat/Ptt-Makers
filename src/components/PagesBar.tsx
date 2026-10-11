@@ -1,4 +1,5 @@
-import { ArrowLeft, ArrowRight, Copy, FileText, Home, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Copy, FileText, Home, LayoutTemplate, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { PAGE_TEMPLATES } from '../model/pageTemplates'
 import { useState } from 'react'
 import { useEditor } from '../store/editor'
 import { Popover } from './fields'
@@ -12,6 +13,7 @@ export function PagesBar() {
   const { setPage, addPage, updateNode } = useEditor.getState()
   const [renaming, setRenaming] = useState<string | null>(null)
   const [menu, setMenu] = useState(false)
+  const [templates, setTemplates] = useState(false)
 
   return (
     <div className="pm-pages" role="tablist" aria-label="Pages du projet">
@@ -74,7 +76,44 @@ export function PagesBar() {
       <button type="button" className="pm-page-add" onClick={() => addPage()} aria-label="Ajouter une page" data-tip="Ajouter une page">
         <Plus size={14} /> <span className="pm-hide-sm">Page</span>
       </button>
+      <div className="pm-popover-anchor">
+        <button
+          type="button"
+          className="pm-page-add"
+          aria-label="Ajouter une page toute faite"
+          data-tip="Gabarits : tableau de bord, paramètres, connexion, liste et détail"
+          aria-expanded={templates}
+          onClick={() => setTemplates(!templates)}
+        >
+          <LayoutTemplate size={14} /> <span className="pm-hide-sm">Gabarit</span>
+        </button>
+        {templates && <TemplateMenu onClose={() => setTemplates(false)} />}
+      </div>
     </div>
+  )
+}
+
+/** Les gabarits de pages : un clic ajoute la ou les pages, avec leurs variables. */
+function TemplateMenu({ onClose }: { onClose: () => void }) {
+  const addPageTemplate = useEditor((s) => s.addPageTemplate)
+  return (
+    <Popover onClose={onClose}>
+      <p className="pm-popover-title">Ajouter une page toute faite</p>
+      {PAGE_TEMPLATES.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          className="pm-popover-item pm-template-item"
+          onClick={() => {
+            addPageTemplate(t.id)
+            onClose()
+          }}
+        >
+          <strong>{t.name}</strong>
+          <span>{t.description}</span>
+        </button>
+      ))}
+    </Popover>
   )
 }
 

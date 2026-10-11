@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp, TEMPLATES } from '../model/templates'
 import type { Project } from '../model/types'
 import { generate } from './generate'
+import { PAGE_TEMPLATES, addPageTemplate } from '../model/pageTemplates'
 
 /** Charge le code généré dans le DOM de test et exécute son script, comme le ferait un navigateur. */
 function run(source: string | Project) {
@@ -897,3 +898,65 @@ describe('formulaire complet, dates et cadre d’application', () => {
     expect(bar.hidden).toBe(true)
   })
 })
+
+describe('états et mode sombre', () => {
+  it('« Désactiver si » désactive un bouton et un champ tant que la variable est vraie', () => {
+    const project = buildApp(
+      'Envoi',
+      [
+        {
+          name: 'Accueil',
+          children: [
+            { type: 'checkbox', props: { label: 'Bloquer', bind: 'bloque' } },
+            { type: 'input', props: { label: 'Nom', bind: 'nom' }, disabledIf: 'bloque' },
+            { type: 'button', props: { text: 'Envoyer' }, disabledIf: 'bloque' },
+          ],
+        },
+      ],
+      [
+        { name: 'bloque', kind: 'boolean', initial: true },
+        { name: 'nom', kind: 'text', initial: '' },
+      ],
+    )
+    const $ = run(project)
+    expect(($('bouton-1') as HTMLButtonElement).disabled).toBe(true)
+    expect($('bouton-1').classList.contains('is-disabled')).toBe(true)
+    expect(($('champ-1-champ') as HTMLInputElement).disabled).toBe(true)
+    const box = $('case-1-champ') as HTMLInputElement
+    box.checked = false
+    box.dispatchEvent(new Event('change'))
+    expect(($('bouton-1') as HTMLButtonElement).disabled).toBe(false)
+    expect($('champ-1').classList.contains('is-disabled')).toBe(false)
+  })
+
+  it('« Changer d’ambiance » bascule et garde le choix', () => {
+    const project = buildApp('Ambiance', [{ name: 'Accueil', children: [{ type: 'button', props: { text: 'Ambiance' }, onClick: [{ type: 'toggleTheme' }] }] }])
+    project.theme = { style: 'pro-sobre', darkMode: 'bouton' }
+    localStorage.clear()
+    const $ = run(project)
+    $('bouton-1').click()
+    expect(document.documentElement.dataset.ambiance).toBe('sombre')
+    expect(localStorage.getItem('ptt-makers:ambiance:ambiance')).toBe('sombre')
+    $('bouton-1').click()
+    expect(document.documentElement.dataset.ambiance).toBe('claire')
+    delete document.documentElement.dataset.ambiance
+  })
+
+  it('gabarit Liste et détail : « Voir la fiche » ouvre la fiche choisie', async () => {
+    const start = buildApp('Fiches', [{ name: 'Accueil', children: [] }])
+    const { project } = addPageTemplate(start, PAGE_TEMPLATES.find((t) => t.id === 'liste-detail')!)
+    const $ = run(project)
+    const detail = project.pages[2]
+    const buttons = [...document.querySelectorAll(`#${project.pages[1]} .repeat-item button`)] as HTMLButtonElement[]
+    expect(buttons).toHaveLength(3)
+    buttons[1].click()
+    await new Promise((r) => setTimeout(r, 0))
+    expect($(detail).hidden).toBe(false)
+    const cards = [...$(detail).querySelectorAll('.repeat-item')]
+    expect(cards).toHaveLength(1)
+    expect(cards[0].textContent).toContain('Cours de guitare')
+    location.hash = ''
+    await new Promise((r) => setTimeout(r, 0))
+  })
+})
+

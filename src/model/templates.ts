@@ -814,7 +814,10 @@ export const TEMPLATES: Template[] = [
               name: 'Tableau de bord',
               style: { padding: 0 },
               children: [
-                shell('Tableau de bord', 'Les chiffres du mois, en direct', [{ type: 'button', props: { text: 'Nouveau client', variant: 'primary' }, onClick: [{ type: 'navigate', page: '@clients' }] }], [
+                shell('Tableau de bord', 'Les chiffres du mois, en direct', [
+                  { type: 'button', props: { text: 'Clair ou sombre', variant: 'ghost' }, onClick: [{ type: 'toggleTheme' }] },
+                  { type: 'button', props: { text: 'Nouveau client', variant: 'primary' }, states: { hover: { scale: 103 }, active: { scale: 97 } }, onClick: [{ type: 'navigate', page: '@clients' }] },
+                ], [
                   {
                     type: 'grid',
                     name: 'Zones du tableau de bord',
@@ -827,6 +830,7 @@ export const TEMPLATES: Template[] = [
                         type: 'card',
                         name: 'Prochains rendez-vous',
                         style: { area: 'prochain', padding: 18, gap: 10 },
+                        states: { hover: { shadow: 'lg' } },
                         children: [
                           H('Prochains rendez-vous', '3'),
                           { type: 'repeat', props: { source: 'clients', sortField: 'rendez_vous', sortDir: 'asc' }, style: { gap: 6 }, children: [P('{{element.nom}} : {{element.rendez_vous}}', { fontSize: 14 })] },
@@ -878,7 +882,7 @@ export const TEMPLATES: Template[] = [
             { name: 'montant', kind: 'number', initial: 0 },
           ],
         ),
-        theme: { style: 'pro-sobre' },
+        theme: { style: 'pro-sobre', darkMode: 'auto' },
       }
     },
   },

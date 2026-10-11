@@ -1,4 +1,12 @@
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalDistributeCenter,
   Component,
   Group,
   Unlink,
@@ -26,16 +34,18 @@ import {
   Type,
   Zap,
 } from 'lucide-react'
-import { useContext, useMemo, useState } from 'react'
+import { useContext, useMemo, useState, type ReactNode } from 'react'
+import type { ArrangeMode } from '../model/arrange'
 import { BRICKS, CATEGORIES, type FieldDef } from '../model/bricks'
 import { GRID_COLUMNS, GRID_ROW, isFreeGrid } from '../model/freeGrid'
 import { ICON_NAMES, iconLabel, resolveIcon } from '../model/icons'
 import { IconSvg } from './CanvasNode'
 import { STYLE_PRESETS, resolveTokens, stylePreset, type FontId, type ShadowKind, type StyleTokens } from '../model/styles'
-import type { BrickNode, BrickStyle, GridPlace, StyleOverride, Variable } from '../model/types'
+import type { BrickNode, BrickStyle, GridPlace, SavedComponent, StateScope, StyleOverride, Variable } from '../model/types'
+import { DISABLEABLE } from '../codegen/generate'
 import { areaNames } from '../codegen/style'
 import { useEditor } from '../store/editor'
-import { useWorkspace } from '../store/workspace'
+import { useWorkspace, type StyleState } from '../store/workspace'
 import { repeatOf } from '../model/tree'
 import { instanceOfNode, instanceRoots } from '../model/instances'
 import { EVENT_FIELDS, countActions } from '../model/actions'
@@ -76,6 +86,7 @@ function MultiInspector({ ids }: { ids: string[] }) {
           </button>
         </div>
         {!sameParent && <p className="pm-row-help">Pour grouper, choisis des briques rangées dans le même conteneur.</p>}
+        <ArrangeTools chosen={chosen} />
         <ul className="pm-multi-list">
           {chosen.map((n) => (
             <li key={n.id}>
@@ -87,6 +98,53 @@ function MultiInspector({ ids }: { ids: string[] }) {
           ))}
         </ul>
       </div>
+    </div>
+  )
+}
+
+const ALIGN_TOOLS: { mode: ArrangeMode; label: string; icon: ReactNode }[] = [
+  { mode: 'left', label: 'Aligner à gauche', icon: <AlignStartVertical size={16} /> },
+  { mode: 'centerH', label: 'Centrer horizontalement', icon: <AlignCenterVertical size={16} /> },
+  { mode: 'right', label: 'Aligner à droite', icon: <AlignEndVertical size={16} /> },
+  { mode: 'top', label: 'Aligner en haut', icon: <AlignStartHorizontal size={16} /> },
+  { mode: 'centerV', label: 'Centrer verticalement', icon: <AlignCenterHorizontal size={16} /> },
+  { mode: 'bottom', label: 'Aligner en bas', icon: <AlignEndHorizontal size={16} /> },
+]
+
+/** Aligner et répartir une multi-sélection : les cases sur une page en grille, l'alignement propre ailleurs. */
+function ArrangeTools({ chosen }: { chosen: BrickNode[] }) {
+  const nodes = useEditor((s) => s.project.nodes)
+  const arrange = useEditor((s) => s.arrangeSelection)
+  const onGrid = chosen.every((n) => n.place && isFreeGrid(nodes[n.parent ?? '']))
+  const row = !onGrid && chosen.every((n) => n.parent && (nodes[n.parent].style.direction ?? (nodes[n.parent].type === 'row' ? 'row' : 'column')) === 'row')
+  // Hors grille, on aligne seulement sur l'axe que le conteneur laisse libre.
+  const tools = onGrid ? ALIGN_TOOLS : ALIGN_TOOLS.filter((t) => (row ? ['top', 'centerV', 'bottom'] : ['left', 'centerH', 'right']).includes(t.mode))
+  return (
+    <div className="pm-arrange">
+      <h4 className="pm-sub">Aligner</h4>
+      <div className="pm-arrange-row" role="toolbar" aria-label="Aligner la sélection">
+        {tools.map((t) => (
+          <IconButton key={t.mode} label={t.label} onClick={() => arrange(t.mode)}>
+            {t.icon}
+          </IconButton>
+        ))}
+        {onGrid && (
+          <>
+            <span className="pm-arrange-sep" aria-hidden="true" />
+            <IconButton label="Répartir horizontalement" onClick={() => arrange('distributeH')}>
+              <AlignHorizontalDistributeCenter size={16} />
+            </IconButton>
+            <IconButton label="Répartir verticalement" onClick={() => arrange('distributeV')}>
+              <AlignVerticalDistributeCenter size={16} />
+            </IconButton>
+          </>
+        )}
+      </div>
+      <p className="pm-row-help">
+        {onGrid
+          ? 'Les cases bougent sur la grille ; répartir laisse le même écart entre chaque brique.'
+          : 'Chaque brique prend le même alignement propre dans son conteneur.'}
+      </p>
     </div>
   )
 }
@@ -175,7 +233,50 @@ function InstanceBanner({ node }: { node: BrickNode }) {
         <button type="button" className="pm-link-button" onClick={() => useEditor.getState().detachInstance(root.id)}>
           <Unlink size={13} /> Détacher cette copie
         </button>
+        {root.id === node.id && <VariantPicker node={node} component={component} />}
       </div>
+    </div>
+  )
+}
+
+/** Variantes d'un composant : chaque copie en choisit une, et son style s'ajoute à celui du composant. */
+function VariantPicker({ node, component }: { node: BrickNode; component: SavedComponent }) {
+  const [name, setName] = useState('')
+  const { addVariant, setVariant, removeVariant } = useEditor.getState()
+  const variants = component.variants ?? []
+  const clean = name.trim()
+  const exists = variants.some((v) => v.name === clean)
+  return (
+    <div className="pm-variants">
+      <label className="pm-variants-row">
+        <span>Variante</span>
+        <select className="pm-input" aria-label="Variante de cette copie" value={node.variant ?? ''} onChange={(e) => setVariant(node.id, e.target.value || undefined)}>
+          <option value="">Normale</option>
+          {variants.map((v) => (
+            <option key={v.name} value={v.name}>
+              {v.name}
+            </option>
+          ))}
+        </select>
+        {node.variant && (
+          <IconButton label={`Supprimer la variante « ${node.variant} »`} className="is-danger" onClick={() => removeVariant(component.id, node.variant!)}>
+            <Trash2 size={14} />
+          </IconButton>
+        )}
+      </label>
+      {node.variant && <p className="pm-variants-help">Le style que tu règles ici ne change que la variante « {node.variant} », sur toutes les copies qui l’utilisent.</p>}
+      <form
+        className="pm-variants-row"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (addVariant(node.id, clean)) setName('')
+        }}
+      >
+        <input className="pm-input" aria-label="Nom de la nouvelle variante" placeholder="ex. Mise en avant" value={name} onChange={(e) => setName(e.target.value)} />
+        <button type="submit" className="pm-btn pm-btn-secondary" disabled={!clean || exists}>
+          Créer
+        </button>
+      </form>
     </div>
   )
 }
@@ -186,9 +287,22 @@ function NodeInspector({ node }: { node: BrickNode }) {
   const variables = useEditor((s) => s.project.variables)
   const { updateNode, updateProps, updateStyle, duplicate, remove, notify, saveComponent, ungroup } = useEditor.getState()
   const scope = useWorkspace((s) => s.styleScope)
-  // Sur un format plus petit, on lit et on écrit seulement ce qui change pour ce format.
-  const s: StyleOverride = scope === 'all' ? node.style : (node.responsive?.[scope] ?? {})
-  const setStyle = (patch: Partial<StyleOverride>) => updateStyle(node.id, patch, scope)
+  const state = useWorkspace((s) => s.styleState)
+  // Sur un format plus petit ou dans un état (survol…), on lit et on écrit seulement ce qui change.
+  const components = useEditor((st) => st.project.components)
+  const { updateVariantStyle } = useEditor.getState()
+  const baseStyle = scope === 'all' && state === 'normal'
+  // Une copie avec une variante : le style réglé est celui de la variante.
+  const variant = baseStyle && node.instanceOf && node.variant ? components?.find((c) => c.id === node.instanceOf)?.variants?.find((v) => v.name === node.variant) : undefined
+  const s: StyleOverride = variant
+    ? { ...node.style, ...variant.style }
+    : state !== 'normal'
+      ? (node.states?.[state] ?? {})
+      : scope === 'all'
+        ? node.style
+        : (node.responsive?.[scope] ?? {})
+  const setStyle = (patch: Partial<StyleOverride>) =>
+    variant ? updateVariantStyle(node.instanceOf!, variant.name, patch as Partial<BrickStyle>) : updateStyle(node.id, patch, state !== 'normal' ? state : scope)
   const isRoot = !node.parent
   const eventCount = EVENT_FIELDS.reduce((n, f) => n + countActions(node[f]), 0)
   const category = CATEGORIES.find((c) => c.id === def.category)!
@@ -259,8 +373,8 @@ function NodeInspector({ node }: { node: BrickNode }) {
         <ScopeBar node={node} />
 
         <Section title="Mise en page" icon={<LayoutPanelLeft size={15} />}>
-          {isRoot && scope === 'all' && <LayoutRow node={node} />}
-          {node.place && scope === 'all' && <PlaceRows node={node} />}
+          {isRoot && baseStyle && <LayoutRow node={node} />}
+          {node.place && baseStyle && <PlaceRows node={node} />}
           {def.container && node.type !== 'grid' && !isFreeGrid(node) && (
             <>
               <Row label="Direction">
@@ -364,7 +478,7 @@ function NodeInspector({ node }: { node: BrickNode }) {
                 label="Ombre"
                 size="sm"
                 value={s.shadow ?? 'none'}
-                onChange={(shadow) => setStyle({ shadow: shadow === 'none' ? undefined : shadow })}
+                onChange={(shadow) => setStyle({ shadow: shadow === 'none' && state === 'normal' ? undefined : shadow })}
                 options={[
                   { value: 'none', label: 'Aucune' },
                   { value: 'sm', label: 'Légère' },
@@ -389,6 +503,9 @@ function NodeInspector({ node }: { node: BrickNode }) {
                 <span className="pm-mono">{Math.round((s.opacity ?? 1) * 100)} %</span>
               </div>
             )}
+          </Row>
+          <Row label="Taille (%)" help={beginner ? '100 : taille normale. 104 grossit un peu la brique, par exemple au survol.' : undefined}>
+            {(id) => <NumberInput id={id} value={s.scale} onChange={(scale) => setStyle({ scale })} placeholder="100" min={10} max={300} />}
           </Row>
         </Section>
 
@@ -493,6 +610,11 @@ function NodeInspector({ node }: { node: BrickNode }) {
             <Row label="Afficher seulement si" help="La brique est visible quand cette variable est vraie (ou non vide).">
               {(id) => <VariableSelect id={id} value={node.showIf} onChange={(v) => updateNode(node.id, { showIf: v || undefined })} placeholder="Toujours" />}
             </Row>
+            {DISABLEABLE.has(node.type) && (
+              <Row label="Désactiver si" help="Tant que cette variable est vraie (ou non vide), la brique reste visible mais ne réagit plus. Son style se règle dans l’état « Désactivé ».">
+                {(id) => <VariableSelect id={id} value={node.disabledIf} onChange={(v) => updateNode(node.id, { disabledIf: v || undefined })} placeholder="Jamais" />}
+              </Row>
+            )}
           </Section>
         )}
       </div>
@@ -638,16 +760,38 @@ const SCOPE_INFO = {
   mobile: 'Ces réglages ne s’appliquent qu’en dessous de 600 px de large (mobile).',
 }
 
+const STATE_OPTIONS: { value: StyleState; label: string }[] = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'hover', label: 'Survol' },
+  { value: 'focus', label: 'Focus' },
+  { value: 'active', label: 'Appui' },
+  { value: 'disabled', label: 'Désactivé' },
+]
+
+const STATE_INFO: Record<StateScope, string> = {
+  hover: 'Quand la souris passe sur la brique.',
+  focus: 'Quand la brique (ou un champ qu’elle contient) est choisie au clavier ou par un clic.',
+  active: 'Pendant qu’on appuie dessus.',
+  disabled: 'Quand la brique est désactivée par « Désactiver si » (Interactions).',
+}
+
 /** Choix du format dont on règle le style : tous les écrans, tablette ou mobile. */
 function ScopeBar({ node }: { node: BrickNode }) {
   const scope = useWorkspace((s) => s.styleScope)
   const set = useWorkspace((s) => s.set)
   const updateStyle = useEditor((s) => s.updateStyle)
   const count = (k: 'tablet' | 'mobile') => Object.keys(node.responsive?.[k] ?? {}).length
+  const state = useWorkspace((s) => s.styleState)
+  const stateCount = (k: StateScope) => Object.keys(node.states?.[k] ?? {}).length
   return (
     <div className="pm-scope">
       <p className="pm-scope-label">
         Style pour : <strong>{scope === 'all' ? 'tous les écrans' : scope === 'tablet' ? 'tablette et mobile' : 'mobile'}</strong>
+        {state !== 'normal' && (
+          <>
+            , état <strong>{STATE_OPTIONS.find((o) => o.value === state)!.label.toLowerCase()}</strong>
+          </>
+        )}
       </p>
       <Segmented
         label="Format réglé"
@@ -660,7 +804,19 @@ function ScopeBar({ node }: { node: BrickNode }) {
           { value: 'mobile', label: `Mobile${count('mobile') ? ` · ${count('mobile')}` : ''}`, icon: <Smartphone size={14} /> },
         ]}
       />
-      {scope !== 'all' && (
+      <Segmented
+        label="État réglé"
+        size="sm"
+        value={state}
+        onChange={(styleState) => set({ styleState })}
+        options={STATE_OPTIONS.map((o) => ({ ...o, label: `${o.label}${o.value !== 'normal' && stateCount(o.value) ? ` · ${stateCount(o.value)}` : ''}` }))}
+      />
+      {state !== 'normal' && (
+        <div className="pm-scope-info">
+          <p>{STATE_INFO[state]} Seul ce que tu changes ici s’ajoute au style normal.</p>
+        </div>
+      )}
+      {scope !== 'all' && state === 'normal' && (
         <div className="pm-scope-info">
           <p>{SCOPE_INFO[scope]}</p>
           {node.parent && (
@@ -713,6 +869,9 @@ function ThemeSection() {
   const chooseStyle = useEditor((s) => s.chooseStyle)
   const updateTokens = useEditor((s) => s.updateTokens)
   const adopt = useEditor((s) => s.adoptStyle)
+  const updateTheme = useEditor((s) => s.updateTheme)
+  const showAlternate = useWorkspace((s) => s.showAlternate)
+  const setWorkspace = useWorkspace((s) => s.set)
   const t = resolveTokens(theme)
   const set = <K extends keyof StyleTokens>(k: K) => (v: StyleTokens[K] | undefined) => updateTokens({ [k]: v } as Partial<StyleTokens>)
   const color = (k: 'accent' | 'onAccent' | 'background' | 'surface' | 'text' | 'muted' | 'bar' | 'onBar' | 'border', label: string, help?: string) => (
@@ -773,6 +932,29 @@ function ThemeSection() {
           />
         )}
       </Row>
+      <Row
+        label={t.dark ? 'Version claire' : 'Version sombre'}
+        help={`L’application générée a aussi une ambiance ${t.dark ? 'claire' : 'sombre'}, calculée à partir de ce style. « Selon l’appareil » suit le réglage du téléphone ou de l’ordinateur ; l’action « Changer d’ambiance » permet de choisir.`}
+      >
+        {() => (
+          <Segmented
+            label={t.dark ? 'Version claire' : 'Version sombre'}
+            size="sm"
+            value={theme?.darkMode ?? 'non'}
+            onChange={(v) => updateTheme({ darkMode: v === 'non' ? undefined : v })}
+            options={[
+              { value: 'non', label: 'Non' },
+              { value: 'auto', label: 'Selon l’appareil' },
+              { value: 'bouton', label: 'Avec un bouton' },
+            ]}
+          />
+        )}
+      </Row>
+      {theme?.darkMode && (
+        <Row label="Zone de création">
+          {() => <Switch checked={showAlternate} onChange={(v) => setWorkspace({ showAlternate: v })} label={`Voir la version ${t.dark ? 'claire' : 'sombre'}`} />}
+        </Row>
+      )}
 
       <h4 className="pm-sub">Formes</h4>
       <Row label="Épaisseur des bordures">{(id) => <NumberInput id={id} value={t.borderWidth} placeholder="1" max={8} onChange={set('borderWidth')} />}</Row>

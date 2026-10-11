@@ -3,7 +3,9 @@ import { mapNodeActions } from '../model/actions'
 import { VAR_NAME_RE } from '../model/variables'
 import { isContainer } from '../model/bricks'
 import { clampPlace, defaultSize, fixPlacements, isFreeGrid, setFreeGrid } from '../model/freeGrid'
-import { detachAll, syncInstances } from '../model/instances'
+import { PAGE_TEMPLATES, addPageTemplate } from '../model/pageTemplates'
+import { alignSelfFor, arrangePlaces, type ArrangeMode } from '../model/arrange'
+import { detachAll, instanceRoots, syncInstances, withVariant } from '../model/instances'
 import { renameFunctionCalls, renameVariableInFunctions, renameVariableInNodes } from '../model/refactor'
 import { scaffoldCollection } from '../model/scaffold'
 import { adoptStyle, stylePreset, type StyleTokens } from '../model/styles'
@@ -37,7 +39,7 @@ import {
   canDrop,
   type Nodes,
 } from '../model/tree'
-import type { Action, BrickNode, BrickStyle, BrickType, DropTarget, EventField, GridPlace, Project, ProjectTheme, PropValue, ResponsiveScope, StyleOverride, Variable } from '../model/types'
+import { isStateScope, type Action, type BrickNode, type BrickStyle, type BrickType, type DropTarget, type EventField, type GridPlace, type Project, type ProjectTheme, type PropValue, type ResponsiveScope, type StateScope, type StyleOverride, type Variable } from '../model/types'
 
 const HISTORY_LIMIT = 120
 /** Les modifications successives d'un même champ sont regroupées dans une seule étape d'annulation. */
@@ -95,12 +97,13 @@ interface EditorState {
 
   updateProps: (id: string, patch: Record<string, PropValue>) => void
   /** Modifie le style de base (« all ») ou celui d'un format plus petit. */
-  updateStyle: (id: string, patch: Partial<StyleOverride>, scope?: 'all' | ResponsiveScope) => void
+  /** Change le style de base, celui d'un format (tablette, mobile) ou celui d'un état (survol, focus, appui, désactivé). */
+  updateStyle: (id: string, patch: Partial<StyleOverride>, scope?: 'all' | ResponsiveScope | StateScope) => void
   /** Page en grille : change la case ou la taille d'une brique. */
   setPlace: (id: string, patch: Partial<GridPlace>) => void
   /** Passe une page en placement libre sur la grille, ou la remet en pile. */
   setLayout: (pageId: string, grid: boolean, measuredRows?: Record<string, number>) => void
-  updateNode: (id: string, patch: Partial<Pick<BrickNode, 'name' | 'hidden' | 'showIf'>>) => void
+  updateNode: (id: string, patch: Partial<Pick<BrickNode, 'name' | 'hidden' | 'showIf' | 'disabledIf'>>) => void
   setActions: (id: string, actions: Action[], field?: EventField) => void
   /** Fonctions réutilisables : créer (false si le nom est pris ou invalide), renommer, changer les actions, supprimer. */
   addFunction: (name: string) => boolean
@@ -120,9 +123,18 @@ interface EditorState {
   removeComponent: (componentId: string) => void
   /** La copie liée devient un bloc ordinaire, qui ne suit plus son composant. */
   detachInstance: (id: string) => void
+  /** Aligne ou répartit les briques sélectionnées (sur une page en grille : leurs cases ; sinon leur alignement propre). */
+  arrangeSelection: (mode: ArrangeMode) => void
+  /** Variantes d'un composant : en créer une (la copie la prend), choisir celle d'une copie, régler son style, la supprimer. */
+  addVariant: (copyId: string, name: string) => boolean
+  setVariant: (copyId: string, name: string | undefined) => void
+  updateVariantStyle: (componentId: string, name: string, patch: Partial<BrickStyle>) => void
+  removeVariant: (componentId: string, name: string) => void
 
   setPage: (id: string) => void
   addPage: (name?: string) => string
+  /** Ajoute les pages d'un gabarit (tableau de bord, paramètres, connexion, liste et détail) et ouvre la première. */
+  addPageTemplate: (templateId: string) => void
   duplicatePage: (id: string) => void
   removePage: (id: string) => void
   setHomePage: (id: string) => void
@@ -460,6 +472,16 @@ export const useEditor = create<EditorState>((rawSet, get) => {
     updateStyle: (id, patch, scope = 'all') =>
       commit((p) => {
         const node = p.nodes[id]
+        if (isStateScope(scope)) {
+          const style: Partial<BrickStyle> = { ...node.states?.[scope], ...(patch as Partial<BrickStyle>) }
+          for (const k of Object.keys(patch) as (keyof BrickStyle)[]) if (patch[k] === undefined || patch[k] === '') delete style[k]
+          delete (style as StyleOverride).hide
+          const states = { ...node.states, [scope]: style }
+          if (!Object.keys(style).length) delete states[scope]
+          const next: BrickNode = { ...node, states }
+          if (!Object.keys(states).length) delete next.states
+          return { nodes: { ...p.nodes, [id]: next } }
+        }
         const current: StyleOverride = scope === 'all' ? node.style : (node.responsive?.[scope] ?? {})
         const style: StyleOverride = { ...current, ...patch }
         for (const k of Object.keys(patch) as (keyof StyleOverride)[]) {
@@ -568,14 +590,87 @@ export const useEditor = create<EditorState>((rawSet, get) => {
     },
 
     removeComponent: (componentId) =>
-      commit((p) => ({ components: (p.components ?? []).filter((c) => c.id !== componentId), nodes: detachAll(p.nodes, componentId) })),
+      commit((p) => ({ components: (p.components ?? []).filter((c) => c.id !== componentId), nodes: detachAll(p.nodes, componentId, p.components) })),
 
     detachInstance: (id) =>
       commit((p) => {
         const node = p.nodes[id]
         if (!node?.instanceOf) return null
-        const { instanceOf: _gone, ...rest } = node
+        // La copie détachée garde l'allure de sa variante.
+        const { instanceOf: _gone, variant: _variant, ...rest } = withVariant(node, p.components)
         return { nodes: { ...p.nodes, [id]: rest } }
+      }),
+
+    arrangeSelection: (mode) => {
+      const { project, selection } = get()
+      const chosen = selection.map((id) => project.nodes[id]).filter(Boolean)
+      if (chosen.length < 2) return
+      const onGrid = chosen.every((n) => n.place && isFreeGrid(project.nodes[n.parent ?? '']))
+      if (onGrid) {
+        const places = arrangePlaces(Object.fromEntries(chosen.map((n) => [n.id, n.place!])), mode)
+        commit((p) => {
+          const nodes = { ...p.nodes }
+          for (const [id, place] of Object.entries(places)) nodes[id] = { ...nodes[id], place: clampPlace(place) }
+          return { nodes }
+        })
+        return
+      }
+      if (mode === 'distributeH' || mode === 'distributeV') return
+      commit((p) => {
+        const nodes = { ...p.nodes }
+        for (const n of chosen) nodes[n.id] = { ...nodes[n.id], style: { ...nodes[n.id].style, alignSelf: alignSelfFor(mode) } }
+        return { nodes }
+      })
+    },
+
+    addVariant: (copyId, name) => {
+      const label = name.trim()
+      const node = get().project.nodes[copyId]
+      const component = node?.instanceOf ? get().project.components?.find((c) => c.id === node.instanceOf) : undefined
+      if (!label || !component || component.variants?.some((v) => v.name === label)) return false
+      commit((p) => ({
+        components: (p.components ?? []).map((c) => (c.id === component.id ? { ...c, variants: [...(c.variants ?? []), { name: label, style: {} }] } : c)),
+        nodes: { ...p.nodes, [copyId]: { ...p.nodes[copyId], variant: label } },
+      }))
+      return true
+    },
+
+    setVariant: (copyId, name) =>
+      commit((p) => {
+        const node = p.nodes[copyId]
+        if (!node?.instanceOf) return null
+        const next = { ...node, variant: name }
+        if (!name) delete next.variant
+        return { nodes: { ...p.nodes, [copyId]: next } }
+      }),
+
+    updateVariantStyle: (componentId, name, patch) =>
+      commit(
+        (p) => ({
+          components: (p.components ?? []).map((c) => {
+            if (c.id !== componentId) return c
+            const variants = (c.variants ?? []).map((v) => {
+              if (v.name !== name) return v
+              const style: Partial<BrickStyle> = { ...v.style, ...patch }
+              for (const k of Object.keys(patch) as (keyof BrickStyle)[]) if (patch[k] === undefined || patch[k] === '') delete style[k]
+              return { ...v, style }
+            })
+            return { ...c, variants }
+          }),
+        }),
+        `variant:${componentId}:${name}:${Object.keys(patch).join(',')}`,
+      ),
+
+    removeVariant: (componentId, name) =>
+      commit((p) => {
+        const nodes = { ...p.nodes }
+        for (const r of instanceRoots(p.nodes, componentId)) {
+          if (r.variant !== name) continue
+          const { variant: _gone, ...rest } = r
+          nodes[r.id] = rest
+        }
+        const components = (p.components ?? []).map((c) => (c.id === componentId ? { ...c, variants: (c.variants ?? []).filter((v) => v.name !== name) } : c))
+        return { nodes, components }
       }),
 
     updateNode: (id, patch) =>
@@ -601,6 +696,21 @@ export const useEditor = create<EditorState>((rawSet, get) => {
       })
       set({ currentPage: id, selectedId: null })
       return id
+    },
+
+    addPageTemplate: (templateId) => {
+      const template = PAGE_TEMPLATES.find((t) => t.id === templateId)
+      if (!template) return
+      let first = ''
+      commit((p) => {
+        const r = addPageTemplate(p, template)
+        first = r.firstPage
+        return { nodes: r.project.nodes, pages: r.project.pages, variables: r.project.variables }
+      })
+      if (first) {
+        set({ currentPage: first, selectedId: null })
+        get().notify(`Gabarit « ${template.name} » ajouté`)
+      }
     },
 
     duplicatePage: (id) => {

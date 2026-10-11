@@ -2,6 +2,20 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.13.0] : 2026-10-11
+
+Un style de logiciel pro : la septième vague du plan des 200 améliorations.
+
+### Ajouté
+- **États d'une brique** : dans les propriétés, sous le choix du format, l'**état réglé** (Normal, Survol, Focus, Appui, Désactivé). Seul ce qui change est gardé, et la zone de création montre l'état choisi sur la brique sélectionnée. Le code généré ajoute `:hover`, `:focus-visible` (ou `:focus-within` pour un conteneur ou un champ), `:active` et `:disabled`, avec une transition douce. Un nouveau réglage **Taille (%)** grossit ou rétrécit une brique (104 au survol, 97 à l'appui).
+- **Désactiver si** (Interactions) : un bouton ou un champ reste visible mais ne réagit plus tant qu'une variable est vraie ; son allure se règle dans l'état *Désactivé*.
+- **Variantes de composants** : une copie liée choisit une variante de son composant (« Mise en avant », « Danger »…). Le style réglé sur une copie qui a une variante change la variante, sur toutes les copies qui l'utilisent ; l'intérieur reste partagé par toutes les copies. Détacher une copie garde l'allure de sa variante.
+- **Mode sombre de l'application générée** (Studio de style, *Version sombre*) : une ambiance sombre calculée à partir du style (claire pour un style déjà sombre), **selon l'appareil** ou **avec un bouton**. La nouvelle action **Changer d'ambiance** bascule et garde le choix dans le navigateur. Le Studio peut montrer l'autre ambiance dans la zone de création.
+- **Aligner et répartir une sélection** : avec plusieurs briques sélectionnées, six boutons d'alignement (gauche, centre, droite, haut, milieu, bas) et, sur une page en grille, deux boutons pour répartir avec le même écart. Hors grille, chaque brique prend le même alignement propre.
+- **Gabarits de pages** (bouton *Gabarit* à côté de *Page*, ou menu Ajouter) : tableau de bord, paramètres, connexion, liste et détail. Les pages arrivent avec leurs variables et leurs liens vers les autres pages ; une variable du même nom mais d'un autre type est renommée.
+- Le modèle Back-office passe en ambiance sombre avec l'appareil, a un bouton *Clair ou sombre* et des effets au survol.
+- L'assistant IA connaît les états, « Désactiver si », la version sombre et l'action *Changer d'ambiance*.
+
 ## [2.12.0] : 2026-10-11
 
 Des écrans de vrai logiciel : la sixième vague du plan des 200 améliorations.

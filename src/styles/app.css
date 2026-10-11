@@ -2666,6 +2666,18 @@ select.pm-input {
   font-size: 12.5px;
   flex-shrink: 0;
 }
+.pm-template-item {
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 2px;
+  max-width: 300px;
+  white-space: normal;
+  text-align: left;
+}
+.pm-template-item span {
+  color: var(--pm-muted);
+  font-size: 12px;
+}
 .pm-page-add:hover {
   border-color: var(--pm-brand);
   color: var(--pm-brand-text);
@@ -3650,6 +3662,48 @@ select.pm-input {
 }
 .pm-link-button:hover {
   text-decoration: underline;
+}
+
+/* Aligner et répartir une sélection */
+.pm-arrange {
+  margin-top: 14px;
+}
+.pm-arrange-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.pm-arrange-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--pm-border);
+}
+
+/* Variantes d'un composant */
+.pm-variants {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pm-border);
+}
+.pm-variants-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.pm-variants-row .pm-input {
+  flex: 1;
+  min-width: 0;
+}
+.pm-variants-help {
+  margin: 0;
+  font-size: 12px;
+  color: var(--pm-muted);
 }
 
 /* Versions nommées */

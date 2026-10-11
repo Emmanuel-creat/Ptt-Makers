@@ -1,7 +1,7 @@
 import { mapActions } from './actions'
 import { fixPlacements } from './freeGrid'
 import { makeNode, type Nodes } from './tree'
-import type { Action, AppFunction, BrickStyle, BrickType, EventField, GridPlace, Project, PropValue, Variable } from './types'
+import type { Action, AppFunction, BrickNode, BrickStyle, BrickType, EventField, GridPlace, Project, PropValue, Variable } from './types'
 
 /** Description compacte d'un arbre de briques pour écrire les modèles. */
 export interface Spec {
@@ -12,6 +12,9 @@ export interface Spec {
   style?: BrickStyle
   hidden?: boolean
   showIf?: string
+  /** Style au survol, au focus, à l'appui ou désactivé. */
+  states?: BrickNode['states']
+  disabledIf?: string
   /** Les cibles peuvent s'écrire « @ref » pour viser une autre brique du modèle. */
   onClick?: Action[]
   /** Les autres événements : survol, saisie, changement, touche. */
@@ -55,6 +58,8 @@ export function buildApp(name: string, pages: PageSpec[], variables: Variable[] 
     node.parent = parentId
     node.hidden = spec.hidden
     node.showIf = spec.showIf
+    if (spec.states) node.states = spec.states
+    if (spec.disabledIf) node.disabledIf = spec.disabledIf
     if (spec.place) node.place = spec.place
     nodes = { ...nodes, [node.id]: node, [parentId]: { ...nodes[parentId], children: [...nodes[parentId].children, node.id] } }
     if (spec.ref) refs.set(spec.ref, node.id)

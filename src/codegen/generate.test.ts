@@ -312,3 +312,42 @@ describe('formulaires, cadre d’application et grilles avancées', () => {
     expect(js).toContain('.app-sidebar a')
   })
 })
+
+describe('états, variantes et mode sombre', () => {
+  it('états : survol, focus, appui et désactivé, avec une transition', () => {
+    const project = buildApp('États', [
+      {
+        name: 'Accueil',
+        children: [
+          { type: 'button', props: { text: 'Envoyer' }, states: { hover: { background: '#222222', scale: 104 }, active: { scale: 97 }, disabled: { opacity: 0.4 } } },
+          { type: 'card', states: { hover: { shadow: 'lg' }, focus: { borderWidth: 2, borderColor: '#6c5ce7' } } },
+          { type: 'input', props: { label: 'Nom' }, states: { focus: { shadow: 'none' } } },
+        ],
+      },
+    ])
+    const css = generate(project).css
+    expect(css).toContain('#bouton-1:hover {\n  background: #222222;\n  transform: scale(1.04);\n}')
+    expect(css).toContain('#bouton-1:active {\n  transform: scale(0.97);\n}')
+    expect(css).toContain('#bouton-1:disabled, #bouton-1.is-disabled {\n  opacity: 0.4;\n}')
+    expect(css).toMatch(/#bouton-1 \{ transition: background-color/)
+    expect(css).toContain('#carte-1:focus-within {\n  border: 2px solid #6c5ce7;\n}')
+    expect(css).toContain('#champ-1:focus-within {\n  box-shadow: none;\n}')
+  })
+
+  it('mode sombre : une ambiance calculée, selon l’appareil ou choisie avec un bouton', () => {
+    const project = buildApp('Ambiance', [{ name: 'Accueil', children: [{ type: 'button', props: { text: 'Ambiance' }, onClick: [{ type: 'toggleTheme' }] }] }])
+    expect(generate(project).js).toContain('// Action ignorée : la version sombre n’est pas activée')
+    project.theme = { style: 'pro-sobre', darkMode: 'auto' }
+    const { css, js } = generate(project)
+    expect(css).toContain('@media (prefers-color-scheme: dark) {\n  :root:not([data-ambiance="claire"]) {')
+    expect(css).toContain(':root[data-ambiance="sombre"] {\n  --couleur:')
+    expect(css).toMatch(/:root\[data-ambiance="sombre"\] \{[^}]*--fond: #111318;[^}]*color-scheme: dark;/)
+    expect(js).toContain('const sombre = choisie ? choisie === "sombre" : matchMedia("(prefers-color-scheme: dark)").matches;')
+    // Un style déjà sombre reçoit une version claire.
+    project.theme = { style: 'neo-sombre', darkMode: 'bouton' }
+    const dark = generate(project)
+    expect(dark.css).not.toContain('@media (prefers-color-scheme')
+    expect(dark.css).toMatch(/:root\[data-ambiance="claire"\] \{[^}]*--fond: #f6f7fb;/)
+    expect(dark.js).toContain('const sombre = choisie ? choisie === "sombre" : true;')
+  })
+})

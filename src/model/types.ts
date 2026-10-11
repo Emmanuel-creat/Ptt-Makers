@@ -77,6 +77,8 @@ export interface BrickStyle {
   /** Dans une grille : la zone nommée occupée, ou le nombre de colonnes couvertes. */
   area?: string
   span?: number
+  /** Taille en pourcentage (100 = normale), utile au survol ou à l'appui. */
+  scale?: number
 }
 
 export type PropValue = string | number | boolean
@@ -89,6 +91,11 @@ export type StyleOverride = Partial<BrickStyle> & {
   /** Brique cachée sur ce format. */
   hide?: boolean
 }
+
+/** États d'une brique qui peuvent avoir leur propre style. */
+export type StateScope = 'hover' | 'focus' | 'active' | 'disabled'
+export const STATE_SCOPES: StateScope[] = ['hover', 'focus', 'active', 'disabled']
+export const isStateScope = (s: unknown): s is StateScope => STATE_SCOPES.includes(s as StateScope)
 
 /** Comparaisons possibles dans une action « Si ». */
 export type ConditionOp = 'true' | 'false' | 'eq' | 'neq' | 'gt' | 'lt' | 'empty' | 'notEmpty'
@@ -137,6 +144,8 @@ export type Action =
   | { type: 'logout'; variable: string }
   /** Lancer une fonction réutilisable du projet (ses actions, puis on continue). */
   | { type: 'call'; name: string }
+  /** Passer de l'ambiance claire à la sombre (ou l'inverse) ; le choix est gardé dans le navigateur. */
+  | { type: 'toggleTheme' }
 
 export type ActionType = Action['type']
 
@@ -181,6 +190,10 @@ export interface BrickNode {
   onSubmit?: Action[]
   /** Style propre à la tablette (largeur ≤ 900 px) et au mobile (≤ 600 px). */
   responsive?: Partial<Record<ResponsiveScope, StyleOverride>>
+  /** Style au survol, au focus, à l'appui et quand la brique est désactivée (seulement ce qui change). */
+  states?: Partial<Record<StateScope, Partial<BrickStyle>>>
+  /** Boutons et champs : désactivés tant que cette variable est « vraie ». */
+  disabledIf?: string
   /** Masquée au démarrage (peut être affichée par une action). */
   hidden?: boolean
   /** Affichée seulement si cette variable est « vraie ». */
@@ -189,6 +202,8 @@ export interface BrickNode {
   place?: GridPlace
   /** Copie liée d'un composant de Mes composants : modifier une copie met à jour toutes les autres. */
   instanceOf?: string
+  /** Copie liée : la variante du composant qu'elle affiche (son style s'ajoute à celui de la copie). */
+  variant?: string
 }
 
 export type VariableKind = 'text' | 'number' | 'boolean' | 'list' | 'collection'
@@ -229,6 +244,11 @@ export interface ProjectTheme {
   style?: string
   /** Réglages changés dans le Studio de style. */
   tokens?: Partial<StyleTokens>
+  /**
+   * Version sombre de l'application générée (claire pour un style sombre) : « auto » suit le réglage de l'appareil,
+   * « bouton » ne change qu'avec l'action « Changer d'ambiance ». Les deux gardent le choix de la personne.
+   */
+  darkMode?: 'auto' | 'bouton'
   /** Anciens réglages (avant le moteur de styles), toujours pris en compte. */
   primary?: string
   radius?: number
@@ -247,6 +267,14 @@ export interface SavedComponent {
   name: string
   rootId: string
   nodes: Record<string, BrickNode>
+  /** Variantes : un même composant avec un autre style (« Mise en avant », « Danger »…). */
+  variants?: ComponentVariant[]
+}
+
+/** Une variante d'un composant : ce qui change dans le style de sa racine. */
+export interface ComponentVariant {
+  name: string
+  style: Partial<BrickStyle>
 }
 
 export interface Project {

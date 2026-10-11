@@ -72,6 +72,33 @@ const base = (t: Partial<StyleTokens>): StyleTokens => ({
   ...t,
 })
 
+/** Réglages d'un projet sans style choisi. */
+export const DEFAULT_TOKENS: StyleTokens = base({})
+
+/** Clarté d'une couleur #rrggbb (0 noir, 1 blanc), null pour une autre écriture. */
+function lightness(color: string): number | null {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim())
+  if (!m) return null
+  const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1]
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/**
+ * L'autre ambiance d'un style : sombre pour un style clair, claire pour un style sombre.
+ * La couleur principale, les arrondis, le relief et les polices restent ; une couleur principale
+ * trop proche du nouveau fond est éclaircie ou foncée pour rester lisible.
+ */
+export function alternateTokens(t: StyleTokens): StyleTokens {
+  const next: StyleTokens = t.dark
+    ? { ...t, dark: false, background: '#f6f7fb', surface: '#ffffff', text: '#1b1d29', muted: '#5f6477', bar: '#ffffff', onBar: '#1b1d29', border: '#e1e4ee' }
+    : { ...t, dark: true, background: '#111318', surface: '#1b1e27', text: '#eceef6', muted: '#a3a8bd', bar: '#0b0d12', onBar: '#eceef6', border: '#2c3040' }
+  const l = lightness(t.accent)
+  if (l !== null && next.dark && l < 0.18) Object.assign(next, { accent: '#eceef6', onAccent: '#111318' })
+  if (l !== null && !next.dark && l > 0.85) Object.assign(next, { accent: '#1b1d29', onAccent: '#ffffff' })
+  return next
+}
+
 export const STYLE_PRESETS: StylePreset[] = [
   {
     id: 'neo-sombre',
