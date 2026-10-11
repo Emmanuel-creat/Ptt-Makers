@@ -4,7 +4,7 @@ import type { BrickNode } from '../model/types'
 export function brickClass(node: BrickNode): string {
   switch (node.type) {
     case 'page':
-      return 'page'
+      return node.props.layout === 'grille' ? 'page grille' : 'page'
     case 'section':
     case 'row':
     case 'stack':
@@ -199,6 +199,19 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 /* Sur petit écran, les grilles passent sur une seule colonne. */
 @container (max-width: 640px) {
   .page .grid, .page .repeat { grid-template-columns: 1fr !important; }
+}
+
+/* Page en grille : 12 colonnes et des rangées de 40 px ; chaque brique occupe sa case. */
+.page.grille {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(40px, auto);
+  align-content: start;
+}
+.page.grille > * { min-width: 0; }
+/* Sur un petit écran, les briques de la grille s'empilent dans l'ordre (de haut en bas, de gauche à droite). */
+@container (max-width: 600px) {
+  .page.grille > * { grid-column: 1 / -1 !important; grid-row: auto !important; }
 }
 `
 

@@ -17,6 +17,8 @@ describe('format d’échange avec l’IA', () => {
     expect(generate(after).js).toBe(generate(before).js)
   })
 
+  const NO_PLACE = { col: 0, row: 0, w: 0, h: 0 }
+
   it('construit un projet à partir d’une réponse, en ignorant ce qui est invalide', () => {
     const ai: AiProject = {
       name: 'Quiz',
@@ -28,11 +30,11 @@ describe('format d’échange avec l’IA', () => {
         { name: 'reponses', kind: 'list', initial: 'A\nB\n' },
       ],
       pages: [
-        { ref: 'accueil', name: 'Accueil', title: 'Quiz', style: [{ key: 'gap', value: '20' }], onLoad: [] },
-        { ref: 'fin', name: 'Fin', title: '', style: [], onLoad: [] },
+        { ref: 'accueil', name: 'Accueil', title: 'Quiz', style: [{ key: 'gap', value: '20' }], onLoad: [], layout: 'pile' },
+        { ref: 'fin', name: 'Fin', title: '', style: [], onLoad: [], layout: 'grille' },
       ],
       bricks: [
-        { ref: 'carte', parent: 'accueil', type: 'card', name: 'Question', props: [], style: [{ key: 'padding', value: '24px' }], hidden: false, showIf: '', onClick: [] },
+        { ref: 'carte', parent: 'accueil', type: 'card', name: 'Question', props: [], style: [{ key: 'padding', value: '24px' }], hidden: false, showIf: '', onClick: [], place: NO_PLACE },
         {
           ref: 'ok',
           parent: 'carte',
@@ -46,8 +48,11 @@ describe('format d’échange avec l’IA', () => {
             { type: 'add', variable: 'score', value: '', amount: 1, target: '', message: '', url: '', page: '', which: '', path: '', op: '', then: [], else: [] },
             { type: 'navigate', variable: '', value: '', amount: 0, target: '', message: '', url: '', page: 'fin', which: '', path: '', op: '', then: [], else: [] },
           ],
+          place: NO_PLACE,
         },
-        { ref: 'perdu', parent: 'nulle-part', type: 'text', name: '', props: [{ key: 'text', value: 'Score : {{score}}' }], style: [], hidden: false, showIf: '', onClick: [] },
+        { ref: 'perdu', parent: 'nulle-part', type: 'text', name: '', props: [{ key: 'text', value: 'Score : {{score}}' }], style: [], hidden: false, showIf: '', onClick: [], place: { col: 2, row: 1, w: 3, h: 1 } },
+        { ref: 'bravo', parent: 'fin', type: 'heading', name: '', props: [{ key: 'text', value: 'Bravo' }], style: [], hidden: false, showIf: '', onClick: [], place: { col: 3, row: 2, w: 20, h: 2 } },
+        { ref: 'retour', parent: 'fin', type: 'button', name: '', props: [], style: [], hidden: false, showIf: '', onClick: [], place: NO_PLACE },
       ],
     }
     const p = aiToProject(ai)
@@ -66,6 +71,15 @@ describe('format d’échange avec l’IA', () => {
     ])
     // Parent inconnu : la brique va sur la première page.
     expect(p.nodes.page.children).toHaveLength(2)
+    // Une case donnée sur une page en pile est ignorée.
+    expect(Object.values(p.nodes).some((n) => n.parent === 'page' && n.place)).toBe(false)
+    // Page en grille : la case est ramenée dans les 12 colonnes, et une brique sans case est posée dessous.
+    const fin = p.nodes[p.pages[1]]
+    expect(fin.props.layout).toBe('grille')
+    const [bravo, retour] = fin.children.map((id) => p.nodes[id])
+    expect(bravo.place).toEqual({ col: 1, row: 2, w: 12, h: 2 })
+    expect(retour.place).toEqual({ col: 1, row: 4, w: 3, h: 1 })
+    expect(projectToAi(p).pages[1].layout).toBe('grille')
     expect(() => new Function(generate(p).js)).not.toThrow()
   })
 

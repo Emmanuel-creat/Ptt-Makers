@@ -91,6 +91,14 @@ export type Action =
 
 export type ActionType = Action['type']
 
+/** Case occupée sur une page en grille : colonne et rangée de départ (à partir de 1), largeur en colonnes, hauteur en rangées. */
+export interface GridPlace {
+  col: number
+  row: number
+  w: number
+  h: number
+}
+
 export interface BrickNode {
   /** Identifiant lisible, unique, réutilisé comme id HTML (ex. « bouton-2 »). */
   id: string
@@ -111,6 +119,8 @@ export interface BrickNode {
   hidden?: boolean
   /** Affichée seulement si cette variable est « vraie ». */
   showIf?: string
+  /** Position sur la grille, quand le parent est une page en placement libre. */
+  place?: GridPlace
 }
 
 export type VariableKind = 'text' | 'number' | 'boolean' | 'list'
@@ -157,4 +167,6 @@ export type DropPosition = 'before' | 'after' | 'inside'
 export interface DropTarget {
   id: string
   position: DropPosition
+  /** Page en grille : case visée par le pointeur (coin haut gauche de la brique déposée). */
+  cell?: { col: number; row: number }
 }

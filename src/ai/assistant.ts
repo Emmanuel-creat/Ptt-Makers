@@ -75,6 +75,7 @@ Règles du format :
 - Champs (input, textarea, select, checkbox) : la propriété "bind" relie le champ à une variable.
 - Actions (onClick des briques, onLoad des pages) : remplis seulement les champs utiles à leur type, laisse les autres vides ("" ou 0, listes vides).
   set (variable, value), add (variable, amount), toggleVar (variable), show/hide/toggle/scrollTo (target = ref d'une brique), alert (message), openUrl (url), navigate (page = ref d'une page), listAdd (variable, value), listRemove (variable, which = current|first|last ; current = l'élément de la copie cliquée), listClear (variable), fetch (url d'une API JSON en https, variable, path facultatif vers les données), if (variable, op = true|false|eq|neq|gt|lt|empty|notEmpty, value, then, else).
+- Disposition des pages : "pile" (les briques s'empilent, par défaut) ou "grille" (placement libre : 12 colonnes et des rangées de 40 px). Sur une page en grille, donne à chaque brique posée directement sur la page sa case "place" (col de 1 à 12, row à partir de 1, w en colonnes, h en rangées), sans chevauchement. Partout ailleurs, place vaut 0 partout.
 - Onglets (tabs) et accordéon (accordion) : chaque enfant est une colonne (stack) ; son "name" devient le titre de l'onglet ou de la question.
 - Fenêtre (modal) : cachée au départ ; un bouton l'ouvre avec l'action show. Barre de menu (navbar) : affiche toute seule un lien par page.
 - Lien vers une page : brique link avec la propriété page = ref de la page.

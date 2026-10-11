@@ -3204,3 +3204,66 @@ select.pm-input {
     transform: rotate(360deg);
   }
 }
+
+/* Page en grille : lignes de repère, emplacement de dépôt et poignée de taille */
+.pm-grid-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  transition: opacity 0.15s var(--pm-ease);
+}
+.pm-grid-guides.is-active {
+  opacity: 1;
+}
+.pm-grid-col {
+  position: absolute;
+  background: color-mix(in srgb, var(--pm-brand) 5%, transparent);
+  border-inline: 1px dashed color-mix(in srgb, var(--pm-brand) 22%, transparent);
+}
+.pm-grid-row {
+  position: absolute;
+  height: 0;
+  border-top: 1px dashed color-mix(in srgb, var(--pm-brand) 16%, transparent);
+}
+.pm-grid-ghost {
+  position: absolute;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--pm-brand) 16%, transparent);
+  box-shadow: 0 0 0 2px var(--pm-brand);
+  transition: left 0.08s, top 0.08s;
+}
+.pm-grid-ghost .pm-ov-tag {
+  background: var(--pm-brand);
+  bottom: auto;
+  top: 4px;
+  left: 4px;
+}
+.pm-ov-resize {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--pm-surface);
+  box-shadow: 0 0 0 2px var(--cat);
+  cursor: nwse-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+/* Petite brique tout en haut (ex. bouton posé en haut de la grille) : la barre d'actions passe dessous. */
+.pm-ov-select.is-top.is-narrow .pm-ov-toolbar {
+  top: calc(100% + 6px);
+  bottom: auto;
+  left: -2px;
+  right: auto;
+}
+.pm-ov-select.is-top.is-narrow .pm-ov-resize {
+  z-index: 1;
+}
+.pm-ov-select.is-top.is-narrow > .pm-ov-tag {
+  top: 0;
+  bottom: auto;
+  left: calc(100% + 8px);
+}

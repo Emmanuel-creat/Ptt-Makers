@@ -166,3 +166,42 @@ describe('style par format, composants et projets', () => {
     expect(listProjects().map((m) => m.id)).not.toContain(first)
   })
 })
+
+describe('page en grille', () => {
+  beforeEach(reset)
+
+  it('pose une brique déposée sur la case visée, puis la déplace, la décale et l’agrandit', () => {
+    const ed = useEditor.getState()
+    ed.setLayout('page', true)
+    ed.setDragging({ kind: 'new', type: 'button' })
+    ed.drop({ id: 'page', position: 'inside', cell: { col: 11, row: 1 } })
+    const id = useEditor.getState().selectedId!
+    // Un bouton fait 3 colonnes : posé trop à droite, il est ramené dans la grille.
+    expect(useEditor.getState().project.nodes[id].place).toEqual({ col: 10, row: 1, w: 3, h: 1 })
+
+    ed.setDragging({ kind: 'move', id })
+    ed.drop({ id: 'page', position: 'inside', cell: { col: 1, row: 4 } })
+    expect(useEditor.getState().project.nodes[id].place).toEqual({ col: 1, row: 4, w: 3, h: 1 })
+
+    ed.moveBy(id, -1)
+    ed.setPlace(id, { w: 5, h: 2 })
+    expect(useEditor.getState().project.nodes[id].place).toEqual({ col: 1, row: 3, w: 5, h: 2 })
+
+    ed.undo()
+    ed.undo()
+    expect(useEditor.getState().project.nodes[id].place).toEqual({ col: 1, row: 4, w: 3, h: 1 })
+  })
+
+  it('une brique sortie de la grille perd sa case, une brique ajoutée au clic se pose dessous', () => {
+    const ed = useEditor.getState()
+    ed.setLayout('page', true)
+    const card = ed.addBrick('card')
+    const btn = ed.addBrick('button')
+    const nodes = () => useEditor.getState().project.nodes
+    expect(nodes()[btn].place).toEqual({ col: 1, row: 6, w: 3, h: 1 })
+    ed.move(btn, card, 0)
+    expect(nodes()[btn].place).toBeUndefined()
+    ed.setLayout('page', false)
+    expect(nodes()[card].place).toBeUndefined()
+  })
+})

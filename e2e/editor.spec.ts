@@ -362,3 +362,46 @@ test.describe('assistant IA (Pro)', () => {
     await expect(page.getByText('Titre ajouté par l’IA')).toHaveCount(0)
   })
 })
+
+test.describe('page en grille', () => {
+  test('pose une brique où on veut sur la grille, la déplace et l’agrandit', async ({ page }) => {
+    await openBlank(page)
+    await page.getByRole('button', { name: 'Réglages de la page' }).click()
+    await page.getByRole('radio', { name: 'Sur une grille' }).click()
+    const grid = page.locator('.pm-frame .page.grille')
+    await expect(grid).toBeVisible()
+    await expect(page.getByTestId('grille')).toBeVisible()
+    const box = (await grid.boundingBox())!
+
+    // Un bouton de menu en haut à gauche, un titre en haut à droite.
+    await page.locator('.pm-tile', { hasText: 'Bouton' }).first().dragTo(grid, { targetPosition: { x: 30, y: 30 } })
+    await page.locator('.pm-tile', { hasText: 'Titre' }).dragTo(grid, { targetPosition: { x: box.width - 60, y: 30 } })
+    const btn = page.locator('.pm-frame [data-ptt-id="bouton-1"]')
+    const title = page.locator('.pm-frame [data-ptt-id="titre-1"]')
+    await expect(btn).toHaveCSS('grid-column-start', '1')
+    await expect(btn).toHaveCSS('grid-row-start', '1')
+    await expect(title).toHaveCSS('grid-column-start', '5')
+    await expect(title).toHaveCSS('grid-row-start', '1')
+
+    // Déplacer le bouton plus bas : il garde sa taille.
+    await btn.dragTo(grid, { targetPosition: { x: 30, y: 200 } })
+    await expect(btn).not.toHaveCSS('grid-row-start', '1')
+
+    // Agrandir avec les réglages de position.
+    await page.getByLabel('Largeur (colonnes)').fill('6')
+    await expect(btn).toHaveCSS('grid-column-end', 'span 6')
+    await expect(preview(page).locator('#bouton-1')).toHaveCSS('grid-column-end', 'span 6')
+
+    // Sur mobile, tout s'empile sur une colonne.
+    await page.getByRole('radiogroup', { name: "Format d'affichage" }).getByRole('radio', { name: 'Mobile' }).click()
+    await expect(page.getByTestId('grille')).toHaveCount(0)
+    // (le cadre change de largeur avec une petite animation)
+    await expect
+      .poll(async () => {
+        const t = (await title.boundingBox())!
+        const b = (await btn.boundingBox())!
+        return Math.abs(t.x - b.x) < 2 && b.y > t.y
+      })
+      .toBe(true)
+  })
+})

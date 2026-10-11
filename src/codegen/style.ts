@@ -1,3 +1,4 @@
+import { placeEntries } from '../model/freeGrid'
 import type { BrickNode, BrickStyle, ProjectTheme, StyleOverride } from '../model/types'
 
 const ALIGN: Record<string, string> = { start: 'flex-start', center: 'center', end: 'flex-end', stretch: 'stretch' }
@@ -72,6 +73,8 @@ export function styleEntries(node: BrickNode, style: BrickStyle = node.style): [
   }
   if (s.shadow && s.shadow !== 'none') add('box-shadow', SHADOWS[s.shadow])
   if (typeof s.opacity === 'number' && s.opacity < 1) add('opacity', String(s.opacity))
+  // Brique posée sur une page en grille : sa case.
+  for (const [k, v] of placeEntries(node.place)) add(k, v)
   return out
 }
 
@@ -85,7 +88,7 @@ export const BREAKPOINTS = [
 export function overrideEntries(node: BrickNode, o: StyleOverride | undefined): [string, string][] {
   if (!o) return []
   const { hide, ...style } = o
-  const base = new Set(['grid-template-columns', 'display'])
+  const base = new Set(['grid-template-columns', 'display', 'grid-column', 'grid-row'])
   const out = styleEntries({ ...node, type: 'stack', props: {} }, style).filter(([k]) => !base.has(k))
   if (hide) out.push(['display', 'none !important'])
   return out
