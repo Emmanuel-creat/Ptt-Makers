@@ -21,13 +21,13 @@ import {
   Type,
   Zap,
 } from 'lucide-react'
-import { useContext, useState } from 'react'
+import { useContext, useMemo, useState } from 'react'
 import { BRICKS, CATEGORIES, type FieldDef } from '../model/bricks'
 import { GRID_COLUMNS, GRID_ROW, isFreeGrid } from '../model/freeGrid'
 import { ICON_NAMES, iconLabel, resolveIcon } from '../model/icons'
 import { IconSvg } from './CanvasNode'
 import { STYLE_PRESETS, resolveTokens, stylePreset, type FontId, type ShadowKind, type StyleTokens } from '../model/styles'
-import type { BrickNode, BrickStyle, GridPlace, StyleOverride } from '../model/types'
+import type { BrickNode, BrickStyle, GridPlace, StyleOverride, Variable } from '../model/types'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 import { repeatOf } from '../model/tree'
@@ -35,6 +35,7 @@ import { ActionsEditor, PageSelect } from './ActionsEditor'
 import { BrickBadge } from './BrickIcon'
 import { ColorInput, NumberInput, SelectInput, TextInput, VariableSelect } from './fields'
 import { REPEAT_TOKENS, ScopeTokens } from './scope'
+import { FIELD_TYPE_LABEL, fieldsOf, isCollection } from '../model/collections'
 import { IconButton, Row, Section, Segmented, Switch } from './ui'
 
 const TEXT_TYPES = new Set(['page', 'section', 'row', 'stack', 'grid', 'card', 'heading', 'text', 'link', 'badge', 'list', 'button'])
@@ -43,16 +44,35 @@ const TEXT_TYPES = new Set(['page', 'section', 'row', 'stack', 'grid', 'card', '
 export function Inspector() {
   const selectedId = useEditor((s) => s.selectedId)
   const node = useEditor((s) => (s.selectedId ? s.project.nodes[s.selectedId] : null))
-  const inRepeat = useEditor((s) => (s.selectedId ? repeatOf(s.project.nodes, s.selectedId) != null : false))
+  const repeatId = useEditor((s) => (s.selectedId ? repeatOf(s.project.nodes, s.selectedId) : null))
+  const variables = useEditor((s) => s.project.variables)
+  const repeatSource = useEditor((s) => (repeatId ? s.project.nodes[repeatId]?.props.source : undefined))
+  const tokens = useMemo(() => {
+    if (!repeatId) return NO_TOKENS
+    const source = variables.find((v) => v.name === repeatSource)
+    // Une collection : on propose directement {{element.champ}} pour chacun de ses champs.
+    if (!isCollection(source)) return REPEAT_TOKENS
+    return [
+      ...REPEAT_TOKENS.slice(0, 2),
+      ...fieldsOf(source).map((f) => ({ token: `element.${f.name}`, hint: `${f.label} (${FIELD_TYPE_LABEL[f.type].toLowerCase()})` })),
+    ]
+  }, [repeatId, repeatSource, variables])
   if (!selectedId || !node) return <NoSelection />
   return (
-    <ScopeTokens.Provider value={inRepeat ? REPEAT_TOKENS : NO_TOKENS}>
+    <ScopeTokens.Provider value={tokens}>
       <NodeInspector key={node.id} node={node} />
     </ScopeTokens.Provider>
   )
 }
 
 const NO_TOKENS: { token: string; hint: string }[] = []
+
+/** Un tableau relié à une collection n'a pas besoin des colonnes et lignes écrites à la main, et inversement. */
+function fieldShown(node: BrickNode, key: string, variables: Variable[]): boolean {
+  if (node.type !== 'table') return true
+  const bound = isCollection(variables.find((v) => v.name === node.props.source))
+  return bound ? key !== 'columns' && key !== 'rows' : key !== 'rowDelete' && key !== 'empty'
+}
 
 function NoSelection() {
   const rootId = useEditor((s) => s.currentPage)
@@ -74,6 +94,7 @@ function NoSelection() {
 function NodeInspector({ node }: { node: BrickNode }) {
   const def = BRICKS[node.type]
   const beginner = useWorkspace((s) => s.beginner)
+  const variables = useEditor((s) => s.project.variables)
   const { updateNode, updateProps, updateStyle, duplicate, remove, notify, saveComponent } = useEditor.getState()
   const scope = useWorkspace((s) => s.styleScope)
   // Sur un format plus petit, on lit et on écrit seulement ce qui change pour ce format.
@@ -133,7 +154,7 @@ function NodeInspector({ node }: { node: BrickNode }) {
       <div className="pm-inspector-scroll">
         {def.fields.length > 0 && (
           <Section title="Contenu" icon={<FileText size={15} />}>
-            {def.fields.map((f) => (
+            {def.fields.filter((f) => fieldShown(node, f.key, variables)).map((f) => (
               <ContentField key={f.key} field={f} node={node} onChange={(v) => updateProps(node.id, { [f.key]: v })} />
             ))}
           </Section>

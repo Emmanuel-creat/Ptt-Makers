@@ -4,6 +4,7 @@ import { SVG_ATTRS, iconNode } from '../model/icons'
 import { PLACEHOLDER_IMAGE, brickClass } from '../codegen/baseCss'
 import { safeImageSrc, videoSource } from '../codegen/escape'
 import { proHtml, tabbarIcons } from '../codegen/proBricks'
+import { isListLike } from '../model/collections'
 import { effectiveStyle, reactStyle } from '../codegen/style'
 import type { BrickNode, Variable } from '../model/types'
 import { interpolate, parseTemplate, resolveToken, type RepeatScope } from '../model/variables'
@@ -152,7 +153,7 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
       return <div {...common}>{children}</div>
     case 'repeat': {
       if (frame) return <div {...common}>{children}</div>
-      const source = variables.find((v) => v.name === p.source && v.kind === 'list')
+      const source = variables.find((v) => v.name === p.source && isListLike(v))
       const items = source && Array.isArray(source.initial) ? source.initial : []
       // Sans élément de départ (ex. données d'API), on montre quand même le modèle une fois.
       const shown: unknown[] = items.length ? items.slice(0, MAX_CANVAS_COPIES) : [undefined]
@@ -303,7 +304,7 @@ function renderNode(node: BrickNode, variables: Variable[], editing: boolean, fr
     case 'stat':
     case 'progress': {
       // Même HTML que dans le code généré ; un envoi de message reste sans effet dans l'éditeur.
-      const html = (proHtml(node.type, p, (t) => interpolate(t, variables, frame ?? undefined)) ?? []).join('\n')
+      const html = (proHtml(node.type, p, (t) => interpolate(t, variables, frame ?? undefined), variables) ?? []).join('\n')
       return <div {...common} data-moi={node.type === 'chat' ? String(p.me ?? '') || undefined : undefined} onSubmit={(e) => e.preventDefault()} dangerouslySetInnerHTML={{ __html: html }} />
     }
     case 'tabbar':

@@ -527,3 +527,48 @@ test.describe('briques pro', () => {
     await expect(preview(page).locator('.table tbody tr').first()).toContainText('19,90 €')
   })
 })
+
+test.describe('données', () => {
+  test('une collection crée son formulaire et son tableau, qui marchent dans l’aperçu', async ({ page }) => {
+    await openBlank(page)
+    await page.getByRole('tab', { name: 'Variables' }).click()
+    await page.getByLabel('Nom de la nouvelle variable').fill('clients')
+    await page.getByLabel('Type de la variable').selectOption('collection')
+    await page.getByRole('button', { name: 'Créer la variable' }).click()
+    await page.getByLabel('Nom du nouveau champ').fill('Ville')
+    await page.getByRole('button', { name: 'Ajouter le champ' }).click()
+    await page.getByRole('button', { name: 'Ajouter une fiche' }).click()
+    await page.getByLabel('Nom de la fiche 1').fill('Camille')
+    await page.getByLabel('Ville de la fiche 1').fill('Lyon')
+    await page.getByRole('button', { name: 'Créer un formulaire et un tableau' }).click()
+
+    await expect(page.locator('.pm-frame .table tbody tr')).toHaveCount(1)
+    const rows = preview(page).locator('.table tbody tr')
+    await expect(rows).toHaveCount(1)
+    await preview(page).getByLabel('Nom', { exact: true }).fill('Yanis')
+    await preview(page).getByLabel('Ville', { exact: true }).fill('Paris')
+    await preview(page).getByRole('button', { name: 'Ajouter' }).click()
+    await expect(rows).toHaveCount(2)
+    await expect(rows.nth(1)).toContainText('Yanis')
+    await expect(rows.nth(1)).toContainText('Paris')
+    await rows.first().getByRole('button', { name: 'Supprimer' }).click()
+    await expect(rows).toHaveCount(1)
+    await expect(rows.first()).toContainText('Yanis')
+  })
+
+  test('un fichier CSV remplit une collection', async ({ page }) => {
+    await openBlank(page)
+    await page.getByRole('tab', { name: 'Variables' }).click()
+    await page.getByLabel('Nom de la nouvelle variable').fill('villes')
+    await page.getByLabel('Type de la variable').selectOption('collection')
+    await page.getByRole('button', { name: 'Créer la variable' }).click()
+    await page.getByLabel('Fichier CSV à importer dans villes').setInputFiles({
+      name: 'villes.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('Ville;Habitants\nLyon;522 000\nNantes;323 000\n'),
+    })
+    await expect(page.getByLabel('Habitants de la fiche 2')).toHaveValue('323000')
+    await page.getByRole('button', { name: 'Créer un formulaire et un tableau' }).click()
+    await expect(preview(page).locator('.table tbody tr').first()).toContainText('522 000')
+  })
+})

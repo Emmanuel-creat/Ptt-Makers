@@ -81,7 +81,13 @@ export function TextInput({
           {variables.map((v) => (
             <button key={v.name} type="button" className="pm-popover-item" onClick={() => insert(v.name)}>
               <code>{`{{${v.name}}}`}</code>
-              <span className="pm-muted">{v.kind === 'list' ? `liste de ${displayValue(v.initial)} élément(s)` : String(v.initial) || '(vide)'}</span>
+              <span className="pm-muted">
+                {v.kind === 'collection'
+                  ? `collection de ${displayValue(v.initial)} fiche(s)`
+                  : v.kind === 'list'
+                    ? `liste de ${displayValue(v.initial)} élément(s)`
+                    : String(v.initial) || '(vide)'}
+              </span>
             </button>
           ))}
           {!variables.length && <p className="pm-row-help">Crée d'abord une variable :</p>}

@@ -3,7 +3,8 @@ import { clampPlace, isFreeGrid } from '../model/freeGrid'
 import { ICON_NAMES } from '../model/icons'
 import { FONT_IDS, STYLE_IDS, stylePreset, type FontId } from '../model/styles'
 import { buildApp, type PageSpec, type Spec } from '../model/templates'
-import type { Action, BrickNode, BrickStyle, BrickType, ConditionOp, Project, ProjectTheme, PropValue, Variable, VariableKind } from '../model/types'
+import type { Action, BrickNode, BrickStyle, BrickType, CollectionField, ConditionOp, Project, ProjectTheme, PropValue, Variable, VariableKind } from '../model/types'
+import { DEFAULT_FIELDS, FIELD_TYPE_LABEL, inferFields, isRecord } from '../model/collections'
 
 /**
  * Format d'échange entre Ptt-Makers et l'IA.
@@ -90,6 +91,7 @@ const ACTION_TYPES: Action['type'][] = [
   'listAdd',
   'listRemove',
   'listClear',
+  'addRecord',
   'if',
   'fetch',
 ]
@@ -157,7 +159,7 @@ export const PROJECT_SCHEMA = obj({
     radius: { type: 'number' },
     font: { type: 'string', enum: [...FONT_IDS, ''] },
   }),
-  variables: { type: 'array', items: obj({ name: str, kind: { type: 'string', enum: ['text', 'number', 'boolean', 'list'] }, initial: str }) },
+  variables: { type: 'array', items: obj({ name: str, kind: { type: 'string', enum: ['text', 'number', 'boolean', 'list', 'collection'] }, initial: str }) },
   pages: {
     type: 'array',
     items: obj({ ref: str, name: str, title: str, style: keyValues(STYLE_KEYS), onLoad: { type: 'array', items: action }, layout: { type: 'string', enum: ['pile', 'grille'] } }),
@@ -258,6 +260,17 @@ function toAction(a: AiBaseAction | AiAction): Action | null {
       return { type: 'listRemove', variable: a.variable, which: a.which || 'current' }
     case 'fetch':
       return { type: 'fetch', url: a.url, variable: a.variable, path: a.path }
+    case 'addRecord': {
+      // value : les valeurs de la fiche en JSON, ex. {"nom": "{{nom_saisi}}", "prix": "{{prix_saisi}}"}
+      let values: Record<string, string> = {}
+      try {
+        const parsed: unknown = JSON.parse(a.value || '{}')
+        if (isRecord(parsed)) values = Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, String(v)]))
+      } catch {
+        values = {}
+      }
+      return { type: 'addRecord', variable: a.variable, values }
+    }
     case 'if': {
       const full = a as AiAction
       return {
@@ -287,6 +300,31 @@ function toVariable(v: AiVariable): Variable | null {
       return { name, kind: 'boolean', initial: raw === 'true' }
     case 'list':
       return { name, kind: 'list', initial: raw.split('\n').map((s) => s.trim()).filter(Boolean) }
+    case 'collection': {
+      // Les fiches arrivent en JSON : [{"nom": "…", "prix": 12}, …]
+      // ou avec leurs champs : {"champs": [{"name", "label", "type"}], "fiches": […], "garder": true}
+      let parsed: unknown = []
+      try {
+        parsed = JSON.parse(raw || '[]')
+      } catch {
+        parsed = []
+      }
+      const box = isRecord(parsed) ? (parsed as Record<string, unknown>) : null
+      const list = Array.isArray(parsed) ? parsed : Array.isArray(box?.fiches) ? box.fiches : []
+      const records = (list as unknown[]).filter(isRecord)
+      const given = Array.isArray(box?.champs)
+        ? (box.champs as unknown[]).filter(
+            (f): f is CollectionField =>
+              isRecord(f) && typeof f.name === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(f.name) && String(f.type) in FIELD_TYPE_LABEL,
+          )
+        : []
+      const fields = given.length
+        ? given.map((f) => ({ name: f.name, label: String(f.label || f.name), type: f.type }))
+        : records.length
+          ? inferFields(records)
+          : DEFAULT_FIELDS
+      return { name, kind: 'collection', fields, initial: records, ...(box?.garder === true ? { persist: true } : {}) }
+    }
     default:
       return { name, kind: 'text', initial: raw }
   }
@@ -380,6 +418,10 @@ function fromAction(a: Action): AiAction {
     else: [],
   }
   const full = { ...base, ...a } as AiAction
+  if (a.type === 'addRecord') {
+    delete (full as Partial<AiAction> & { values?: unknown }).values
+    full.value = JSON.stringify(a.values ?? {})
+  }
   if (a.type === 'if') {
     full.then = a.then.map((x) => ({ ...fromAction(x), type: x.type as AiBaseAction['type'] }))
     full.else = a.else.map((x) => ({ ...fromAction(x), type: x.type as AiBaseAction['type'] }))
@@ -425,7 +467,16 @@ export function projectToAi(p: Project): AiProject {
     name: p.name,
     summary: '',
     theme: { style: p.theme?.style ?? '', primary: p.theme?.primary ?? '', radius: p.theme?.radius ?? 0, font: p.theme?.font ?? '' },
-    variables: p.variables.map((v) => ({ name: v.name, kind: v.kind, initial: Array.isArray(v.initial) ? v.initial.join('\n') : String(v.initial) })),
+    variables: p.variables.map((v) => ({
+      name: v.name,
+      kind: v.kind,
+      initial:
+        v.kind === 'collection'
+          ? JSON.stringify({ champs: v.fields ?? [], fiches: v.initial, ...(v.persist ? { garder: true } : {}) })
+          : Array.isArray(v.initial)
+            ? v.initial.join('\n')
+            : String(v.initial),
+    })),
     pages,
     bricks,
   }

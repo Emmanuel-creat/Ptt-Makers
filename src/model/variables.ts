@@ -61,6 +61,7 @@ export function interpolate(text: string, variables: Variable[], scope?: RepeatS
 
 /** Convertit une saisie texte dans le type de la variable (une ligne par élément pour une liste). */
 export function coerce(value: string, kind: VariableKind): VariableValue {
+  if (kind === 'collection') return []
   if (kind === 'list') return value.split('\n').map((s) => s.trim()).filter(Boolean)
   if (kind === 'number') {
     const n = Number(value.replace(',', '.'))
@@ -71,12 +72,14 @@ export function coerce(value: string, kind: VariableKind): VariableValue {
 }
 
 export function defaultValue(kind: VariableKind): VariableValue {
-  return kind === 'number' ? 0 : kind === 'boolean' ? false : kind === 'list' ? [] : ''
+  return kind === 'number' ? 0 : kind === 'boolean' ? false : kind === 'list' || kind === 'collection' ? [] : ''
 }
 
 /** Valeur sous forme de texte modifiable (une ligne par élément pour une liste). */
 export function valueToText(value: VariableValue): string {
-  return Array.isArray(value) ? value.join('\n') : String(value)
+  if (!Array.isArray(value)) return String(value)
+  // Une fiche de collection devient le texte de son premier champ.
+  return (value as unknown[]).map((x) => (x && typeof x === 'object' ? String(Object.values(x)[0] ?? '') : String(x))).join('\n')
 }
 
 /** Change le type d'une variable en gardant au mieux sa valeur. */

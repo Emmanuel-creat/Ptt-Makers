@@ -15,6 +15,7 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 - <img src="docs/icones/espace.svg" width="18" height="18" alt=""> **Interface de logiciel pro**, façon Blender : barre de menus, espaces de travail (Construction, Style, Logique, Code, Aperçu), barre d'outils verticale, propriétés à onglets d'icônes, barre d'état et écran d'accueil. L'interface classique claire reste à un clic.
 - <img src="docs/icones/briques.svg" width="18" height="18" alt=""> **33 briques** en 5 familles colorées (structure, texte, interaction, médias, pro), dont des onglets, un accordéon, une fenêtre, une barre de menu et une vidéo, à glisser ou à ajouter d'un clic.
 - <img src="docs/icones/famille-pro.svg" width="18" height="18" alt=""> **Briques pro** pour de vrais logiciels : tableau triable, graphiques (barres, courbe, anneau), chiffres clés, barre de progression, calendrier, kanban à faire glisser, discussion et barre d'onglets mobile.
+- <img src="docs/icones/donnees.svg" width="18" height="18" alt=""> **Données (collections)** : une petite base de données dans le projet, avec des champs typés (texte, nombre, date, oui/non, image, lien). Un clic crée le formulaire qui ajoute des fiches et le tableau qui se met à jour tout seul, avec un bouton Supprimer par ligne. Import d'un fichier CSV, et données gardées dans le navigateur de l'application, même après un rechargement.
 - <img src="docs/icones/zone-creation.svg" width="18" height="18" alt=""> **Zone de création** fidèle au résultat : sélection, glisser-déposer avec indicateur, barre d'actions flottante, édition du texte sur place, formats mobile / tablette / ordinateur.
 - <img src="docs/icones/proprietes.svg" width="18" height="18" alt=""> **Propriétés** claires : contenu, mise en page, apparence, typographie, interactions.
 - <img src="docs/icones/interactions.svg" width="18" height="18" alt=""> **Interactions sans code** : variables, textes dynamiques `{{nom}}`, champs reliés, affichage conditionnel, actions au clic.
@@ -32,13 +33,15 @@ Créer une application demande de maîtriser plusieurs langages et des notions a
 - <img src="docs/icones/code.svg" width="18" height="18" alt=""> **Code en direct** (HTML / CSS / JS) commenté en français, coloré, avec **surlignage de la brique sélectionnée**.
 - <img src="docs/icones/espace.svg" width="18" height="18" alt=""> **Espace de travail personnalisable** : panneaux redimensionnables et repliables, aperçu à droite ou en bas, thème clair / sombre / système.
 - <img src="docs/icones/debutant.svg" width="18" height="18" alt=""> **Mode débutant** : visite guidée, explications et astuces partout.
-- <img src="docs/icones/outils.svg" width="18" height="18" alt=""> Annuler / rétablir, raccourcis clavier, sauvegarde automatique, 11 modèles de départ (dont un tableau de bord, une gestion de projet, une messagerie mobile, une liste de tâches et un annuaire relié à une API), export HTML, **composant React ou Vue**, ou projet `.json`.
+- <img src="docs/icones/outils.svg" width="18" height="18" alt=""> Annuler / rétablir, raccourcis clavier, sauvegarde automatique, 12 modèles de départ (dont une gestion de stock, un tableau de bord, une gestion de projet, une messagerie mobile, une liste de tâches et un annuaire relié à une API), export HTML, **composant React ou Vue**, ou projet `.json`.
 
 ![Une page en grille : le bouton de menu est posé en haut à gauche, l'image en haut à droite](docs/captures/grille.png)
 
 ![L'assistant IA de la version Pro](docs/captures/assistant-ia.png)
 
 ![Le Studio de style : le style « Verre de nuit à halos » appliqué à tout le projet](docs/captures/studio-style.png)
+
+![Le modèle Gestion de stock : une collection de produits, son formulaire et son tableau relié](docs/captures/donnees.png)
 
 ![Le modèle Tableau de bord : chiffres clés, graphique en barres et graphique en anneau](docs/captures/tableau-de-bord.png)
 

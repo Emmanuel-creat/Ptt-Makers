@@ -2722,6 +2722,133 @@ select.pm-input {
   min-height: 64px;
 }
 
+/* ------------------------------------------------------------------ Collections */
+
+.pm-var-persist {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 2px 0;
+  font-size: 12px;
+  color: var(--pm-text-2);
+  cursor: pointer;
+}
+.pm-coll {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--pm-border);
+}
+.pm-coll-title {
+  margin: 4px 2px 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pm-muted);
+}
+.pm-coll-fields {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pm-coll-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-areas: 'label label del' 'type token token';
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-surface);
+}
+.pm-coll-field > input {
+  grid-area: label;
+}
+.pm-coll-field > select {
+  grid-area: type;
+}
+.pm-coll-field > code {
+  grid-area: token;
+}
+.pm-coll-field > button {
+  grid-area: del;
+}
+.pm-coll-new {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+}
+.pm-coll-new > input {
+  grid-column: 1 / -1;
+}
+.pm-coll-field .pm-input,
+.pm-coll-new .pm-input {
+  height: 28px;
+  font-size: 12.5px;
+}
+.pm-coll-token {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--pm-mono);
+  font-size: 10.5px;
+  color: var(--pm-brand-text);
+}
+.pm-coll-grid-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-surface);
+}
+.pm-coll-grid {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.pm-coll-grid th {
+  padding: 5px 6px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--pm-muted);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--pm-border);
+}
+.pm-coll-grid td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--pm-border);
+}
+.pm-coll-grid tr:last-child td {
+  border-bottom: 0;
+}
+.pm-coll-grid .pm-input {
+  min-width: 96px;
+  height: 26px;
+  font-size: 12px;
+}
+.pm-coll-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pm-record-value > span:first-child {
+  min-width: 64px;
+  font-size: 12px;
+  color: var(--pm-text-2);
+}
+.pm-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ------------------------------------------------------------------ Conditions */
 
 .pm-action.is-if {

@@ -154,6 +154,28 @@ L'action **Si… alors… sinon…** teste une variable (vraie, fausse, égale �
 
 `{{taches}}` écrit ailleurs affiche le **nombre** d'éléments de la liste. Dans la zone de création, la première copie est modifiable et les suivantes apparaissent en transparence.
 
+## Les données (collections)
+
+![Le modèle Gestion de stock : la collection « produits » dans les variables, son formulaire et son tableau](captures/donnees.png)
+
+Une **collection** est une petite base de données : une liste de **fiches** qui ont toutes les mêmes **champs** (comme les colonnes d'un tableur).
+
+1. Dans *Variables*, crée une variable de type **Collection**.
+2. Ajoute ses **champs** : un nom affiché et un type (Texte, Nombre, Date, Oui / non, Image, Lien). Le nom technique affiché à côté (`element.prix`) sert dans une répétition ; il ne change pas si tu renommes le champ.
+3. Ajoute des **fiches de départ** à la main, ou **importe un fichier CSV** (séparé par des points-virgules ou des virgules, la première ligne donne les titres) : les types des champs sont devinés.
+4. Clique **Créer un formulaire et un tableau** : Ptt-Makers ajoute à la page un champ de saisie par champ (chacun relié à une nouvelle variable), un bouton **Ajouter** et un **tableau relié** à la collection.
+
+Dans l'aperçu et l'application exportée, le bouton ajoute la fiche puis vide le formulaire, le tableau se met à jour tout seul, et le bouton **Supprimer** d'une ligne retire sa fiche. `{{produits}}` écrit dans un texte ou un chiffre clé affiche le **nombre** de fiches.
+
+À la main :
+
+- un **Tableau** se relie à une collection avec sa propriété **Collection affichée** (et, si tu veux, le bouton « Supprimer » sur chaque ligne et un texte quand elle est vide) ;
+- l'action **Ajouter une fiche à une collection** propose une valeur par champ : écris un texte ou une variable reliée à un champ de saisie (`{{nom_saisi}}`) ;
+- une **Répétition** peut parcourir une collection : « Insérer une variable » propose alors directement `{{element.nom}}`, `{{element.prix}}`… ;
+- **Retirer un élément** et **Vider une liste** marchent aussi sur une collection.
+
+Coche **Garder dans le navigateur** sur une variable pour que l'application générée la retrouve après un rechargement de la page (elle est enregistrée dans le navigateur de la personne qui utilise l'application). Le modèle **Gestion de stock** montre tout cela.
+
 ## Plusieurs pages
 
 Les **onglets au-dessus de la zone de création** listent les pages. Le bouton **+ Page** en ajoute une ; le bouton **⋯** permet de la renommer, la dupliquer, la déplacer, en faire la page d'accueil (icône Maison <img src="icones/accueil.svg" width="16" height="16" alt="">) ou la supprimer. Double-clique un onglet pour le renommer.

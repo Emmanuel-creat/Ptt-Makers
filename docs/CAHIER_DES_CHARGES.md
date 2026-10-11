@@ -125,6 +125,14 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F51** Dans l'application générée, le tableau se trie, les cartes du kanban se déplacent (glisser-déposer ou flèche), la discussion ajoute les messages envoyés, la barre d'onglets mène aux pages ; chiffre clé et progression affichent des variables en direct.
 - **F52** Trois nouveaux modèles : Tableau de bord, Gestion de projet et Messagerie mobile.
 
+### 4.15 Données (version 2.6)
+
+- **F53** Une variable de type **Collection** : une liste de fiches aux champs typés (texte, nombre, date, oui/non, image, lien), avec ses fiches de départ modifiables dans l'éditeur et l'import d'un fichier CSV.
+- **F54** Un **tableau relié** à une collection affiche une colonne par champ, met les valeurs en forme à la française et se met à jour tout seul ; il peut proposer un bouton « Supprimer » par ligne et un texte quand la collection est vide.
+- **F55** L'action **Ajouter une fiche à une collection** prend une valeur par champ (texte ou variables), et « Créer un formulaire et un tableau » construit d'un clic le formulaire, ses variables, le bouton et le tableau.
+- **F56** Une variable peut être **gardée dans le navigateur** de l'application générée : elle survit à un rechargement.
+- **F57** Une répétition parcourt une collection, avec les champs proposés dans « Insérer une variable » ; l'assistant IA sait créer des collections et des tableaux reliés.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -153,4 +161,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 11. Choisir le style « Nuit et jaune » change le fond de la page et des cartes dans l'éditeur et dans l'aperçu ; « Adapter toutes les briques au style » retire une couleur de fond donnée à la main.
 12. Au rechargement, l'écran d'accueil s'ouvre et se ferme avec `Échap` ; le menu Fichier le rouvre ; la barre d'outils ajoute un titre que le menu Édition annule ; l'espace Code affiche le code ; l'interface classique se choisit dans la disposition.
 13. Le modèle « Gestion de projet » fait passer une carte du kanban dans la colonne suivante et remplit sa barre d'avancement d'un clic ; le modèle « Messagerie mobile » ajoute un message envoyé à la discussion ; le tableau du « Tableau de bord » se trie d'un clic sur un titre.
-14. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+14. Dans une collection créée dans l'éditeur, « Créer un formulaire et un tableau » produit un formulaire qui ajoute une fiche au tableau de l'aperçu, et le bouton « Supprimer » d'une ligne la retire ; un fichier CSV importé remplit la collection ; dans le modèle « Gestion de stock », une fiche ajoutée est encore là après un rechargement.
+15. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

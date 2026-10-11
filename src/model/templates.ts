@@ -1,6 +1,7 @@
 import { BRICKS } from './bricks'
 import { mapActions } from './actions'
 import { fixPlacements } from './freeGrid'
+import { scaffoldCollection } from './scaffold'
 import { makeNode, type Nodes } from './tree'
 import type { Action, BrickStyle, BrickType, GridPlace, Project, PropValue, Variable } from './types'
 
@@ -688,6 +689,50 @@ export const TEMPLATES: Template[] = [
         ]),
         theme: { style: 'neo-sombre' },
       }
+    },
+  },
+  {
+    id: 'stock',
+    name: 'Gestion de stock',
+    description: 'Une vraie petite base de données : un formulaire ajoute des produits, le tableau se met à jour et tout reste enregistré dans le navigateur.',
+    accent: '#0f9c74',
+    create: () => {
+      const produits: Variable = {
+        name: 'produits',
+        kind: 'collection',
+        persist: true,
+        fields: [
+          { name: 'nom', label: 'Produit', type: 'text' },
+          { name: 'categorie', label: 'Catégorie', type: 'text' },
+          { name: 'quantite', label: 'Quantité', type: 'number' },
+          { name: 'prix', label: 'Prix (€)', type: 'number' },
+          { name: 'arrivage', label: 'Arrivage', type: 'date' },
+        ],
+        initial: [
+          { nom: 'Café en grains 1 kg', categorie: 'Épicerie', quantite: 24, prix: 18.9, arrivage: '2026-10-02' },
+          { nom: 'Thé vert bio', categorie: 'Épicerie', quantite: 40, prix: 6.5, arrivage: '2026-09-28' },
+          { nom: 'Tasse en grès', categorie: 'Vaisselle', quantite: 12, prix: 14, arrivage: '2026-10-06' },
+          { nom: 'Moulin manuel', categorie: 'Accessoires', quantite: 5, prix: 39, arrivage: '2026-10-09' },
+        ],
+      }
+      const base = buildApp(
+        'Gestion de stock',
+        [
+          {
+            name: 'Stock',
+            title: 'Gestion de stock',
+            style: { padding: 28, gap: 18, maxWidth: '980px' },
+            children: [
+              H('Gestion de stock', '1'),
+              P('Ajoute un produit avec le formulaire : il apparaît dans le tableau et reste enregistré, même après un rechargement.'),
+              { type: 'stat', props: { label: 'Produits suivis', value: '{{produits}}', delta: 'mis à jour en direct', symbol: 'panier' } },
+            ],
+          },
+        ],
+        [produits],
+      )
+      const made = scaffoldCollection(base, 'produits', base.rootId)
+      return { ...base, variables: made ? [...base.variables, ...made.variables] : base.variables, nodes: made?.nodes ?? base.nodes, theme: { style: 'pro-sobre' } }
     },
   },
 ]
