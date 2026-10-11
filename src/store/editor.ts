@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { isContainer } from '../model/bricks'
 import { clampPlace, defaultSize, fixPlacements, isFreeGrid, setFreeGrid } from '../model/freeGrid'
 import { renameVariableInNodes } from '../model/refactor'
+import { scaffoldCollection } from '../model/scaffold'
 import { adoptStyle, stylePreset, type StyleTokens } from '../model/styles'
 import { createDefaultProject } from '../model/templates'
 import {
@@ -106,6 +107,8 @@ interface EditorState {
   addVariable: (v: Variable) => void
   updateVariable: (name: string, patch: Partial<Variable>) => void
   removeVariable: (name: string) => void
+  /** Ajoute à la page un formulaire et un tableau reliés à une collection. */
+  scaffoldCollection: (name: string) => void
 
   renameProject: (name: string) => void
   /** Remplace le contenu du projet ouvert (annulable). */
@@ -548,6 +551,20 @@ export const useEditor = create<EditorState>((set, get) => {
       }, `var:${name}:${Object.keys(patch).join(',')}`),
 
     removeVariable: (name) => commit((p) => ({ variables: p.variables.filter((v) => v.name !== name) })),
+
+    scaffoldCollection: (name) => {
+      let rootId = ''
+      commit((p) => {
+        const made = scaffoldCollection(p, name, get().currentPage)
+        if (!made) return null
+        rootId = made.rootId
+        return { variables: [...p.variables, ...made.variables], nodes: made.nodes }
+      })
+      if (rootId) {
+        set({ selectedId: rootId })
+        get().notify(`Formulaire et tableau de « ${name} » ajoutés à la page`)
+      }
+    },
 
     renameProject: (name) => commit(() => ({ name }), 'project-name'),
 

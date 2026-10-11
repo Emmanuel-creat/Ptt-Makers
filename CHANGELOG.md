@@ -2,6 +2,28 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.6.0] : 2026-10-11
+
+Une vraie base de données dans le projet : la première vague du plan des 200 améliorations.
+
+### Ajouté
+- **Collections** : un nouveau type de variable, une liste de fiches aux champs typés (texte, nombre, date, oui/non, image, lien). Les champs et les fiches de départ se modifient dans le panneau Variables.
+- **Import CSV** : un fichier séparé par des points-virgules, des virgules ou des tabulations remplit une collection ; les types des champs sont devinés (nombres à la française, dates jj/mm/aaaa, oui/non).
+- **Tableau relié** : la propriété « Collection affichée » d'un tableau lui donne une colonne par champ ; il se met à jour tout seul, met les valeurs en forme (1 250,5 · 11/10/2026 · Oui), affiche les images et les liens, propose un bouton « Supprimer » par ligne et un texte quand la collection est vide.
+- **Action « Ajouter une fiche à une collection »** : une valeur par champ, qui peut venir d'un champ de saisie (`{{nom_saisi}}`).
+- **Créer un formulaire et un tableau** : un clic construit, pour une collection, le formulaire (un champ par champ, relié à une nouvelle variable), le bouton Ajouter qui vide ensuite le formulaire, et le tableau relié.
+- **Garder dans le navigateur** : une variable cochée est enregistrée dans le navigateur de l'application générée et revient après un rechargement.
+- Une **répétition** parcourt aussi une collection, et « Insérer une variable » propose directement ses champs (`{{element.prix}}`).
+- « Retirer un élément » et « Vider une liste » marchent sur une collection ; le champ texte accepte le type **Date**.
+- **Modèle Gestion de stock** : produits, formulaire, tableau, chiffre clé du nombre de produits, données gardées.
+- L'assistant IA crée des collections (champs, fiches, données gardées), des tableaux reliés et l'action « Ajouter une fiche ».
+
+### Corrigé
+- Un champ relié à une variable Nombre accepte la virgule décimale (« 12,5 »).
+
+### Modifié
+- Tests : 126 tests unitaires et 31 tests de bout en bout.
+
 ## [2.5.0] : 2026-10-11
 
 Des briques de logiciel professionnel : tableaux, graphiques, calendrier, kanban, discussion.

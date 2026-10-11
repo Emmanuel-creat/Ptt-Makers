@@ -1,10 +1,11 @@
 import { BRICKS } from '../model/bricks'
 import { iconSvg } from '../model/icons'
+import { fieldsOf, isCollection, isListLike } from '../model/collections'
 import type { Action, BrickNode, Project, Variable } from '../model/types'
-import { interpolate, parseTemplate } from '../model/variables'
+import { interpolate, parseTemplate, toVariableName } from '../model/variables'
 import { BASE_CSS, PLACEHOLDER_IMAGE, brickClass } from './baseCss'
 import { escapeHtml, escapeTemplate, safeHref, safeImageSrc, videoSource } from './escape'
-import { proHtml, tabbarIcons } from './proBricks'
+import { proHtml, tableSource, tabbarIcons } from './proBricks'
 import { BREAKPOINTS, overrideEntries, styleEntries, themeEntries, themeFontsUrl } from './style'
 
 export type LineRange = [start: number, end: number]
@@ -269,7 +270,7 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
         ['placeholder', node.type === 'select' ? null : String(p.placeholder ?? '')],
       ]
       if (node.type === 'input') {
-        const type = ['text', 'email', 'number', 'password'].includes(String(p.inputType)) ? String(p.inputType) : 'text'
+        const type = ['text', 'email', 'number', 'date', 'password'].includes(String(p.inputType)) ? String(p.inputType) : 'text'
         out.push(`${inner}<input${attrs([['type', type], ...fieldAttrs, ['value', value]])}>`)
       } else if (node.type === 'textarea') {
         out.push(`${inner}<textarea${attrs(fieldAttrs)}>${escapeHtml(value)}</textarea>`)
@@ -307,7 +308,7 @@ function emitNode(out: Emitter, g: Gen, node: BrickNode, indent: string) {
     case 'chat':
     case 'stat':
     case 'progress': {
-      const content = proHtml(node.type, p, (t) => interpolate(t, variables)) ?? []
+      const content = proHtml(node.type, p, (t) => interpolate(t, variables), variables) ?? []
       out.push(`${indent}<!-- ${escapeHtml(node.name)} -->`)
       const extra: [string, string | null][] = node.type === 'chat' ? [['data-moi', String(p.me ?? '').trim() || null]] : []
       out.push(`${indent}<div${attrs([...base, ...extra])}>`)
@@ -394,7 +395,11 @@ function commentName(n: BrickNode): string {
 }
 
 function jsValue(v: Variable['initial']): string {
-  if (Array.isArray(v)) return `[${v.map(jsString).join(', ')}]`
+  if (Array.isArray(v) && v.some((x) => typeof x === 'object')) {
+    // Collection : une fiche par ligne, plus facile à lire.
+    return v.length ? `[\n${v.map((r) => `    ${JSON.stringify(r)},`).join('\n')}\n  ]` : '[]'
+  }
+  if (Array.isArray(v)) return `[${v.map((x) => jsString(String(x))).join(', ')}]`
   return typeof v === 'string' ? jsString(v) : String(v)
 }
 
@@ -407,7 +412,7 @@ function jsTemplate(text: string, variables: Variable[], inRepeat = false): stri
     .map((part) => {
       if (part.kind === 'var') {
         const v = variables.find((x) => x.name === part.name)
-        if (v) return v.kind === 'list' ? `\${etat.${v.name}.length}` : `\${etat.${v.name}}`
+        if (v) return isListLike(v) ? `\${etat.${v.name}.length}` : `\${etat.${v.name}}`
         if (inRepeat && isScopeToken(part.name)) {
           if (part.name === 'position') return '${position}'
           if (part.name === 'element') return '${element}'
@@ -471,6 +476,8 @@ export function describeAction(a: Action, project: Project): string {
       return `si ${a.variable} ${CONDITION_LABEL[a.op]}${['eq', 'neq', 'gt', 'lt'].includes(a.op) ? ` ${a.value}` : ''}`
     case 'fetch':
       return `charger ${a.variable}`
+    case 'addRecord':
+      return `ajouter une fiche à ${a.variable}`
   }
 }
 
@@ -483,7 +490,7 @@ const indentLines = (ls: string[]) => ls.map((l) => `  ${l}`)
 
 function conditionExpr(a: Extract<Action, { type: 'if' }>, v: Variable): string {
   const ref = `etat.${v.name}`
-  const list = v.kind === 'list'
+  const list = isListLike(v)
   const size = list ? `${ref}.length` : ref
   const num = String(Number(String(a.value).replace(',', '.')) || 0)
   const compared =
@@ -543,7 +550,7 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
           ? String(Number(a.value) || 0)
           : v.kind === 'boolean'
             ? String(a.value === 'true')
-            : v.kind === 'list'
+            : isListLike(v)
               ? '[]'
               : tpl(a.value)
       return { lines: [`etat.${v.name} = ${value};`], changesState: true }
@@ -591,7 +598,7 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
     }
     case 'listRemove': {
       const v = find(a.variable)
-      if (!v || v.kind !== 'list') return missingVar(a.variable)
+      if (!v || !isListLike(v)) return missingVar(a.variable)
       if (a.which === 'current') {
         if (!inRepeat) return ignored('« l’élément de cette copie » ne marche que dans une répétition.')
         return { lines: [`etat.${v.name}.splice(position - 1, 1);`], changesState: true }
@@ -600,7 +607,7 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
     }
     case 'listClear': {
       const v = find(a.variable)
-      if (!v || v.kind !== 'list') return missingVar(a.variable)
+      if (!v || !isListLike(v)) return missingVar(a.variable)
       return { lines: [`etat.${v.name} = [];`], changesState: true }
     }
     case 'if': {
@@ -626,7 +633,7 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
       if (path == null) return ignored(`le chemin « ${oneLine(a.path)} » n’est pas valide.`)
       const read = `donnees${path}`
       const convert =
-        v.kind === 'list'
+        isListLike(v)
           ? `Array.isArray(valeur) ? valeur : []`
           : v.kind === 'number'
             ? 'Number(valeur) || 0'
@@ -646,6 +653,21 @@ function actionLines(a: Action, g: Gen, ctx: ActionCtx): { lines: string[]; chan
         ],
         changesState: false,
       }
+    }
+    case 'addRecord': {
+      const v = find(a.variable)
+      if (!isCollection(v)) return missingVar(a.variable)
+      const lines = [`etat.${v.name}.push({`]
+      for (const f of fieldsOf(v)) {
+        const raw = a.values?.[f.name] ?? ''
+        const text = tpl(raw)
+        let value = text
+        if (f.type === 'number') value = text === '""' ? '0' : `Number(String(${text}).replace(",", ".")) || 0`
+        else if (f.type === 'boolean') value = text === '""' ? 'false' : `["oui", "vrai", "true", "1"].includes(String(${text}).trim().toLowerCase())`
+        lines.push(`  ${f.name}: ${value},`)
+      }
+      lines.push('});')
+      return { lines, changesState: true }
     }
   }
 }
@@ -695,6 +717,8 @@ function emitJs(g: Gen): string {
   const dynamicLists = outside.filter((n) => n.type === 'list' && needsTemplate(n.props.items, variables, false))
   const conditional = outside.filter((n) => known(n.showIf))
   const boundFields = outside.filter((n) => ['input', 'textarea', 'select', 'checkbox'].includes(n.type) && known(n.props.bind))
+  const boundTables = outside.filter((n) => n.type === 'table' && tableSource(n.props, variables))
+  const persisted = variables.filter((v) => v.persist)
   const clickable = outside.filter((n) => n.onClick.length > 0)
   const repeats = order.filter((n) => g.repeats.has(n.id))
   const loads = project.pages.map((id) => project.nodes[id]).filter((p) => p?.onLoad?.length)
@@ -722,7 +746,7 @@ function emitJs(g: Gen): string {
   }
   const showIfExpr = (name: string) => {
     const v = variables.find((x) => x.name === name)!
-    return v.kind === 'list' ? `etat.${name}.length === 0` : `!etat.${name}`
+    return isListLike(v) ? `etat.${name}.length === 0` : `!etat.${name}`
   }
 
   title("Les variables de l'application (son « état »)")
@@ -734,9 +758,30 @@ function emitJs(g: Gen): string {
     out.push('const etat = {};')
   }
 
+  if (persisted.length) {
+    title('Données gardées dans ce navigateur : elles restent après un rechargement de la page')
+    const slug = toVariableName(project.name).toLowerCase() || 'projet'
+    out.push(`const CLE_SAUVEGARDE = ${jsString(`ptt-makers:${slug}`)};`)
+    out.push(`const A_GARDER = [${persisted.map((v) => jsString(v.name)).join(', ')}];`)
+    out.push('try {')
+    out.push('  const gardees = JSON.parse(localStorage.getItem(CLE_SAUVEGARDE) || "{}");')
+    out.push('  for (const nom of A_GARDER) if (nom in gardees) etat[nom] = gardees[nom];')
+    out.push('} catch {')
+    out.push('  // Navigateur sans stockage (navigation privée…) : on garde les valeurs de départ.')
+    out.push('}')
+    out.push('')
+    out.push('function sauvegarder() {')
+    out.push('  try {')
+    out.push('    localStorage.setItem(CLE_SAUVEGARDE, JSON.stringify(Object.fromEntries(A_GARDER.map((nom) => [nom, etat[nom]]))));')
+    out.push('  } catch {')
+    out.push('    // Stockage plein ou bloqué : les données restent seulement en mémoire.')
+    out.push('  }')
+    out.push('}')
+  }
+
   title('Met à jour la page à partir des variables')
   out.push('function afficher() {')
-  if (!dynamicTexts.length && !dynamicLists.length && !conditional.length && !boundFields.length && !repeats.length) {
+  if (!dynamicTexts.length && !dynamicLists.length && !conditional.length && !boundFields.length && !repeats.length && !boundTables.length) {
     out.push('  // Rien à mettre à jour pour le moment.')
   }
   for (const n of dynamicTexts) {
@@ -763,7 +808,87 @@ function emitJs(g: Gen): string {
     else out.push(`  remplir(${jsString(`${n.id}-champ`)}, etat.${n.props.bind});`)
   }
   for (const r of repeats) emitRepeat(out, g, r, order, showIfExpr)
+  for (const n of boundTables) {
+    const v = tableSource(n.props, variables)!
+    const start = out.line + 1
+    const champs = fieldsOf(v).map((f) => `[${jsString(f.name)}, ${jsString(f.type)}]`)
+    out.push(`  // ${oneLine(n.name)} : une ligne par fiche de etat.${v.name}`)
+    out.push(`  rendreTableau(${jsString(n.id)}, etat.${v.name}, [${champs.join(', ')}], ${n.props.rowDelete ? 'true' : 'false'});`)
+    setRange(g.map, n.id, 'js', [start, out.line])
+  }
+  if (persisted.length) out.push('  sauvegarder();')
   out.push('}')
+
+  if (boundTables.length) {
+    out.push('')
+    out.push('// Remplit un tableau avec les fiches d’une collection')
+    out.push('function rendreTableau(id, lignes, champs, suppression) {')
+    out.push('  const conteneur = document.getElementById(id);')
+    out.push('  conteneur.querySelector("tbody").replaceChildren(')
+    out.push('    ...lignes.map((ligne) => {')
+    out.push('      const tr = document.createElement("tr");')
+    out.push('      for (const [nom, type] of champs) {')
+    out.push('        const td = document.createElement("td");')
+    out.push('        td.append(cellule(ligne[nom], type));')
+    out.push('        tr.append(td);')
+    out.push('      }')
+    out.push('      if (suppression) {')
+    out.push('        const td = document.createElement("td");')
+    out.push('        const bouton = document.createElement("button");')
+    out.push('        bouton.type = "button";')
+    out.push('        bouton.className = "table-delete";')
+    out.push('        bouton.textContent = "Supprimer";')
+    out.push('        bouton.addEventListener("click", () => {')
+    out.push('          lignes.splice(lignes.indexOf(ligne), 1);')
+    out.push('          afficher();')
+    out.push('        });')
+    out.push('        td.append(bouton);')
+    out.push('        tr.append(td);')
+    out.push('      }')
+    out.push('      return tr;')
+    out.push('    }),')
+    out.push('  );')
+    out.push('  conteneur.querySelector(".table-empty").hidden = lignes.length > 0;')
+    out.push('}')
+    out.push('')
+    out.push('// Contenu d’une case : une image, un lien ou un texte mis en forme')
+    out.push('function cellule(valeur, type) {')
+    out.push('  const texte = String(valeur ?? "");')
+    out.push('  if (type === "image") {')
+    out.push('    if (!/^(https?:\\/\\/|data:image\\/)/i.test(texte)) return "";')
+    out.push('    const image = document.createElement("img");')
+    out.push('    image.className = "table-img";')
+    out.push('    image.src = texte;')
+    out.push('    image.alt = "";')
+    out.push('    return image;')
+    out.push('  }')
+    out.push('  if (type === "link" && /^https?:\\/\\//i.test(texte)) {')
+    out.push('    const lien = document.createElement("a");')
+    out.push('    lien.href = texte;')
+    out.push('    lien.target = "_blank";')
+    out.push('    lien.rel = "noopener";')
+    out.push('    lien.textContent = texte.replace(/^https?:\\/\\//i, "");')
+    out.push('    return lien;')
+    out.push('  }')
+    out.push('  return formater(valeur, type);')
+    out.push('}')
+    out.push('')
+    out.push('// 1250.5 → « 1 250,5 », 2026-10-11 → « 11/10/2026 », vrai → « Oui »')
+    out.push('function formater(valeur, type) {')
+    out.push('  if (valeur === undefined || valeur === null || valeur === "") return "";')
+    out.push('  if (type === "number") {')
+    out.push('    const nombre = Number(valeur);')
+    out.push('    if (!Number.isFinite(nombre)) return String(valeur);')
+    out.push('    return String(Math.round(nombre * 100) / 100).replace(".", ",").replace(/\\B(?=(\\d{3})+(?!\\d))/g, " ");')
+    out.push('  }')
+    out.push('  if (type === "boolean") return valeur === true || valeur === "true" ? "Oui" : "Non";')
+    out.push('  if (type === "date") {')
+    out.push('    const morceaux = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(String(valeur));')
+    out.push('    return morceaux ? `${morceaux[3]}/${morceaux[2]}/${morceaux[1]}` : String(valeur);')
+    out.push('  }')
+    out.push('  return typeof valeur === "object" ? JSON.stringify(valeur) : String(valeur);')
+    out.push('}')
+  }
 
   if (boundFields.some((n) => n.type !== 'checkbox')) {
     out.push('')
@@ -803,7 +928,7 @@ function emitJs(g: Gen): string {
       const event = n.type === 'checkbox' || n.type === 'select' ? 'change' : 'input'
       let read = 'evenement.target.value'
       if (n.type === 'checkbox') read = v.kind === 'boolean' ? 'evenement.target.checked' : 'evenement.target.checked ? "oui" : "non"'
-      else if (v.kind === 'number') read = 'Number(evenement.target.value) || 0'
+      else if (v.kind === 'number') read = 'Number(evenement.target.value.replace(",", ".")) || 0'
       else if (v.kind === 'boolean') read = 'evenement.target.value !== ""'
       out.push(`// ${commentName(n)}`)
       out.push(`document.getElementById(${jsString(`${n.id}-champ`)}).addEventListener(${jsString(event)}, (evenement) => {`)
@@ -1010,7 +1135,7 @@ function emitJs(g: Gen): string {
 function emitRepeat(out: Emitter, g: Gen, r: BrickNode, order: BrickNode[], showIfExpr: (name: string) => string) {
   const { variables } = g.project
   const start = out.line + 1
-  const source = variables.find((v) => v.name === r.props.source && v.kind === 'list')
+  const source = variables.find((v) => v.name === r.props.source && isListLike(v))
   if (!source) {
     out.push(`  // ${oneLine(r.name)} : choisis une liste à parcourir dans ses propriétés.`)
     setRange(g.map, r.id, 'js', [start, out.line])

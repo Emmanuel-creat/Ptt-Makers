@@ -254,6 +254,12 @@ export const BASE_CSS = `/* Styles de base Ptt-Makers */
 .page .table th button::after { content: " ↕"; opacity: 0.45; }
 .page .table th[aria-sort="ascending"] button::after { content: " ↑"; opacity: 1; }
 .page .table th[aria-sort="descending"] button::after { content: " ↓"; opacity: 1; }
+.page .table-img { display: block; width: 40px; height: 40px; object-fit: cover; border-radius: 8px; }
+.page .table td a { color: var(--couleur, #6c5ce7); }
+.page .table-delete { padding: 4px 10px; border: 1px solid var(--trait, #e4e6ef); border-radius: 999px; background: transparent; color: #c2363b; font: inherit; font-size: 0.82rem; cursor: pointer; }
+.page .table-delete:hover { background: color-mix(in srgb, #c2363b 10%, transparent); border-color: color-mix(in srgb, #c2363b 40%, transparent); }
+.page .table-actions-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.page .table-empty { margin: 0; padding: 18px 14px; color: var(--texte-doux, #6b7083); font-size: 0.92rem; }
 
 /* Graphique */
 .page .chart { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 16px; }

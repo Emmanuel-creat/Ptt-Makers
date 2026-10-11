@@ -98,6 +98,8 @@ export type Action =
   | { type: 'if'; variable: string; op: ConditionOp; value: string; then: Action[]; else: Action[] }
   /** Charger des données depuis une adresse web (API JSON) dans une variable. */
   | { type: 'fetch'; url: string; variable: string; path: string }
+  /** Ajouter une fiche à une collection : une valeur (qui peut contenir des {{variables}}) par champ. */
+  | { type: 'addRecord'; variable: string; values: Record<string, string> }
 
 export type ActionType = Action['type']
 
@@ -133,15 +135,34 @@ export interface BrickNode {
   place?: GridPlace
 }
 
-export type VariableKind = 'text' | 'number' | 'boolean' | 'list'
+export type VariableKind = 'text' | 'number' | 'boolean' | 'list' | 'collection'
 
-export type VariableValue = string | number | boolean | string[]
+/** Types des champs d'une collection. */
+export type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'image' | 'link'
+
+/** Un champ d'une collection (une colonne de la base de données). */
+export interface CollectionField {
+  /** Nom technique, utilisé dans {{element.nom}}. */
+  name: string
+  /** Nom affiché (titre de colonne). */
+  label: string
+  type: FieldType
+}
+
+/** Une fiche d'une collection : une valeur par champ. */
+export type DataRecord = Record<string, string | number | boolean>
+
+export type VariableValue = string | number | boolean | string[] | DataRecord[]
 
 export interface Variable {
   name: string
   kind: VariableKind
-  /** Valeur de départ (une liste de textes pour le type « list »). */
+  /** Valeur de départ (une liste de textes pour « list », des fiches pour « collection »). */
   initial: VariableValue
+  /** Collections : les champs de chaque fiche. */
+  fields?: CollectionField[]
+  /** Gardée dans le navigateur de l'application générée : elle survit à un rechargement. */
+  persist?: boolean
 }
 
 /** Thème du projet, partagé par toutes les pages : un style prêt à l'emploi et les réglages changés à la main. */

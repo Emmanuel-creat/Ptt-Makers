@@ -174,3 +174,67 @@ describe('briques avancées', () => {
     expect(document.querySelector('.navbar a[href="#page"]')!.classList.contains('is-active')).toBe(false)
   })
 })
+
+describe('collections dans le code exporté', () => {
+  it('gestion de stock : le formulaire ajoute une fiche, le tableau suit, la suppression aussi', () => {
+    localStorage.clear()
+    const project = TEMPLATES.find((t) => t.id === 'stock')!.create()
+    const $ = run(project)
+    const table = document.querySelector('.table')!
+    const rows = () => [...table.querySelectorAll('tbody tr')]
+    expect(rows()).toHaveLength(4)
+    expect(rows()[0].textContent).toContain('18,9')
+    expect(rows()[0].textContent).toContain('02/10/2026')
+
+    const field = (label: string) => [...document.querySelectorAll('label')].find((l) => l.textContent?.includes(label))!.querySelector('input')!
+    const type = (label: string, value: string) => {
+      const input = field(label)
+      input.value = value
+      input.dispatchEvent(new Event('input'))
+    }
+    type('Produit', 'Sirop d’érable')
+    type('Catégorie', 'Épicerie')
+    type('Quantité', '8')
+    type('Prix', '12.5')
+    type('Arrivage', '2026-10-11')
+    const add = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Ajouter')!
+    add.click()
+    expect(rows()).toHaveLength(5)
+    expect(rows()[4].textContent).toContain('Sirop d’érable')
+    expect(rows()[4].textContent).toContain('12,5')
+    expect(rows()[4].textContent).toContain('11/10/2026')
+    // Les champs sont vidés pour la fiche suivante.
+    expect(field('Produit').value).toBe('')
+    // Le chiffre clé compte les fiches.
+    expect(document.querySelector('.stat-value')!.textContent).toBe('5')
+
+    // Les données sont gardées dans le navigateur.
+    const saved = JSON.parse(localStorage.getItem('ptt-makers:gestion_de_stock')!)
+    expect(saved.produits).toHaveLength(5)
+
+    ;(rows()[0].querySelector('.table-delete') as HTMLButtonElement).click()
+    expect(rows()).toHaveLength(4)
+    expect(rows()[0].textContent).toContain('Thé vert bio')
+    expect($('tableau-1').querySelector('.table-empty')!.hasAttribute('hidden')).toBe(true)
+  })
+
+  it('les données gardées reviennent au rechargement', () => {
+    localStorage.setItem('ptt-makers:gestion_de_stock', JSON.stringify({ produits: [{ nom: 'Seul produit', quantite: 1, prix: 2 }] }))
+    run(TEMPLATES.find((t) => t.id === 'stock')!.create())
+    expect(document.querySelectorAll('.table tbody tr')).toHaveLength(1)
+    expect(document.querySelector('.stat-value')!.textContent).toBe('1')
+    localStorage.clear()
+  })
+
+  it('une collection vide affiche le message du tableau', () => {
+    const project = buildApp(
+      'Vide',
+      [{ name: 'Accueil', children: [{ type: 'table', props: { source: 'clients', empty: 'Pas encore de client.' } }] }],
+      [{ name: 'clients', kind: 'collection', fields: [{ name: 'nom', label: 'Nom', type: 'text' }], initial: [] }],
+    )
+    run(project)
+    const empty = document.querySelector('.table-empty') as HTMLElement
+    expect(empty.hidden).toBe(false)
+    expect(empty.textContent).toBe('Pas encore de client.')
+  })
+})

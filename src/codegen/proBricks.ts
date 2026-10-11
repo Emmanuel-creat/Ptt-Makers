@@ -1,6 +1,7 @@
+import { fieldsOf, formatField, isCollection, recordsOf } from '../model/collections'
 import { iconSvg } from '../model/icons'
-import type { BrickType, PropValue } from '../model/types'
-import { escapeHtml } from './escape'
+import type { BrickType, CollectionField, DataRecord, PropValue, Variable } from '../model/types'
+import { escapeHtml, safeHref, safeImageSrc } from './escape'
 
 /**
  * Briques pro (tableau, graphique, calendrier, kanban, discussion, chiffre clé, progression).
@@ -62,6 +63,45 @@ export function tableHtml(p: Props, fill: Fill): string[] {
   }
   out.push('  </tbody>', '</table>')
   return out
+}
+
+/** Une cellule d'un tableau relié à une collection (le script généré suit la même règle). */
+export function recordCellHtml(value: unknown, field: CollectionField): string {
+  if (field.type === 'image') {
+    const src = safeImageSrc(String(value ?? ''))
+    return src ? `<img class="table-img" src="${escapeHtml(src)}" alt="">` : ''
+  }
+  if (field.type === 'link' && value) {
+    const href = String(value)
+    return `<a href="${escapeHtml(safeHref(href))}" target="_blank" rel="noopener">${escapeHtml(href.replace(/^https?:\/\//i, ''))}</a>`
+  }
+  return escapeHtml(formatField(value, field.type))
+}
+
+/** Tableau relié à une collection : une colonne par champ, une ligne par fiche. */
+export function collectionTableHtml(p: Props, fields: CollectionField[], records: DataRecord[]): string[] {
+  const out = ['<table>', '  <thead>', '    <tr>']
+  for (const f of fields) {
+    const label = escapeHtml(f.label)
+    out.push(p.sortable ? `      <th scope="col"><button type="button">${label}</button></th>` : `      <th scope="col">${label}</th>`)
+  }
+  if (p.rowDelete) out.push('      <th scope="col"><span class="table-actions-title">Actions</span></th>')
+  out.push('    </tr>', '  </thead>', '  <tbody>')
+  for (const r of records) {
+    const tds = fields.map((f) => `<td>${recordCellHtml(r[f.name], f)}</td>`)
+    if (p.rowDelete) tds.push('<td><button type="button" class="table-delete">Supprimer</button></td>')
+    out.push(`    <tr>${tds.join('')}</tr>`)
+  }
+  out.push('  </tbody>', '</table>')
+  const empty = escapeHtml(String(p.empty ?? '').trim() || 'Aucune donnée pour le moment.')
+  out.push(`<p class="table-empty"${records.length ? ' hidden' : ''}>${empty}</p>`)
+  return out
+}
+
+/** La collection affichée par un tableau, si sa propriété « source » en désigne une. */
+export function tableSource(p: Props, variables: Variable[]): Variable | undefined {
+  const v = variables.find((x) => x.name === p.source)
+  return isCollection(v) ? v : undefined
 }
 
 /* -------------------------------- Graphique ------------------------------- */
@@ -287,10 +327,12 @@ export function tabbarIcons(p: Props, count: number): string[] {
 }
 
 /** Contenu HTML d'une brique pro (sauf la barre d'onglets, qui dépend des pages), ou null pour les autres briques. */
-export function proHtml(type: BrickType, p: Props, fill: Fill): string[] | null {
+export function proHtml(type: BrickType, p: Props, fill: Fill, variables: Variable[] = []): string[] | null {
   switch (type) {
-    case 'table':
-      return tableHtml(p, fill)
+    case 'table': {
+      const source = tableSource(p, variables)
+      return source ? collectionTableHtml(p, fieldsOf(source), recordsOf(source)) : tableHtml(p, fill)
+    }
     case 'chart':
       return chartHtml(p)
     case 'calendar':

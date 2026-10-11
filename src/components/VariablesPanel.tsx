@@ -1,12 +1,19 @@
-import { Lightbulb, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { FileUp, LayoutTemplate, Lightbulb, Plus, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { DEFAULT_FIELDS, FIELD_TYPE_LABEL, addField, emptyRecord, fieldsOf, importCsv, recordsOf, removeField, toRecords, updateField } from '../model/collections'
 import { countVariableUses } from '../model/refactor'
-import type { Variable, VariableKind } from '../model/types'
+import type { CollectionField, DataRecord, FieldType, Variable, VariableKind } from '../model/types'
 import { RESERVED_NAMES, VAR_NAME_RE, coerce, convertValue, defaultValue, toVariableName, valueToText } from '../model/variables'
 import { useEditor } from '../store/editor'
 import { useWorkspace } from '../store/workspace'
 
-export const KIND_LABEL: Record<VariableKind, string> = { text: 'Texte', number: 'Nombre', boolean: 'Vrai / faux', list: 'Liste' }
+export const KIND_LABEL: Record<VariableKind, string> = {
+  text: 'Texte',
+  number: 'Nombre',
+  boolean: 'Vrai / faux',
+  list: 'Liste',
+  collection: 'Collection',
+}
 
 /** Gestion des variables : l'« état » de l'application. */
 export function VariablesPanel() {
@@ -55,7 +62,7 @@ export function NewVariableForm({
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!clean || exists || reserved) return
-    addVariable({ name: clean, kind, initial: defaultValue(kind) })
+    addVariable(kind === 'collection' ? { name: clean, kind, fields: DEFAULT_FIELDS, initial: [] } : { name: clean, kind, initial: defaultValue(kind) })
     onCreated?.(clean)
     setName('')
   }
@@ -147,7 +154,10 @@ function VariableItem({ variable: v }: { variable: Variable }) {
           value={v.kind}
           onChange={(e) => {
             const kind = e.target.value as VariableKind
-            updateVariable(v.name, { kind, initial: convertValue(v.initial, kind) })
+            if (kind === 'collection') {
+              const fields = v.fields?.length ? v.fields : DEFAULT_FIELDS
+              updateVariable(v.name, { kind, fields, initial: toRecords(v.initial, fields) })
+            } else updateVariable(v.name, { kind, initial: convertValue(v.initial, kind) })
           }}
         >
           {Object.entries(KIND_LABEL).map(([k, l]) => (
@@ -166,7 +176,7 @@ function VariableItem({ variable: v }: { variable: Variable }) {
             <option value="false">Faux</option>
             <option value="true">Vrai</option>
           </select>
-        ) : v.kind === 'list' ? (
+        ) : v.kind === 'collection' ? null : v.kind === 'list' ? (
           <ListValue key={v.name} value={v.initial as string[]} onChange={(initial) => updateVariable(v.name, { initial })} />
         ) : (
           <input
@@ -179,6 +189,11 @@ function VariableItem({ variable: v }: { variable: Variable }) {
           />
         )}
       </div>
+      {v.kind === 'collection' && <CollectionEditor variable={v} />}
+      <label className="pm-var-persist">
+        <input type="checkbox" checked={!!v.persist} onChange={(e) => updateVariable(v.name, { persist: e.target.checked || undefined })} />
+        <span>Garder dans le navigateur (reste après un rechargement)</span>
+      </label>
       <p className="pm-var-uses">{uses ? `Utilisée ${uses} fois` : 'Pas encore utilisée'}</p>
     </li>
   )
@@ -198,6 +213,215 @@ function ListValue({ value, onChange }: { value: string[]; onChange: (v: string[
         setDraft(e.target.value)
         onChange(coerce(e.target.value, 'list') as string[])
       }}
+    />
+  )
+}
+
+/** Champs et fiches de départ d'une collection, comme une petite base de données. */
+function CollectionEditor({ variable: v }: { variable: Variable }) {
+  const updateVariable = useEditor((s) => s.updateVariable)
+  const scaffold = useEditor((s) => s.scaffoldCollection)
+  const notify = useEditor((s) => s.notify)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const fields = fieldsOf(v)
+  const records = recordsOf(v)
+  const update = (patch: Partial<Variable>) => updateVariable(v.name, patch)
+  const setRecord = (i: number, record: DataRecord) => update({ initial: records.map((r, j) => (j === i ? record : r)) })
+
+  return (
+    <div className="pm-coll">
+      <p className="pm-coll-title">Champs</p>
+      <ul className="pm-coll-fields">
+        {fields.map((f) => (
+          <FieldRow
+            key={f.name}
+            field={f}
+            canRemove={fields.length > 1}
+            onChange={(patch) => update(updateField(v, f.name, patch))}
+            onRemove={() => update(removeField(v, f.name))}
+          />
+        ))}
+      </ul>
+      <NewFieldForm onAdd={(label, type) => update(addField(v, label, type))} />
+
+      <p className="pm-coll-title">
+        Fiches de départ <span className="pm-muted">({records.length})</span>
+      </p>
+      {records.length > 0 && (
+        <div className="pm-coll-grid-wrap">
+          <table className="pm-coll-grid">
+            <thead>
+              <tr>
+                {fields.map((f) => (
+                  <th key={f.name} scope="col">
+                    {f.label}
+                  </th>
+                ))}
+                <th scope="col">
+                  <span className="pm-sr-only">Supprimer</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.map((r, i) => (
+                <tr key={i}>
+                  {fields.map((f) => (
+                    <td key={f.name}>
+                      <RecordInput field={f} value={r[f.name]} position={i + 1} onChange={(value) => setRecord(i, { ...r, [f.name]: value })} />
+                    </td>
+                  ))}
+                  <td>
+                    <button
+                      type="button"
+                      className="pm-icon-btn pm-icon-btn-sm"
+                      aria-label={`Supprimer la fiche ${i + 1}`}
+                      onClick={() => update({ initial: records.filter((_, j) => j !== i) })}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="pm-coll-actions">
+        <button type="button" className="pm-btn pm-btn-dashed pm-btn-sm" onClick={() => update({ initial: [...records, emptyRecord(fields)] })}>
+          <Plus size={13} /> Ajouter une fiche
+        </button>
+        <button type="button" className="pm-btn pm-btn-sm" onClick={() => fileRef.current?.click()}>
+          <FileUp size={13} /> Importer un CSV
+        </button>
+        <button type="button" className="pm-btn pm-btn-sm" onClick={() => scaffold(v.name)}>
+          <LayoutTemplate size={13} /> Créer un formulaire et un tableau
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv,text/plain"
+          hidden
+          aria-label={`Fichier CSV à importer dans ${v.name}`}
+          onChange={async (e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (!file) return
+            const imported = importCsv(await file.text())
+            if (!imported) return notify('Ce fichier ne contient pas de données lisibles')
+            if (records.length && !confirm(`Remplacer les ${records.length} fiche(s) de « ${v.name} » par celles du fichier ?`)) return
+            update(imported)
+            notify(`${(imported.initial as unknown[]).length} fiche(s) importée(s) dans « ${v.name} »`)
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function FieldRow({
+  field: f,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  field: CollectionField
+  canRemove: boolean
+  onChange: (patch: Partial<Pick<CollectionField, 'label' | 'type'>>) => void
+  onRemove: () => void
+}) {
+  const [label, setLabel] = useState(f.label)
+  return (
+    <li className="pm-coll-field">
+      <input
+        className="pm-input"
+        aria-label={`Nom affiché du champ ${f.name}`}
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={() => (label.trim() ? label !== f.label && onChange({ label: label.trim() }) : setLabel(f.label))}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+      />
+      <select className="pm-input" aria-label={`Type du champ ${f.label}`} value={f.type} onChange={(e) => onChange({ type: e.target.value as FieldType })}>
+        {Object.entries(FIELD_TYPE_LABEL).map(([k, l]) => (
+          <option key={k} value={k}>
+            {l}
+          </option>
+        ))}
+      </select>
+      <code className="pm-coll-token" title="À écrire dans une répétition">{`element.${f.name}`}</code>
+      <button
+        type="button"
+        className="pm-icon-btn pm-icon-btn-sm"
+        aria-label={`Supprimer le champ ${f.label}`}
+        disabled={!canRemove}
+        onClick={() => {
+          if (confirm(`Supprimer le champ « ${f.label} » et ses valeurs ?`)) onRemove()
+        }}
+      >
+        <Trash2 size={13} />
+      </button>
+    </li>
+  )
+}
+
+function NewFieldForm({ onAdd }: { onAdd: (label: string, type: FieldType) => void }) {
+  const [label, setLabel] = useState('')
+  const [type, setType] = useState<FieldType>('text')
+  return (
+    <form
+      className="pm-coll-new"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (!label.trim()) return
+        onAdd(label, type)
+        setLabel('')
+      }}
+    >
+      <input className="pm-input" placeholder="Nouveau champ (ex. Prix)" aria-label="Nom du nouveau champ" value={label} onChange={(e) => setLabel(e.target.value)} />
+      <select className="pm-input" aria-label="Type du nouveau champ" value={type} onChange={(e) => setType(e.target.value as FieldType)}>
+        {Object.entries(FIELD_TYPE_LABEL).map(([k, l]) => (
+          <option key={k} value={k}>
+            {l}
+          </option>
+        ))}
+      </select>
+      <button type="submit" className="pm-btn pm-btn-primary pm-btn-icon" disabled={!label.trim()} aria-label="Ajouter le champ">
+        <Plus size={16} />
+      </button>
+    </form>
+  )
+}
+
+function RecordInput({
+  field: f,
+  value,
+  position,
+  onChange,
+}: {
+  field: CollectionField
+  value: unknown
+  position: number
+  onChange: (v: string | number | boolean) => void
+}) {
+  const label = `${f.label} de la fiche ${position}`
+  if (f.type === 'boolean') return <input type="checkbox" aria-label={label} checked={value === true} onChange={(e) => onChange(e.target.checked)} />
+  if (f.type === 'number')
+    return (
+      <input
+        className="pm-input"
+        type="number"
+        aria-label={label}
+        value={typeof value === 'number' ? value : Number(value) || 0}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+      />
+    )
+  return (
+    <input
+      className="pm-input"
+      type={f.type === 'date' ? 'date' : 'text'}
+      aria-label={label}
+      placeholder={f.type === 'image' || f.type === 'link' ? 'https://…' : ''}
+      value={String(value ?? '')}
+      onChange={(e) => onChange(e.target.value)}
     />
   )
 }

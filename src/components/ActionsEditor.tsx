@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, CornerDownRight, Plus, Trash2 } from 'lucide-react'
 import { countActions } from '../model/actions'
+import { FIELD_TYPE_LABEL, fieldsOf, isCollection } from '../model/collections'
 import { repeatOf, walk } from '../model/tree'
 import type { Action, ActionType, ConditionOp, VariableKind } from '../model/types'
 import { useEditor } from '../store/editor'
@@ -22,11 +23,12 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   alert: 'Afficher un message',
   openUrl: 'Ouvrir un lien',
   fetch: 'Charger des données (API)',
+  addRecord: 'Ajouter une fiche à une collection',
 }
 
 const ACTION_GROUPS: { label: string; types: ActionType[] }[] = [
   { label: 'Variables', types: ['set', 'add', 'toggleVar'] },
-  { label: 'Listes', types: ['listAdd', 'listRemove', 'listClear'] },
+  { label: 'Listes et collections', types: ['listAdd', 'addRecord', 'listRemove', 'listClear'] },
   { label: 'Logique', types: ['if'] },
   { label: 'Pages et briques', types: ['navigate', 'show', 'hide', 'toggle', 'scrollTo'] },
   { label: 'Autres', types: ['alert', 'openUrl', 'fetch'] },
@@ -65,9 +67,11 @@ function defaultAction(type: ActionType, ctx: Ctx): Action {
     case 'listAdd':
       return { type, variable: ctx.firstVar(['list']), value: '' }
     case 'listRemove':
-      return { type, variable: ctx.firstVar(['list']), which: ctx.inRepeat ? 'current' : 'last' }
+      return { type, variable: ctx.firstVar(['list', 'collection']), which: ctx.inRepeat ? 'current' : 'last' }
     case 'listClear':
-      return { type, variable: ctx.firstVar(['list']) }
+      return { type, variable: ctx.firstVar(['list', 'collection']) }
+    case 'addRecord':
+      return { type, variable: ctx.firstVar(['collection']), values: {} }
     case 'if':
       return { type, variable: ctx.firstVar(), op: 'true', value: '', then: [], else: [] }
     case 'navigate':
@@ -190,7 +194,12 @@ function ActionFields({ action: a, onChange, ctx }: { action: Action; onChange: 
     case 'listClear':
       return (
         <>
-          <VariableSelect value={a.variable} kinds={['list']} placeholder="Choisir une liste…" onChange={(variable) => onChange({ ...a, variable })} />
+          <VariableSelect
+            value={a.variable}
+            kinds={a.type === 'listAdd' ? ['list'] : ['list', 'collection']}
+            placeholder="Choisir une liste…"
+            onChange={(variable) => onChange({ ...a, variable })}
+          />
           {a.type === 'listAdd' && (
             <div className="pm-inline">
               <span>valeur</span>
@@ -210,6 +219,8 @@ function ActionFields({ action: a, onChange, ctx }: { action: Action; onChange: 
           )}
         </>
       )
+    case 'addRecord':
+      return <AddRecordFields action={a} onChange={onChange} />
     case 'if':
       return <IfFields action={a} onChange={onChange} ctx={ctx} />
     case 'navigate':
@@ -242,6 +253,32 @@ function ActionFields({ action: a, onChange, ctx }: { action: Action; onChange: 
         </>
       )
   }
+}
+
+function AddRecordFields({ action: a, onChange }: { action: Extract<Action, { type: 'addRecord' }>; onChange: (a: Action) => void }) {
+  const variable = useEditor((s) => s.project.variables.find((v) => v.name === a.variable))
+  const fields = variable && isCollection(variable) ? fieldsOf(variable) : []
+  return (
+    <>
+      <VariableSelect value={a.variable} kinds={['collection']} placeholder="Choisir une collection…" onChange={(v) => onChange({ ...a, variable: v })} />
+      {fields.map((f) => (
+        <div key={f.name} className="pm-inline pm-record-value">
+          <span title={FIELD_TYPE_LABEL[f.type]}>{f.label}</span>
+          <TextInput
+            value={a.values?.[f.name] ?? ''}
+            dynamic
+            placeholder={`{{${a.variable}_${f.name}}}`}
+            onChange={(value) => onChange({ ...a, values: { ...a.values, [f.name]: value } })}
+          />
+        </div>
+      ))}
+      {fields.length > 0 && (
+        <p className="pm-row-help">
+          Écris une valeur ou une variable reliée à un champ de saisie, par exemple <code>{'{{nom_saisi}}'}</code>.
+        </p>
+      )}
+    </>
+  )
 }
 
 function IfFields({ action: a, onChange, ctx }: { action: Extract<Action, { type: 'if' }>; onChange: (a: Action) => void; ctx: Ctx }) {

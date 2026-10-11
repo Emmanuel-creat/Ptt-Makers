@@ -14,6 +14,7 @@ export function renameVariableInNodes(nodes: Nodes, from: string, to: string): N
     if (next.type === 'alert') next = { ...next, message: swap(next.message) }
     if (next.type === 'set' || next.type === 'listAdd' || next.type === 'if') next = { ...next, value: swap(next.value) }
     if (next.type === 'fetch') next = { ...next, url: swap(next.url) }
+    if (next.type === 'addRecord') next = { ...next, values: Object.fromEntries(Object.entries(next.values ?? {}).map(([k, v]) => [k, swap(v)])) }
     return next
   }
   const out: Nodes = {}
@@ -42,6 +43,7 @@ export function countVariableUses(nodes: Nodes, name: string): number {
     else if (a.type === 'alert' && re.test(a.message)) count++
     else if ((a.type === 'set' || a.type === 'listAdd' || a.type === 'if') && re.test(a.value)) count++
     else if (a.type === 'fetch' && re.test(a.url)) count++
+    else if (a.type === 'addRecord' && Object.values(a.values ?? {}).some((v) => re.test(v))) count++
   }
   for (const n of Object.values(nodes)) {
     for (const [k, v] of Object.entries(n.props)) {
