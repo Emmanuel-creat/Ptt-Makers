@@ -146,6 +146,14 @@ Le code produit est du web standard, lisible et commenté en français : il peut
 - **F63** Un paquet téléchargeable installe Ptt-Makers sur Windows, macOS ou Linux, sans droits administrateur : l'atelier tient dans un seul fichier et marche sans internet (sauf l'assistant IA).
 - **F64** L'installation pose un raccourci sur le bureau avec l'icône de Ptt-Makers ; il ouvre l'atelier dans sa propre fenêtre.
 
+### 4.18 Éditeur pro (version 2.9)
+
+- **F65** **Multi-sélection** (`Maj + clic`) dans la zone de création et les calques ; supprimer, dupliquer et grouper toute la sélection.
+- **F66** **Grouper** des briques de même parent dans un bloc, et **dégrouper** un bloc.
+- **F67** **Composants liés** : modifier l'intérieur d'une copie met à jour le composant et toutes ses copies ; une copie peut être détachée.
+- **F68** **Panneau Problèmes** : erreurs et conseils du projet, avec un lien vers la brique ou la variable concernée.
+- **F69** **Versions nommées** d'un projet, auxquelles on revient sans rien perdre.
+
 ## 5. Exigences non fonctionnelles
 
 - **Ergonomie** : chaque outil identifiable (icône + libellé + couleur de famille), hiérarchie visuelle claire, retours visuels à chaque interaction.
@@ -177,4 +185,5 @@ Comptes utilisateurs et sauvegarde en ligne, collaboration temps réel. Ces pist
 14. Dans une collection créée dans l'éditeur, « Créer un formulaire et un tableau » produit un formulaire qui ajoute une fiche au tableau de l'aperçu, et le bouton « Supprimer » d'une ligne la retire ; un fichier CSV importé remplit la collection ; dans le modèle « Gestion de stock », une fiche ajoutée est encore là après un rechargement.
 15. Dans le modèle « Gestion de stock », la valeur du stock est la somme des quantités multipliées par les prix ; chercher « epicerie » ne garde que les deux produits d'épicerie ; le bouton Ajouter, sans nom de produit, affiche « Ce champ est obligatoire. » et n'ajoute rien. Dans le modèle « Formulaire de contact », la confirmation n'apparaît qu'une fois l'e-mail et le message valides.
 16. Le paquet pour ordinateur ouvre l'atelier depuis un fichier, sans réseau : un modèle choisi s'affiche dans l'aperçu et reste là après un rechargement.
-17. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.
+17. Deux briques sélectionnées avec `Maj + clic` se groupent puis se dégroupent ; un texte changé dans une copie d'un composant change aussi l'autre copie ; un bouton sans texte apparaît dans le panneau Problèmes et un clic le sélectionne ; revenir à une version enregistrée rend une brique supprimée depuis.
+18. Les tests automatisés passent (`npm test`, `npm run test:e2e`) et la compilation (`npm run build`) réussit.

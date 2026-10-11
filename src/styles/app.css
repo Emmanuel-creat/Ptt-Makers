@@ -3489,3 +3489,189 @@ select.pm-input {
   bottom: auto;
   left: calc(100% + 8px);
 }
+
+/* -------------------------------------------------------------- Problèmes */
+
+.pm-tab-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--pm-surface-3);
+  color: var(--pm-text-2);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.pm-tab-count.is-error {
+  background: var(--pm-danger);
+  color: #fff;
+}
+.pm-problems {
+  height: 100%;
+  overflow: auto;
+  padding: 8px 10px 14px;
+}
+.pm-problems-summary {
+  margin: 2px 4px 8px;
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+.pm-problems-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pm-problem {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--pm-radius-sm);
+  background: transparent;
+  color: var(--pm-text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.pm-problem:hover {
+  background: var(--pm-hover);
+}
+.pm-problem svg {
+  margin-top: 1px;
+}
+.pm-problem.is-error svg {
+  color: var(--pm-danger);
+}
+.pm-problem.is-warning svg {
+  color: #d99a00;
+}
+.pm-problem-where {
+  max-width: 160px;
+  overflow: hidden;
+  color: var(--pm-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pm-problems-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  padding: 24px;
+  color: var(--pm-muted);
+  text-align: center;
+}
+.pm-problems-empty svg {
+  color: var(--pm-success);
+}
+.pm-problems-empty strong {
+  color: var(--pm-text);
+}
+
+/* Autres briques d'une sélection multiple */
+.pm-ov-select.is-also {
+  box-shadow: none;
+  outline: 2px dashed var(--cat);
+  outline-offset: 0;
+}
+:root[data-ui='pro'] .pm-ov-select.is-also {
+  box-shadow: none;
+  outline-color: var(--pm-select);
+}
+
+/* Sélection multiple */
+.pm-multi-title {
+  font-size: 15px;
+}
+.pm-multi-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 14px 4px;
+}
+.pm-multi-actions .pm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pm-multi-list {
+  margin: 8px 0 0;
+  padding: 0 8px 12px;
+  list-style: none;
+}
+.pm-multi-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--pm-radius-sm);
+  background: transparent;
+  color: var(--pm-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.pm-multi-list button:hover {
+  background: var(--pm-hover);
+}
+
+/* Copie liée d'un composant */
+.pm-instance-hint {
+  margin: 0 12px 6px;
+}
+.pm-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pm-brand);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pm-link-button:hover {
+  text-decoration: underline;
+}
+
+/* Versions nommées */
+.pm-versions-new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.pm-versions-new .pm-input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.pm-versions-empty {
+  margin: 8px 0;
+}
+.pm-project-open.is-static:hover {
+  background: transparent;
+}
+@media (max-width: 560px) {
+  .pm-project .pm-btn {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+}

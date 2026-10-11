@@ -2,6 +2,20 @@
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.9.0] : 2026-10-11
+
+Un éditeur de logiciel pro : la troisième vague du plan des 200 améliorations.
+
+### Ajouté
+- **Multi-sélection** : `Maj + clic` (ou `Ctrl + clic`) dans la zone de création ou les calques ajoute une brique à la sélection, encadrée en pointillés. Les propriétés montrent alors les actions communes : grouper, dupliquer, supprimer. `Suppr`, `Ctrl + D` et `Échap` agissent sur toute la sélection.
+- **Grouper et dégrouper** : `Ctrl + G` range les briques sélectionnées dans un groupe (une rangée ou une pile selon leur parent, dans l'ordre de la page ; sur une page en grille, le groupe prend la place qui les entoure). `Ctrl + Maj + G`, ou le bouton Dégrouper des propriétés, sort le contenu d'un bloc et retire le bloc.
+- **Composants liés** : un bloc enregistré dans Mes composants devient un composant maître, et chaque copie placée reste liée. Changer l'intérieur d'une copie change toutes les autres et le composant ; le nom, la place, « masquée au départ » et « afficher seulement si » restent propres à chaque copie. Un bandeau le rappelle dans les propriétés, avec **Détacher cette copie** ; une icône le signale dans les calques. Un seul Ctrl+Z annule le changement partout.
+- **Panneau Problèmes**, à côté de l'aperçu et du code : variables, champs, pages ou briques qui n'existent plus, `{{element}}` hors d'une répétition, formules mal écrites, action qui vise le mauvais type de variable, adresse d'API sans `https://`, et des conseils (image sans description, bouton sans texte, lien qui ne mène nulle part, page vide, variable inutilisée). Un clic sélectionne la brique ou ouvre la variable ; la barre d'état affiche le nombre d'erreurs.
+- **Versions nommées** (menu Fichier, *Versions…*) : enregistre une photo du projet avec un nom, reviens-y plus tard. Avant chaque retour, l'état actuel est gardé dans une version automatique, et Ctrl+Z annule le retour. Jusqu'à 30 versions par projet, dans le navigateur.
+
+### Modifié
+- Retirer un composant de Mes composants détache ses copies, qui restent sur la page.
+
 ## [2.8.0] : 2026-10-11
 
 Ptt-Makers s'installe sur l'ordinateur.

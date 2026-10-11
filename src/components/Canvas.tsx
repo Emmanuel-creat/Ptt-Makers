@@ -121,7 +121,9 @@ export function Canvas() {
     if (!el) return
     if (useEditor.getState().editingId === el.dataset.pttId) return
     e.preventDefault()
-    useEditor.getState().select(el.dataset.pttId!)
+    // Maj ou Ctrl (Cmd sur Mac) + clic : ajoute la brique à la sélection.
+    if (e.shiftKey || e.ctrlKey || e.metaKey) useEditor.getState().toggleSelect(el.dataset.pttId!)
+    else useEditor.getState().select(el.dataset.pttId!)
   }
 
   const onDoubleClick = (e: React.MouseEvent) => {
@@ -286,8 +288,17 @@ function useRectOf(id: string | null, wrapRef: React.RefObject<HTMLDivElement | 
   return rect
 }
 
+/** Cadre des autres briques d'une sélection multiple. */
+function AlsoSelected({ id, wrapRef }: { id: string; wrapRef: React.RefObject<HTMLDivElement | null> }) {
+  const rect = useRectOf(id, wrapRef)
+  const node = useEditor((s) => s.project.nodes[id])
+  if (!rect || !node) return null
+  return <div className="pm-ov-select is-also" style={box(rect)} data-cat={BRICKS[node.type].category} />
+}
+
 function Overlays({ wrapRef }: { wrapRef: React.RefObject<HTMLDivElement | null> }) {
   const selectedId = useEditor((s) => s.selectedId)
+  const selection = useEditor((s) => s.selection)
   const hoveredId = useEditor((s) => s.hoveredId)
   const dropTarget = useEditor((s) => s.dropTarget)
   const dragging = useEditor((s) => s.dragging)
@@ -321,6 +332,7 @@ function Overlays({ wrapRef }: { wrapRef: React.RefObject<HTMLDivElement | null>
           {selNode.place && device !== 'mobile' && !editingId && <ResizeHandle id={selNode.id} pageId={pageId} wrapRef={wrapRef} />}
         </div>
       )}
+      {!dragging && selection.filter((id) => id !== selectedId).map((id) => <AlsoSelected key={id} id={id} wrapRef={wrapRef} />)}
       {drop && dropTarget && dragging && !dropTarget.cell && <DropIndicator rect={drop} target={dropTarget} />}
     </div>
   )

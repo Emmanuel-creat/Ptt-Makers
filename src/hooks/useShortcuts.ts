@@ -24,7 +24,22 @@ export function useShortcuts() {
       if (isTyping(document.activeElement)) return
 
       const sel = ed.selectedId ? ed.project.nodes[ed.selectedId] : null
-      if (mod && key === 'z') {
+      const multi = ed.selection.length > 1
+      if (mod && key === 'g') {
+        // Ctrl+G groupe la sélection, Ctrl+Maj+G sort le contenu d'un groupe.
+        e.preventDefault()
+        if (e.shiftKey) {
+          if (sel) ed.ungroup(sel.id)
+        } else if (sel?.parent) ed.groupSelection()
+      } else if (multi && mod && key === 'd') {
+        e.preventDefault()
+        ed.duplicateSelection()
+      } else if (multi && (e.key === 'Delete' || e.key === 'Backspace')) {
+        e.preventDefault()
+        ed.removeSelection()
+      } else if (multi && e.key === 'Escape') {
+        ed.select(ed.selectedId)
+      } else if (mod && key === 'z') {
         e.preventDefault()
         if (e.shiftKey) ed.redo()
         else ed.undo()

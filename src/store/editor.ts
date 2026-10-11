@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { isContainer } from '../model/bricks'
 import { clampPlace, defaultSize, fixPlacements, isFreeGrid, setFreeGrid } from '../model/freeGrid'
+import { detachAll, syncInstances } from '../model/instances'
 import { renameVariableInNodes } from '../model/refactor'
 import { scaffoldCollection } from '../model/scaffold'
 import { adoptStyle, stylePreset, type StyleTokens } from '../model/styles'
@@ -15,10 +16,14 @@ import {
   setCurrentProjectId,
   writeProject,
 } from './library'
+import { removeAllVersions } from './versions'
 import {
   cloneSubtree,
   collectSubtree,
   duplicateNode,
+  groupNodes,
+  topLevel,
+  ungroupNode,
   insertSubtree,
   makeBrick,
   makeNode,
@@ -47,6 +52,8 @@ interface EditorState {
   /** Page affichée dans la zone de création. */
   currentPage: string
   selectedId: string | null
+  /** Sélection multiple (Maj ou Ctrl + clic) : toutes les briques choisies, la dernière est selectedId. Vide sinon. */
+  selection: string[]
   hoveredId: string | null
   past: Snapshot[]
   future: Snapshot[]
@@ -60,6 +67,14 @@ interface EditorState {
   toast: { id: number; text: string } | null
 
   select: (id: string | null) => void
+  /** Ajoute ou retire une brique de la sélection (Maj ou Ctrl + clic). */
+  toggleSelect: (id: string) => void
+  /** Supprime, duplique ou groupe toutes les briques sélectionnées. */
+  removeSelection: () => void
+  duplicateSelection: () => void
+  groupSelection: () => void
+  /** Sort le contenu d'un conteneur et le supprime. */
+  ungroup: (id: string) => void
   hover: (id: string | null) => void
   notify: (text: string) => void
   setEditing: (id: string | null) => void
@@ -96,6 +111,8 @@ interface EditorState {
   saveComponent: (id: string, name?: string) => void
   insertComponent: (componentId: string, at?: { parentId: string; index: number; cell?: DropTarget['cell'] }) => void
   removeComponent: (componentId: string) => void
+  /** La copie liée devient un bloc ordinaire, qui ne suit plus son composant. */
+  detachInstance: (id: string) => void
 
   setPage: (id: string) => void
   addPage: (name?: string) => string
@@ -156,7 +173,11 @@ const snapshot = (p: Project): Snapshot => ({
 let toastCounter = 0
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 
-export const useEditor = create<EditorState>((set, get) => {
+export const useEditor = create<EditorState>((rawSet, get) => {
+  // Choisir une seule brique (ou aucune) annule la sélection multiple.
+  const set = (patch: Partial<EditorState>) =>
+    rawSet('selectedId' in patch && !('selection' in patch) ? { ...patch, selection: [] } : patch)
+
   /** Applique une modification au projet en l'enregistrant dans l'historique. */
   const commit = (change: (p: Project) => Partial<Project> | null, coalesceKey?: string) => {
     const { project, past, lastEdit } = get()
@@ -164,6 +185,8 @@ export const useEditor = create<EditorState>((set, get) => {
     if (!patch) return
     // Les briques d'une page en grille gardent toujours une case valide.
     if (patch.nodes) patch.nodes = fixPlacements(patch.nodes)
+    // Une copie liée modifiée entraîne le composant et toutes ses autres copies.
+    if (patch.nodes) Object.assign(patch, syncInstances(project, { ...project, ...patch }) ?? {})
     const now = Date.now()
     const merge = coalesceKey && lastEdit?.key === coalesceKey && now - lastEdit.at < COALESCE_MS
     set({
@@ -193,6 +216,8 @@ export const useEditor = create<EditorState>((set, get) => {
     const { project, currentPage, selectedId } = get()
     if (!project.pages.includes(currentPage)) set({ currentPage: project.rootId })
     if (selectedId && !project.nodes[selectedId]) set({ selectedId: null })
+    const kept = get().selection.filter((id) => project.nodes[id])
+    if (kept.length !== get().selection.length) rawSet({ selection: kept.length > 1 ? kept : [] })
   }
 
   /** Ouvre un projet : nouvel historique, rien de sélectionné. */
@@ -217,6 +242,7 @@ export const useEditor = create<EditorState>((set, get) => {
     projectId: initial.id,
     currentPage: initial.project.rootId,
     selectedId: null,
+    selection: [],
     hoveredId: null,
     past: [],
     future: [],
@@ -231,6 +257,67 @@ export const useEditor = create<EditorState>((set, get) => {
       const page = id ? pageOf(get().project.nodes, id) : null
       set(page && page !== get().currentPage ? { selectedId: id, currentPage: page } : { selectedId: id })
     },
+    toggleSelect: (id) => {
+      const { project, selectedId, selection, currentPage } = get()
+      const node = project.nodes[id]
+      // Seules des briques de la page affichée se sélectionnent ensemble (pas la page elle-même).
+      if (!node?.parent || pageOf(project.nodes, id) !== currentPage) return get().select(id)
+      const current = (selection.length ? selection : selectedId ? [selectedId] : []).filter(
+        (x) => project.nodes[x]?.parent && pageOf(project.nodes, x) === currentPage,
+      )
+      const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
+      rawSet({ selection: next.length > 1 ? next : [], selectedId: next[next.length - 1] ?? null })
+    },
+
+    removeSelection: () => {
+      const { project, selection, selectedId } = get()
+      const ids = topLevel(project.nodes, selection.length ? selection : selectedId ? [selectedId] : [])
+      if (!ids.length) return
+      const parent = project.nodes[ids[0]].parent
+      commit((p) => ({ nodes: ids.reduce((acc, id) => removeNode(acc, id), p.nodes) }))
+      set({ selectedId: parent && get().project.nodes[parent] ? parent : null })
+    },
+
+    duplicateSelection: () => {
+      const { project, selection, selectedId } = get()
+      const ids = topLevel(project.nodes, selection.length ? selection : selectedId ? [selectedId] : [])
+      if (!ids.length) return
+      const copies: string[] = []
+      commit((p) => {
+        let nodes = p.nodes
+        for (const id of ids) {
+          const r = duplicateNode(nodes, id)
+          if (r) {
+            nodes = r.nodes
+            copies.push(r.newId)
+          }
+        }
+        return copies.length ? { nodes } : null
+      })
+      if (copies.length > 1) rawSet({ selection: copies, selectedId: copies[copies.length - 1] })
+      else if (copies.length) set({ selectedId: copies[0] })
+    },
+
+    groupSelection: () => {
+      const { project, selection, selectedId, notify } = get()
+      const ids = selection.length ? selection : selectedId ? [selectedId] : []
+      const r = groupNodes(project.nodes, ids)
+      if (!r) {
+        if (ids.length) notify('Pour grouper, choisis des briques rangées dans le même conteneur.')
+        return
+      }
+      commit(() => ({ nodes: r.nodes }))
+      set({ selectedId: r.groupId })
+    },
+
+    ungroup: (id) => {
+      const r = ungroupNode(get().project.nodes, id)
+      if (!r) return
+      commit(() => ({ nodes: r.nodes }))
+      if (r.childIds.length > 1) rawSet({ selection: r.childIds, selectedId: r.childIds[r.childIds.length - 1] })
+      else set({ selectedId: r.childIds[0] ?? null })
+    },
+
     hover: (id) => set({ hoveredId: id }),
     notify: (text) => set({ toast: { id: ++toastCounter, text } }),
     setEditing: (editingId) => set({ editingId }),
@@ -441,8 +528,9 @@ export const useEditor = create<EditorState>((set, get) => {
         rootId: id,
         nodes: structuredClone({ ...subtree, [id]: { ...subtree[id], parent: null } }),
       }
-      commit((p) => ({ components: [...(p.components ?? []), component] }))
-      notify(`« ${component.name} » ajouté à Mes composants`)
+      // Le bloc d'origine devient la première copie liée du composant.
+      commit((p) => ({ components: [...(p.components ?? []), component], nodes: { ...p.nodes, [id]: { ...p.nodes[id], instanceOf: component.id } } }))
+      notify(`« ${component.name} » est un composant : ses copies resteront identiques`)
     },
 
     insertComponent: (componentId, at) => {
@@ -461,7 +549,7 @@ export const useEditor = create<EditorState>((set, get) => {
         const clone = cloneSubtree(component.nodes, component.rootId, p.nodes)
         newId = clone.rootId
         // Le bloc inséré garde le nom du composant (sans « (copie) »).
-        clone.nodes[newId] = { ...clone.nodes[newId], name: component.name }
+        clone.nodes[newId] = { ...clone.nodes[newId], name: component.name, instanceOf: component.id }
         if (spot.cell && isFreeGrid(p.nodes[spot.parentId])) {
           const size = clone.nodes[newId].place ?? defaultSize(clone.nodes[newId].type)
           clone.nodes[newId].place = clampPlace({ ...spot.cell, w: size.w, h: size.h })
@@ -472,7 +560,15 @@ export const useEditor = create<EditorState>((set, get) => {
     },
 
     removeComponent: (componentId) =>
-      commit((p) => ({ components: (p.components ?? []).filter((c) => c.id !== componentId) })),
+      commit((p) => ({ components: (p.components ?? []).filter((c) => c.id !== componentId), nodes: detachAll(p.nodes, componentId) })),
+
+    detachInstance: (id) =>
+      commit((p) => {
+        const node = p.nodes[id]
+        if (!node?.instanceOf) return null
+        const { instanceOf: _gone, ...rest } = node
+        return { nodes: { ...p.nodes, [id]: rest } }
+      }),
 
     updateNode: (id, patch) =>
       commit(
@@ -597,6 +693,7 @@ export const useEditor = create<EditorState>((set, get) => {
 
     deleteProject: (id) => {
       removeStoredProject(id)
+      removeAllVersions(id)
       if (id !== get().projectId) return
       const next = listProjects().find((m) => readProject(m.id))
       if (next) switchTo(next.id, readProject(next.id)!)

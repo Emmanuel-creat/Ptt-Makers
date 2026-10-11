@@ -140,7 +140,7 @@ function ComponentsGroup({ query }: { query: string }) {
                 if (window.matchMedia(MOBILE_QUERY).matches) useWorkspace.getState().set({ mobileView: 'create' })
               }}
               aria-label={`Ajouter le composant ${c.name}`}
-              data-tip={`${Object.keys(c.nodes).length} brique(s)`}
+              data-tip={`${Object.keys(c.nodes).length} brique(s) · copies liées`}
               data-tip-side="right"
             >
               <span className="pm-brick-badge pm-brick-badge-md" data-cat="composants">
@@ -153,7 +153,7 @@ function ComponentsGroup({ query }: { query: string }) {
               className="pm-tile-remove"
               aria-label={`Retirer le composant ${c.name}`}
               onClick={() => {
-                if (confirm(`Retirer « ${c.name} » de Mes composants ? Les copies déjà placées restent.`)) removeComponent(c.id)
+                if (confirm(`Retirer « ${c.name} » de Mes composants ? Les copies déjà placées restent, mais ne seront plus liées.`)) removeComponent(c.id)
               }}
             >
               <X size={12} />

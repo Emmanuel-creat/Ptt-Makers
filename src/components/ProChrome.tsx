@@ -1,4 +1,7 @@
 import {
+  CircleAlert,
+  CircleCheck,
+  TriangleAlert,
   MonitorDown,
   BookOpen,
   Clipboard,
@@ -39,12 +42,14 @@ import {
   Trophy,
   Undo2,
   type LucideIcon,
+  History,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BRICKS } from '../model/bricks'
 import type { BrickType } from '../model/types'
 import { useEditor } from '../store/editor'
 import { WORKSPACES, useWorkspace, type Device } from '../store/workspace'
+import { useProblems } from './ProblemsPanel'
 import { IconButton, MOD } from './ui'
 
 const REPO = 'https://github.com/Emmanuel-creat/Ptt-Makers/blob/main'
@@ -84,6 +89,7 @@ function useMenus() {
       items: [
         { label: 'Nouveau projet depuis un modèle…', icon: <FilePlus2 size={14} />, run: () => ws.set({ dialog: 'templates' }) },
         { label: 'Mes projets…', icon: <FolderOpen size={14} />, run: () => ws.set({ dialog: 'projects' }) },
+        { label: 'Versions…', icon: <History size={14} />, run: () => ws.set({ dialog: 'versions' }) },
         { label: "Écran d'accueil", icon: <LayoutTemplate size={14} />, run: () => ws.set({ splashOpen: true }) },
         'sep',
         { label: 'Exporter…', icon: <Download size={14} />, run: () => ws.set({ dialog: 'export' }) },
@@ -256,6 +262,9 @@ export function StatusBar() {
   const pages = useEditor((s) => s.project.pages.length)
   const variables = useEditor((s) => s.project.variables.length)
   const bricks = Object.values(nodes).filter((n) => n.parent).length
+  const problems = useProblems()
+  const errors = problems.filter((p) => p.level === 'erreur').length
+  const setWorkspace = useWorkspace((s) => s.set)
   return (
     <footer className="pm-statusbar">
       <span>
@@ -270,6 +279,14 @@ export function StatusBar() {
       <span>
         <kbd>Suppr</kbd> Supprimer
       </span>
+      <button
+        type="button"
+        className={`pm-statusbar-problems ${errors ? 'is-error' : problems.length ? 'is-warning' : 'is-ok'}`}
+        onClick={() => setWorkspace({ dockTab: 'problems', dockCollapsed: false })}
+      >
+        {errors ? <CircleAlert size={13} /> : problems.length ? <TriangleAlert size={13} /> : <CircleCheck size={13} />}
+        {errors ? `${errors} ${errors > 1 ? 'erreurs' : 'erreur'}` : problems.length ? `${problems.length} ${problems.length > 1 ? 'conseils' : 'conseil'}` : 'Aucun problème'}
+      </button>
       <span className="pm-statusbar-right">
         {bricks} briques · {pages} {pages > 1 ? 'pages' : 'page'} · {variables} variables · {__APP_VERSION__}
       </span>
